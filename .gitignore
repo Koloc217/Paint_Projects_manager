@@ -10,6 +10,7 @@ static/refs/
 backups/
 
 # служебное
+certs/
 __pycache__/
 *.pyc
 .venv/

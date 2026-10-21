@@ -493,6 +493,11 @@ function renderAuthState(st) {
     const hint = document.getElementById('authDefaultHint');
     hint.textContent = st.must_change ? tr('auth.default_creds_hint', { user: st.username }) : '';
     hint.classList.toggle('hidden', !st.must_change);
+    // тип соединения: по http перехваченный digest можно переслать повторно (см. README, HTTPS)
+    const secure = location.protocol === 'https:';
+    const conn = document.getElementById('authConnHint');
+    conn.textContent = secure ? tr('auth.conn_https') : tr('auth.conn_http');
+    conn.className = 'text-xs ' + (secure ? 'text-emerald-300' : 'text-slate-400');
 }
 
 async function refreshAuthStatus() {

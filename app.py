@@ -640,4 +640,10 @@ async def delete_task(task_id: str, db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8000)
+    import tls
+    try:
+        options = tls.uvicorn_options()      # HTTPS=1 in .env turns on HTTPS (see tls.py)
+    except tls.TlsError as e:
+        raise SystemExit("HTTPS setup failed: " + str(e))
+    print(f"Project Hub: {'https' if 'ssl_certfile' in options else 'http'}://0.0.0.0:{options['port']}")
+    uvicorn.run("app:app", **options)
