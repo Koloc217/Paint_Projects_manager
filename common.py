@@ -71,6 +71,19 @@ def is_done(status) -> bool:
     return str(status).lower().strip() in DONE_STATUSES
 
 
+def detect_image_ext(raw: bytes):
+    """Формат картинки по содержимому файла, а не по тому, что заявил клиент."""
+    if raw.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if raw[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
 def esc(value) -> str:
     """Экранирование текста для Telegram parse_mode=HTML (&, <, >)."""
     return html.escape("" if value is None else str(value), quote=False)

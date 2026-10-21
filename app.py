@@ -15,11 +15,12 @@ from sqlalchemy.orm import Session
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
-from database import SessionLocal, Project, Task, Adjustment, Reference, ensure_schema
+from database import SessionLocal, Project, Task, Adjustment, Reference, ProgressPhoto, ensure_schema
+import progress
 from i18n import tr, tv, get_lang, table_for, available_languages, normalize_lang
 from common import (
     BASE_DIR, DEFAULT_NOTIFY_SETTINGS, DEFAULT_SCHEDULE, DAY_KEYS, DAY_LABELS,
-    is_done, load_config, save_config, compute_balance, DATE_FORMATS,
+    is_done, load_config, save_config, compute_balance, DATE_FORMATS, detect_image_ext,
     is_chat_bound, ensure_pairing_code, new_pairing_code, unlink_chat, format_pairing_code,
 )
 from bot import start_bot_polling
@@ -102,19 +103,6 @@ def remove_photo_file(filename):
         pass
 
 
-def detect_image_ext(raw: bytes):
-    """Формат определяем по содержимому файла, а не по тому, что заявил клиент."""
-    if raw.startswith(b"\xff\xd8\xff"):
-        return "jpg"
-    if raw.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "png"
-    if raw[:6] in (b"GIF87a", b"GIF89a"):
-        return "gif"
-    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
-        return "webp"
-    return None
-
-
 def decode_data_url(data_url: str):
     m = re.match(r"^data:[^;,]*;base64,(.+)$", data_url or "", re.S)
     if not m:
@@ -168,6 +156,14 @@ class PhotoUpload(BaseModel):
 class RefUpload(BaseModel):
     image: str           # оригинал файла как есть (data URL, base64)
     thumb: str = None    # маленькое JPEG-превью, сделанное браузером
+
+class ProgressUpload(BaseModel):
+    image: str                 # JPEG, уменьшенный браузером (data URL)
+    thumb: str = None          # маленькое превью
+    note: str = ""
+
+class ProgressNote(BaseModel):
+    note: str = ""
 
 class PaintNotesUpdate(BaseModel):
     paint_notes: str = ""
@@ -247,8 +243,12 @@ async def get_data(db: Session = Depends(get_db)):
             "Url": f"/photos/refs/{os.path.basename(r.filename)}",
             "Thumb": f"/photos/refs/{os.path.basename(r.thumb)}" if r.thumb and os.path.exists(os.path.join(REFS_DIR, os.path.basename(r.thumb))) else f"/photos/refs/{os.path.basename(r.filename)}",
         })
+    progress_by_project = {}
+    for ph in reversed(progress.list_photos(db)):          # от старых к новым: так идёт лента времени
+        progress_by_project.setdefault(ph.project_id, []).append(progress.serialize(ph))
     for pr in proj_list:
         pr["Refs"] = refs_by_project.get(pr["ID"], [])
+        pr["Progress"] = progress_by_project.get(pr["ID"], [])
 
     task_list = [{
         "ID": t.id,
@@ -532,6 +532,33 @@ async def delete_project_ref(project_id: str, ref_id: int, db: Session = Depends
     remove_ref_files(*names)
     return {"status": "ok"}
 
+@app.post("/api/projects/{project_id}/progress")
+async def add_progress_photo(project_id: str, data: ProgressUpload, db: Session = Depends(get_db)):
+    try:
+        raw = decode_data_url(data.image)
+        thumb = decode_data_url(data.thumb) if data.thumb else None
+        row = progress.add_photo(db, project_id, raw, thumb, data.note, "web")
+    except progress.ProgressError as e:
+        return {"status": "error", "message": tr(e.key, **e.params)}
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}
+    return {"status": "ok", "photo": progress.serialize(row)}
+
+@app.patch("/api/projects/{project_id}/progress/{photo_id}")
+async def edit_progress_note(project_id: str, photo_id: int, data: ProgressNote, db: Session = Depends(get_db)):
+    row = db.query(ProgressPhoto).filter(ProgressPhoto.id == photo_id, ProgressPhoto.project_id == project_id).first()
+    if not row:
+        return {"status": "error", "message": tr("progress.not_found")}
+    row.note = (data.note or "").strip()[:progress.MAX_NOTE_LEN]
+    db.commit()
+    return {"status": "ok"}
+
+@app.delete("/api/projects/{project_id}/progress/{photo_id}")
+async def delete_progress_photo(project_id: str, photo_id: int, db: Session = Depends(get_db)):
+    if not progress.delete_photo(db, photo_id, project_id):
+        return {"status": "error", "message": tr("progress.not_found")}
+    return {"status": "ok"}
+
 @app.post("/api/projects/{project_id}/notes")
 async def update_paint_notes(project_id: str, data: PaintNotesUpdate, db: Session = Depends(get_db)):
     proj = db.query(Project).filter(Project.id == project_id).first()
@@ -603,11 +630,13 @@ async def delete_project(project_id: str, db: Session = Depends(get_db)):
         for r in db.query(Reference).filter(Reference.project_id == project_id).all():
             ref_files += [r.filename, r.thumb]
             db.delete(r)
+        progress_files = progress.delete_project_photos(db, project_id)
         db.query(Task).filter(Task.project_id == project_id).delete()
         db.delete(proj)
         db.commit()
         remove_photo_file(photo_name)
         remove_ref_files(*ref_files)
+        progress.remove_files(*progress_files)
     return {"status": "ok"}
 
 @app.post("/api/tasks")

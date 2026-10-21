@@ -70,6 +70,18 @@ class Reference(Base):
     thumb = Column(String, default="")          # превью (JPEG) в photos/refs/
     created_at = Column(DateTime, default=datetime.now)
 
+class ProgressPhoto(Base):
+    """Фото прогресса (WIP): с датой и стадией проекта на момент загрузки. Файлы лежат в photos/progress/."""
+    __tablename__ = "progress_photos"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, nullable=False, index=True)
+    filename = Column(String, nullable=False)
+    thumb = Column(String, default="")          # превью (JPEG); пусто — используется сам файл
+    stage = Column(String, default="—")         # стадия проекта в момент загрузки (хранится канонически, по-русски)
+    note = Column(Text, default="")             # подпись; из Telegram — подпись к фото
+    source = Column(String, default="web")      # web | telegram
+    created_at = Column(DateTime, default=datetime.now)
+
 class Adjustment(Base):
     """Корректировки баланса токенов (например, при удалении проекта)."""
     __tablename__ = "adjustments"

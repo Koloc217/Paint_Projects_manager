@@ -415,6 +415,20 @@
                 <div class="text-[10px] text-slate-500 mt-2">{{ tr('ref.hint') }}</div>
             </div>
 
+            <div class="mb-4 bg-slate-900/90 border border-fuchsia-500/20 rounded-xl p-3">
+                <div class="flex justify-between items-center gap-2 mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-fuchsia-400 flex items-center gap-1.5">
+                        📷 {{ tr('progress.title') }} <span id="pdProgressCount" class="text-slate-400 normal-case font-medium tracking-normal"></span>
+                    </span>
+                    <div class="flex items-center gap-2 min-w-0">
+                        <input id="pdProgressNote" type="text" maxlength="300" placeholder="{{ tr('progress.note_ph') }}" class="min-w-0 w-28 sm:w-44 text-[11px] bg-slate-950 border border-slate-700 text-slate-200 rounded-md px-2 py-1 outline-none focus:border-fuchsia-400">
+                        <button id="pdProgressAdd" onclick="pickProgressPhotos(currentOpenProjectId)" class="shrink-0 text-[11px] px-2.5 py-0.5 bg-fuchsia-500/20 hover:bg-fuchsia-500/30 text-fuchsia-300 border border-fuchsia-500/30 rounded-md transition-colors">+ {{ tr('progress.add_btn') }}</button>
+                    </div>
+                </div>
+                <div id="pdProgress" class="flex gap-2 overflow-x-auto pb-1"></div>
+                <div class="text-[10px] text-slate-500 mt-2">{{ tr('progress.hint') }}</div>
+            </div>
+
             <div id="pdTasks" class="space-y-2 pr-1"></div>
         </div>
     </div>
@@ -441,7 +455,7 @@
         <button id="lbPrev" onclick="event.stopPropagation(); lightboxStep(-1)" class="hidden absolute left-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-5xl leading-none px-3 py-4" title="{{ tr('common.back') }}">&#8249;</button>
         <img id="lbImg" onclick="event.stopPropagation()" alt="" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl">
         <button id="lbNext" onclick="event.stopPropagation(); lightboxStep(1)" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-5xl leading-none px-3 py-4" title="{{ tr('common.forward') }}">&#8250;</button>
-        <div id="lbCaption" class="absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-white/70"></div>
+        <div id="lbCaption" class="absolute bottom-3 left-3 right-40 text-xs text-white/70 text-center"></div>
         <a id="lbOpen" onclick="event.stopPropagation()" target="_blank" rel="noopener" class="absolute bottom-3 right-5 text-xs text-sky-300 hover:text-sky-200">{{ tr('photo.open_original') }} ↗</a>
     </div>
 

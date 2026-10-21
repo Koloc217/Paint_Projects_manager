@@ -218,7 +218,7 @@ function renderLightbox() {
     const multi = lbItems.length > 1;
     document.getElementById('lbPrev').classList.toggle('hidden', !multi);
     document.getElementById('lbNext').classList.toggle('hidden', !multi);
-    document.getElementById('lbCaption').innerText = multi ? `${lbIndex + 1} / ${lbItems.length}` : '';
+    document.getElementById('lbCaption').innerText = [multi ? `${lbIndex + 1} / ${lbItems.length}` : '', item.caption || ''].filter(Boolean).join('  ·  ');
 }
 
 function lightboxStep(delta) {
@@ -347,13 +347,14 @@ function showToast(message, type = 'error') {
 }
 
 function switchTab(tab) {
-    ['dashboard', 'allTasks', 'analytics'].forEach(t => {
+    ['dashboard', 'allTasks', 'feed', 'analytics'].forEach(t => {
         document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
         document.getElementById(`tab-btn-${t}`).className = t === tab
             ? 'px-3.5 py-1.5 text-sm font-medium rounded-md bg-slate-700 text-white transition-colors shadow-sm'
             : 'px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors';
     });
     if (tab === 'analytics') renderAnalytics();
+    if (tab === 'feed') renderFeed();
 }
 
 document.addEventListener('keydown', function(e) {
@@ -453,6 +454,7 @@ async function loadData() {
         renderProjects();
         renderTasks();
         renderAllTasks();
+        if (!document.getElementById('view-feed').classList.contains('hidden')) renderFeed();
         if (!document.getElementById('view-analytics').classList.contains('hidden')) {
             renderAnalytics();
         }
@@ -1051,6 +1053,7 @@ function openProjectDetails(projectId) {
     document.getElementById('pdPhoto').innerHTML = projectPhotoInner(project, false);
     document.getElementById('pdPhotoActions').classList.toggle('hidden', !project.Photo);
     renderProjectRefs(project);
+    renderProjectProgress(project);
 
     let pTasks = currentTasks.filter(t => t['Project ID'] === projectId);
     const container = document.getElementById('pdTasks');

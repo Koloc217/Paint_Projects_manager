@@ -1,11 +1,14 @@
 import os
 import time
 import asyncio
+import json
 import traceback
+import uuid
 import httpx
 from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, ensure_schema
+import progress
 from common import (
     BASE_DIR, esc, load_config, compute_balance, fmt_date,
     is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
@@ -51,6 +54,7 @@ def welcome_text() -> str:
         f"• /current_task — {tr('bot.cmd_start_desc')}\n"
         f"• /projects — {tr('bot.cmd_all_desc')}\n"
         f"• /stats — {tr('bot.cmd_stats_desc')}\n"
+        f"• /photo — {tr('bot.cmd_photo_desc')}\n"
         f"• /test_notify — {tr('bot.cmd_test_desc')}"
     )
 
@@ -186,6 +190,9 @@ def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True)
                 keyboard.append(row)
 
     keyboard.append([{"text": f"🎨 {tr('bot.change_stage')} ({tv(stage_str)})", "callback_data": f"stage_menu:{proj.id}"}])
+    photos_count = _count_photos(proj.id)
+    if photos_count:
+        keyboard.append([{"text": f"📷 {tr('bot.btn_photos', n=photos_count)}", "callback_data": f"ph_v:{proj.id}:0"}])
     if total_active_count > 1:
         keyboard.append([{"text": f"📋 {tr('bot.btn_all_active')}", "callback_data": "show_all_proj"}])
 
@@ -330,6 +337,320 @@ async def cmd_test_notify(chat_id: int):
     spawn_script("notify.py", ["--test"])
     await send_message(chat_id, f"🧪 {tr('bot.test_started')}...")
 
+# ==================== ФОТО ПРОГРЕССА ====================
+# Фото, присланное боту, попадает в ленту проекта (подпись к фото становится заметкой).
+# Если активных проектов несколько, бот спрашивает, к какому относится фото.
+
+PENDING_TTL_SEC = 3600
+MAX_TG_DOWNLOAD = 20 * 1024 * 1024        # потолок Bot API для скачивания файлов
+_pending_photos = {}                       # токен -> {"files": [file_id], "caption", "ts"}
+_photo_groups = {}                         # media_group_id -> {"token": ..., "project": ..., "ts": ...}
+
+
+def _count_photos(project_id: str) -> int:
+    db = SessionLocal()
+    try:
+        return len(progress.list_photos(db, project_id))
+    except Exception:
+        return 0
+    finally:
+        db.close()
+
+
+def _sync_tg_download(file_id: str) -> bytes:
+    """Скачивает файл по file_id (getFile + загрузка), с тем же прокси, что и остальной бот."""
+    transport = httpx.HTTPTransport(proxy=PROXY_URL) if PROXY_URL else None
+    with httpx.Client(transport=transport, timeout=httpx.Timeout(40.0, connect=10.0)) as client:
+        info = client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile", json={"file_id": file_id}).json()
+        path = (info.get("result") or {}).get("file_path")
+        if not info.get("ok") or not path:
+            raise RuntimeError(f"getFile: {info.get('description')}")
+        resp = client.get(f"https://api.telegram.org/file/bot{BOT_TOKEN}/{path}")
+        resp.raise_for_status()
+        return resp.content
+
+
+async def download_file(file_id: str) -> bytes:
+    return await asyncio.wait_for(asyncio.to_thread(_sync_tg_download, file_id), timeout=50.0)
+
+
+def _sync_tg_upload(endpoint: str, data: dict, files: dict):
+    """Запрос с файлом (multipart): sendPhoto и editMessageMedia."""
+    transport = httpx.HTTPTransport(proxy=PROXY_URL) if PROXY_URL else None
+    with httpx.Client(transport=transport, timeout=httpx.Timeout(60.0, connect=10.0)) as client:
+        return client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}", data=data, files=files).json()
+
+
+async def tg_upload(endpoint: str, data: dict, files: dict):
+    return await asyncio.wait_for(asyncio.to_thread(_sync_tg_upload, endpoint, data, files), timeout=70.0)
+
+
+def _extract_image(msg: dict):
+    """(file_id, size) картинки из сообщения: обычное фото (берём самый большой размер) или файл-картинка."""
+    sizes = msg.get("photo")
+    if sizes:
+        best = max(sizes, key=lambda s: (s.get("file_size") or 0, (s.get("width") or 0) * (s.get("height") or 0)))
+        return best.get("file_id"), best.get("file_size")
+    doc = msg.get("document")
+    if doc and str(doc.get("mime_type", "")).startswith("image/"):
+        return doc.get("file_id"), doc.get("file_size")
+    return None
+
+
+def _prune_pending():
+    cutoff = time.time() - PENDING_TTL_SEC
+    for token in [t for t, v in _pending_photos.items() if v["ts"] < cutoff]:
+        _pending_photos.pop(token, None)
+    for g in [g for g, v in _photo_groups.items() if v["ts"] < cutoff]:
+        _photo_groups.pop(g, None)
+
+
+def _active_projects(db):
+    return [p for p in db.query(Project).all()
+            if str(p.status).lower().strip() not in ['закончен', 'завершено', 'completed']]
+
+
+async def save_telegram_photos(project_id: str, file_ids: list, note: str):
+    """Скачивает файлы и сохраняет их как фото прогресса. Возвращает (id сохранённых, имя проекта, стадия, ошибка)."""
+    db = SessionLocal()
+    try:
+        proj = db.query(Project).filter(Project.id == project_id).first()
+        if not proj:
+            return [], "", "", tr("err.project_not_found")
+        saved, error = [], None
+        for fid in file_ids:
+            try:
+                raw = await download_file(fid)
+                row = progress.add_photo(db, project_id, raw, None, note, "telegram")
+                saved.append(row.id)
+            except progress.ProgressError as e:
+                error = tr(e.key, **e.params)
+            except Exception as e:
+                print(f"[BOT ERROR] Не удалось получить фото: {repr(e)}")
+                error = tr("bot.photo_download_failed")
+        return saved, proj.name, getattr(proj, "stage", "—") or "—", error
+    finally:
+        db.close()
+
+
+def _saved_view(name: str, stage: str, ids: list, project_id: str):
+    suffix = f" · {esc(tv(stage))}" if stage and stage != "—" else ""
+    text = f"📷 {tr('bot.photo_saved', name=esc(name), stage=suffix)}"
+    row = [{"text": f"📷 {tr('bot.btn_open_photos')}", "callback_data": f"ph_v:{project_id}:0"}]
+    undo = "ph_undo:" + ",".join(str(i) for i in ids[:6])
+    if ids:
+        row.append({"text": f"↩ {tr('bot.btn_undo')}", "callback_data": undo})
+    return text, {"inline_keyboard": [row]}
+
+
+async def handle_photo_message(chat_id: int, msg: dict):
+    found = _extract_image(msg)
+    if not found or not found[0]:
+        return
+    file_id, size = found
+    if size and size > MAX_TG_DOWNLOAD:
+        await send_message(chat_id, tr("bot.photo_too_big"))
+        return
+    note = (msg.get("caption") or "").strip()
+    group = msg.get("media_group_id")
+    _prune_pending()
+
+    entry = _photo_groups.get(group) if group else None
+    if entry:                                           # следующее фото той же подборки
+        if entry.get("project"):
+            await save_telegram_photos(entry["project"], [file_id], note)   # молча: об этой подборке уже ответили
+        elif entry["token"] in _pending_photos:
+            _pending_photos[entry["token"]]["files"].append(file_id)
+        return
+
+    db = SessionLocal()
+    try:
+        active = [(p.id, p.name) for p in _active_projects(db)]
+    finally:
+        db.close()
+    if not active:
+        await send_message(chat_id, tr("bot.photo_no_projects"))
+        return
+
+    if len(active) == 1:
+        pid = active[0][0]
+        if group:
+            _photo_groups[group] = {"token": None, "project": pid, "ts": time.time()}
+        ids, name, stage, error = await save_telegram_photos(pid, [file_id], note)
+        if ids:
+            text, markup = _saved_view(name, stage, ids, pid)
+            await send_message(chat_id, text, markup)
+        if error:
+            await send_message(chat_id, f"⚠️ {error}")
+        return
+
+    token = uuid.uuid4().hex[:8]
+    _pending_photos[token] = {"files": [file_id], "caption": note, "ts": time.time()}
+    if group:
+        _photo_groups[group] = {"token": token, "project": None, "ts": time.time()}
+    keyboard = [[{"text": f"🎨 {name}", "callback_data": f"ph_to:{token}:{pid}"}] for pid, name in active]
+    keyboard.append([{"text": f"✖ {tr('common.cancel')}", "callback_data": f"ph_cancel:{token}"}])
+    await send_message(chat_id, f"📷 {tr('bot.photo_which')}", {"inline_keyboard": keyboard})
+
+
+async def handle_photo_choice(cb_id: str, chat_id: int, message_id: int, token: str, project_id: str):
+    pending = _pending_photos.pop(token, None)
+    if not pending:
+        await answer_callback(cb_id, tr("bot.photo_expired"), show_alert=True)
+        return
+    for g, v in list(_photo_groups.items()):
+        if v.get("token") == token:
+            v["project"], v["token"] = project_id, None
+    await answer_callback(cb_id)
+    ids, name, stage, error = await save_telegram_photos(project_id, pending["files"], pending["caption"])
+    if ids:
+        text, markup = _saved_view(name, stage, ids, project_id)
+        if error:
+            text += f"\n⚠️ {error}"
+        await edit_message_text(chat_id, message_id, text, markup)
+    else:
+        await edit_message_text(chat_id, message_id, f"⚠️ {error or tr('bot.photo_download_failed')}")
+
+
+# ----- просмотр фото -----
+
+def _photo_view(scope: str, index: int):
+    """Фото номер index (от новых к старым) в выборке: (строка, подпись, клавиатура, номер, всего) или None."""
+    db = SessionLocal()
+    try:
+        rows = progress.list_photos(db, None if scope == "*" else scope)
+        if not rows:
+            return None
+        index = max(0, min(index, len(rows) - 1))
+        row = rows[index]
+        proj = db.query(Project).filter(Project.id == row.project_id).first()
+        lines = [f"<b>{esc(proj.name if proj else row.project_id)}</b>"]
+        if row.stage and row.stage != "—":
+            lines[0] += f" · {esc(tv(row.stage))}"
+        when = row.created_at.strftime("%H:%M") if row.created_at else ""
+        lines.append(f"📅 {fmt_date(row.created_at)} {when}".strip())
+        if row.note:
+            lines.append(esc(row.note))
+        total = len(rows)
+        nav = []
+        if total > 1:
+            nav = [
+                {"text": "◀", "callback_data": f"ph_v:{scope}:{(index + 1) % total}"},
+                {"text": f"{index + 1}/{total}", "callback_data": "noop"},
+                {"text": "▶", "callback_data": f"ph_v:{scope}:{(index - 1) % total}"},
+            ]
+        keyboard = [nav] if nav else []
+        keyboard.append([{"text": f"🗑 {tr('bot.btn_delete')}", "callback_data": f"ph_d:{scope}:{index}"}])
+        path = os.path.join(progress.PROGRESS_DIR, os.path.basename(row.filename))
+        return {"path": path, "caption": "\n".join(lines), "markup": {"inline_keyboard": keyboard},
+                "index": index, "total": total, "id": row.id}
+    finally:
+        db.close()
+
+
+def _read_bytes(path: str) -> bytes:
+    with open(path, "rb") as f:
+        return f.read()
+
+
+async def send_photo_view(chat_id: int, scope: str, index: int = 0) -> bool:
+    view = _photo_view(scope, index)
+    if not view:
+        return False
+    try:
+        res = await tg_upload("sendPhoto", {
+            "chat_id": str(chat_id), "caption": view["caption"], "parse_mode": "HTML",
+            "reply_markup": json.dumps(view["markup"]),
+        }, {"photo": (os.path.basename(view["path"]), _read_bytes(view["path"]))})
+        if not res.get("ok"):
+            print(f"[BOT ERROR] Telegram отклонил sendPhoto: {res.get('description')}")
+            await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
+    except Exception as e:
+        print(f"[BOT ERROR] Ошибка sendPhoto: {repr(e)}")
+        await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
+    return True
+
+
+async def edit_photo_view(chat_id: int, message_id: int, scope: str, index: int):
+    view = _photo_view(scope, index)
+    if not view:
+        await tg_request("POST", "editMessageCaption", payload={
+            "chat_id": chat_id, "message_id": message_id, "caption": tr("bot.photo_none"),
+            "reply_markup": {"inline_keyboard": []}})
+        return
+    media = {"type": "photo", "media": "attach://photo", "caption": view["caption"], "parse_mode": "HTML"}
+    try:
+        res = await tg_upload("editMessageMedia", {
+            "chat_id": str(chat_id), "message_id": str(message_id),
+            "media": json.dumps(media), "reply_markup": json.dumps(view["markup"]),
+        }, {"photo": (os.path.basename(view["path"]), _read_bytes(view["path"]))})
+        if not res.get("ok") and "not modified" not in str(res.get("description", "")):
+            print(f"[BOT ERROR] Telegram отклонил editMessageMedia: {res.get('description')}")
+    except Exception as e:
+        print(f"[BOT ERROR] Ошибка editMessageMedia: {repr(e)}")
+
+
+async def handle_photo_callback(cb: dict, data: str) -> bool:
+    """Кнопки фото. True, если это была одна из них."""
+    cb_id = cb["id"]
+    msg = cb.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
+    message_id = msg.get("message_id")
+    parts = data.split(":")
+    action = parts[0]
+
+    if action == "noop":
+        await answer_callback(cb_id)
+    elif action == "ph_to" and len(parts) == 3:
+        await handle_photo_choice(cb_id, chat_id, message_id, parts[1], parts[2])
+    elif action == "ph_cancel" and len(parts) == 2:
+        _pending_photos.pop(parts[1], None)
+        await answer_callback(cb_id)
+        await edit_message_text(chat_id, message_id, f"✖ {tr('bot.photo_cancelled')}")
+    elif action == "ph_undo" and len(parts) == 2:
+        db = SessionLocal()
+        try:
+            for pid in parts[1].split(","):
+                if pid.isdigit():
+                    progress.delete_photo(db, int(pid))
+        finally:
+            db.close()
+        await answer_callback(cb_id)
+        await edit_message_text(chat_id, message_id, f"↩ {tr('bot.photo_undone')}")
+    elif action == "ph_v" and len(parts) == 3 and parts[2].lstrip("-").isdigit():
+        index = int(parts[2])
+        if msg.get("photo"):                                   # листаем в том же сообщении
+            await answer_callback(cb_id)
+            await edit_photo_view(chat_id, message_id, parts[1], index)
+        elif await send_photo_view(chat_id, parts[1], index):  # из текстовой карточки: новое сообщение с фото
+            await answer_callback(cb_id)
+        else:
+            await answer_callback(cb_id, tr("bot.photo_none"), show_alert=True)
+    elif action == "ph_d" and len(parts) == 3 and parts[2].isdigit():
+        view = _photo_view(parts[1], int(parts[2]))
+        if not view:
+            await answer_callback(cb_id, tr("bot.photo_none"), show_alert=True)
+        else:
+            await answer_callback(cb_id)
+            markup = {"inline_keyboard": [[
+                {"text": f"🗑 {tr('bot.btn_delete_yes')}", "callback_data": f"ph_dy:{parts[1]}:{view['id']}:{view['index']}"},
+                {"text": f"↩ {tr('common.cancel')}", "callback_data": f"ph_v:{parts[1]}:{view['index']}"},
+            ]]}
+            await tg_request("POST", "editMessageReplyMarkup",
+                             payload={"chat_id": chat_id, "message_id": message_id, "reply_markup": markup})
+    elif action == "ph_dy" and len(parts) == 4 and parts[2].isdigit() and parts[3].isdigit():
+        db = SessionLocal()
+        try:
+            progress.delete_photo(db, int(parts[2]))
+        finally:
+            db.close()
+        await answer_callback(cb_id, tr("bot.photo_deleted"))
+        await edit_photo_view(chat_id, message_id, parts[1], int(parts[3]))
+    else:
+        return False
+    return True
+
+
 async def handle_callback(cb: dict):
     cb_id = cb["id"]
     data = cb.get("data", "")
@@ -337,6 +658,15 @@ async def handle_callback(cb: dict):
     chat_id = msg.get("chat", {}).get("id")
     message_id = msg.get("message_id")
     now = datetime.now()
+
+    if data == "noop" or data.split(":")[0] in ("ph_to", "ph_cancel", "ph_undo", "ph_v", "ph_d", "ph_dy"):
+        try:
+            if await handle_photo_callback(cb, data):
+                return
+        except Exception as e:
+            print(f"[CALLBACK ERROR]: {repr(e)}")
+            traceback.print_exc()
+            return
 
     db = SessionLocal()
     try:
@@ -480,11 +810,16 @@ async def process_update(item: dict):
     chat = msg.get("chat") or {}
     chat_id = chat.get("id")
     text = (msg.get("text") or "").strip()
-    if not chat_id or not text:
+    has_image = bool(msg.get("photo") or (msg.get("document") or {}).get("mime_type", "").startswith("image/"))
+    if not chat_id or not (text or has_image):
         return
 
     if not is_owner(chat_id):
         await handle_foreign_message(chat, text)
+        return
+
+    if has_image:
+        await handle_photo_message(chat_id, msg)
         return
 
     if text.startswith("/start"):
@@ -495,6 +830,9 @@ async def process_update(item: dict):
     elif text.startswith("/projects"):
         view_text, markup = build_all_projects_view()
         await send_message(chat_id, view_text, markup)
+    elif text.startswith("/photo"):
+        if not await send_photo_view(chat_id, "*", 0):
+            await send_message(chat_id, tr("bot.photo_none"))
     elif text.startswith("/stats"):
         await send_message(chat_id, build_current_month_stats())
     elif text.startswith("/test_notify"):
