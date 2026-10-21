@@ -1,0 +1,1711 @@
+/* ==========================================================================
+   0. БАЗОВЫЙ ФИКС ВСЕХ SELECT И OPTION (ДЛЯ ВСЕХ ТЕМ ПО УМОЛЧАНИЮ)
+   ========================================================================== */
+:root {
+    color-scheme: dark;
+
+    /* ----------------------------------------------------------------------
+       ТОКЕНЫ ГРАФИКОВ (Chart.js читает их из CSS при отрисовке и при смене темы).
+       Значения по умолчанию = стандартный вид. Новая тема переопределяет их внутри
+       своего блока body.theme-<имя> { ... }; описание каждого токена — в THEMES_GUIDE.md.
+       ---------------------------------------------------------------------- */
+    --chart-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --chart-text: #cbd5e1;          /* подписи оси X и легенда */
+    --chart-muted: #94a3b8;         /* подписи оси Y */
+    --chart-grid: #334155;          /* горизонтальная сетка */
+    --chart-stage-1: #475569;       /* «Без стадии» */
+    --chart-stage-2: #6366f1;       /* Печать */
+    --chart-stage-3: #f59e0b;       /* Шлифовка */
+    --chart-stage-4: #06b6d4;       /* Сборка */
+    --chart-stage-5: #a855f7;       /* Грунт */
+    --chart-stage-6: #10b981;       /* Покрас */
+    --chart-series-1: #6366f1;      /* «Закрыто задач» */
+    --chart-series-2: #10b981;      /* «Завершено проектов» */
+    --chart-border: transparent;    /* контур столбцов */
+    --chart-border-width: 0;        /* толщина контура, px */
+    --chart-radius: 6;              /* скругление столбцов, px */
+}
+
+select {
+    color-scheme: dark;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-color: #0f172a !important;
+    color: #e2e8f0 !important;
+    padding-right: 2.2rem !important;
+    background-image: 
+        linear-gradient(90deg, rgba(148, 163, 184, 0.25) 1px, transparent 1px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat, no-repeat !important;
+    background-position: right 1.9rem center, right 0.55rem center !important;
+    background-size: 1px 100%, 12px 12px !important;
+}
+
+/* Жестко задаем темный фон и светлый текст для выпадающего списка */
+select option,
+select optgroup {
+    background-color: #0f172a !important;
+    color: #f1f5f9 !important;
+    padding: 6px 10px !important;
+}
+
+
+/* === THEME: theme-cyberpunk === */
+/* ==========================================================================
+   ТЕМА 1: CYBERPUNK & TACTICAL HUD (body.theme-cyberpunk)
+   ========================================================================== */
+body.theme-cyberpunk {
+    /* графики: неон на тёмном */
+    --chart-font: 'JetBrains Mono', ui-monospace, monospace;
+    --chart-text: #d1fff0;
+    --chart-muted: #5fb8a0;
+    --chart-grid: rgba(0, 255, 157, 0.14);
+    --chart-stage-1: #34505a;
+    --chart-stage-2: #00f0ff;
+    --chart-stage-3: #ffee00;
+    --chart-stage-4: #ff2bd6;
+    --chart-stage-5: #9d4dff;
+    --chart-stage-6: #00ff9d;
+    --chart-series-1: #00f0ff;
+    --chart-series-2: #00ff9d;
+    --chart-border: #030708;
+    --chart-border-width: 1;
+    --chart-radius: 0;
+    background-color: #030708 !important;
+    background-image: 
+        linear-gradient(rgba(0, 255, 157, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 157, 0.04) 1px, transparent 1px),
+        radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.12), transparent 60%) !important;
+    background-size: 28px 28px, 28px 28px, 100% 100% !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    color: #d1fff0 !important;
+}
+
+body.theme-cyberpunk h1, 
+body.theme-cyberpunk h2, 
+body.theme-cyberpunk h3 {
+    font-family: 'Russo One', sans-serif !important;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-shadow: 0 0 8px rgba(0, 255, 157, 0.4);
+}
+
+body.theme-cyberpunk nav {
+    background: rgba(4, 12, 16, 0.92) !important;
+    border-bottom: 1px solid #00ff9d !important;
+    box-shadow: 0 0 20px rgba(0, 255, 157, 0.15) !important;
+}
+
+body.theme-cyberpunk .bg-slate-800,
+body.theme-cyberpunk .bg-slate-800\/90 {
+    background: linear-gradient(135deg, rgba(6, 20, 24, 0.92) 0%, rgba(3, 10, 14, 0.96) 100%) !important;
+    border: 1px solid #00ff9d !important;
+    border-radius: 0 !important;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+    box-shadow: inset 0 0 18px rgba(0, 255, 157, 0.08), 0 0 12px rgba(0, 255, 157, 0.15) !important;
+    position: relative;
+}
+
+body.theme-cyberpunk #projectsContainer > div::before {
+    content: "[SYS.NODE // ACTIVE]";
+    position: absolute;
+    top: 6px;
+    left: 14px;
+    font-size: 9px;
+    color: #00ff9d;
+    opacity: 0.7;
+    letter-spacing: 1.5px;
+    pointer-events: none;
+}
+
+body.theme-cyberpunk #projectsContainer > div {
+    padding-top: 1.6rem !important;
+}
+
+body.theme-cyberpunk #projectsContainer > div:hover {
+    border-color: #00f0ff !important;
+    box-shadow: inset 0 0 25px rgba(0, 240, 255, 0.15), 0 0 18px rgba(0, 240, 255, 0.35) !important;
+}
+
+body.theme-cyberpunk #projectsContainer .rounded-xl {
+    border-radius: 2px !important;
+    border: 1px solid rgba(0, 240, 255, 0.5) !important;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+
+body.theme-cyberpunk .bg-slate-900,
+body.theme-cyberpunk .bg-slate-900\/50 {
+    background-color: #02080a !important;
+    border: 1px solid rgba(0, 240, 255, 0.45) !important;
+    border-radius: 2px !important;
+}
+
+body.theme-cyberpunk select {
+    background-color: #030c0f !important;
+    border: 1px solid rgba(0, 255, 157, 0.5) !important;
+    color: #00ff9d !important;
+    border-radius: 2px !important;
+    background-image: 
+        linear-gradient(90deg, rgba(0, 255, 157, 0.35) 1px, transparent 1px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2300ff9d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+body.theme-cyberpunk select:focus {
+    border-color: #00f0ff !important;
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.5) !important;
+}
+
+body.theme-cyberpunk select option {
+    background-color: #041014 !important;
+    color: #00ff9d !important;
+}
+
+body.theme-cyberpunk .text-red-400 {
+    color: #ff0055 !important;
+    text-shadow: 0 0 6px rgba(255, 0, 85, 0.6);
+}
+
+body.theme-cyberpunk .bg-red-400\/10 {
+    background: rgba(255, 0, 85, 0.15) !important;
+    border-color: #ff0055 !important;
+}
+
+
+/* ---------- CYBERPUNK: неоновые кнопки с угловыми метками ---------- */
+body.theme-cyberpunk button.bg-emerald-600,
+body.theme-cyberpunk button.bg-indigo-600,
+body.theme-cyberpunk button.bg-blue-600,
+body.theme-cyberpunk button.bg-red-600 {
+    --b: #00ff9d;
+    --b-rgb: 0, 255, 157;
+    position: relative;
+    background: linear-gradient(180deg, rgba(var(--b-rgb), 0.18), rgba(var(--b-rgb), 0.05)) !important;
+    color: var(--b) !important;
+    border: 1px solid var(--b) !important;
+    border-radius: 2px !important;
+    font-family: 'Russo One', sans-serif !important;
+    font-size: 12px !important;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-shadow: 0 0 8px rgba(var(--b-rgb), 0.75);
+    box-shadow: 0 0 10px rgba(var(--b-rgb), 0.35), inset 0 0 10px rgba(var(--b-rgb), 0.12) !important;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+body.theme-cyberpunk button.bg-indigo-600,
+body.theme-cyberpunk button.bg-blue-600 { --b: #00f0ff; --b-rgb: 0, 240, 255; }
+body.theme-cyberpunk button.bg-red-600  { --b: #ff0055; --b-rgb: 255, 0, 85; }
+
+body.theme-cyberpunk button.bg-emerald-600::before,
+body.theme-cyberpunk button.bg-indigo-600::before,
+body.theme-cyberpunk button.bg-blue-600::before,
+body.theme-cyberpunk button.bg-red-600::before,
+body.theme-cyberpunk button.bg-emerald-600::after,
+body.theme-cyberpunk button.bg-indigo-600::after,
+body.theme-cyberpunk button.bg-blue-600::after,
+body.theme-cyberpunk button.bg-red-600::after {
+    content: "";
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    pointer-events: none;
+}
+body.theme-cyberpunk button.bg-emerald-600::before,
+body.theme-cyberpunk button.bg-indigo-600::before,
+body.theme-cyberpunk button.bg-blue-600::before,
+body.theme-cyberpunk button.bg-red-600::before {
+    left: -3px; top: -3px;
+    border-top: 2px solid var(--b); border-left: 2px solid var(--b);
+}
+body.theme-cyberpunk button.bg-emerald-600::after,
+body.theme-cyberpunk button.bg-indigo-600::after,
+body.theme-cyberpunk button.bg-blue-600::after,
+body.theme-cyberpunk button.bg-red-600::after {
+    right: -3px; bottom: -3px;
+    border-bottom: 2px solid var(--b); border-right: 2px solid var(--b);
+}
+body.theme-cyberpunk button.bg-emerald-600:hover,
+body.theme-cyberpunk button.bg-indigo-600:hover,
+body.theme-cyberpunk button.bg-blue-600:hover,
+body.theme-cyberpunk button.bg-red-600:hover {
+    background: rgba(var(--b-rgb), 0.3) !important;
+    box-shadow: 0 0 18px rgba(var(--b-rgb), 0.65), inset 0 0 14px rgba(var(--b-rgb), 0.25) !important;
+    transform: translateY(-1px);
+}
+body.theme-cyberpunk button.bg-emerald-600:active,
+body.theme-cyberpunk button.bg-indigo-600:active,
+body.theme-cyberpunk button.bg-blue-600:active,
+body.theme-cyberpunk button.bg-red-600:active { transform: translateY(0); }
+
+/* вторичные кнопки: тусклый неон; активная вкладка — яркая */
+body.theme-cyberpunk button.bg-slate-700 {
+    background: rgba(0, 240, 255, 0.06) !important;
+    border: 1px solid rgba(0, 240, 255, 0.35) !important;
+    border-radius: 2px !important;
+    color: #9ff7ff !important;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+body.theme-cyberpunk button.bg-slate-700:hover {
+    background: rgba(0, 240, 255, 0.16) !important;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+}
+body.theme-cyberpunk nav button[id^="tab-btn"].bg-slate-700,
+body.theme-cyberpunk #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
+    background: rgba(0, 255, 157, 0.14) !important;
+    border-color: #00ff9d !important;
+    color: #00ff9d !important;
+    text-shadow: 0 0 8px rgba(0, 255, 157, 0.7);
+    box-shadow: 0 0 10px rgba(0, 255, 157, 0.3), inset 0 0 8px rgba(0, 255, 157, 0.12);
+}
+
+/* === END THEME: theme-cyberpunk === */
+
+/* === THEME: theme-warhammer === */
+/* ==========================================================================
+   ТЕМА 2: WARHAMMER 40K — С ФОНОМ /static/wh40k_bg.jpg (body.theme-warhammer)
+   ========================================================================== */
+body.theme-warhammer {
+    /* Шрифты темы (оба с кириллицей). Заголовки/кнопки/даты — Playfair Display SC, текст — Alegreya.
+       Чтобы попробовать другую пару, поменяйте эти две строки и ссылку на Google Fonts в index.html. */
+    --wh-title: 'Playfair Display SC', 'Cormorant SC', Georgia, serif;
+    --wh-body: 'Alegreya', 'Philosopher', Georgia, serif;
+    /* графики: бронза, золото и багрянец на тёмном пергаменте */
+    --chart-font: 'Alegreya', 'Philosopher', Georgia, serif;
+    --chart-text: #e6d5b8;
+    --chart-muted: #b9a47a;
+    --chart-grid: rgba(133, 103, 53, 0.35);
+    --chart-stage-1: #5a4627;
+    --chart-stage-2: #8c8f94;
+    --chart-stage-3: #c9a227;
+    --chart-stage-4: #3f7f7a;
+    --chart-stage-5: #7a3b8f;
+    --chart-stage-6: #8b1a1a;
+    --chart-series-1: #c9a227;
+    --chart-series-2: #8b1a1a;
+    --chart-border: #f3e5ab;
+    --chart-border-width: 1;
+    --chart-radius: 0;
+    background-color: #120e0b !important;
+    /* Слегка затемняем центр для читаемости карточек, а под ним рендерим фоновую картинку */
+    background-image: 
+        radial-gradient(circle at 50% 50%, rgba(18, 14, 11, 0.30) 0%, rgba(10, 8, 6, 0.72) 100%),
+        url('wh40k_bg.jpg') !important;
+    background-position: center center, center center !important;
+    background-repeat: no-repeat, no-repeat !important;
+    background-size: cover, cover !important;
+    background-attachment: fixed, fixed !important;
+    font-family: var(--wh-body) !important;
+    font-size: 1.04em;
+    color: #e6d5b8 !important;
+}
+
+/* Лиговые (одинаковой высоты) цифры: в Alegreya по умолчанию «старый стиль», из-за него «05» выглядит как «o5» */
+body.theme-warhammer,
+body.theme-warhammer select,
+body.theme-warhammer input,
+body.theme-warhammer button,
+body.theme-warhammer textarea {
+    font-variant-numeric: lining-nums;
+}
+
+/* Поля ввода в окнах не должны получать заклёпки и рамку «карточки» */
+body.theme-warhammer input.bg-slate-800 {
+    background-image: none !important;
+    background-color: #1a130d !important;
+    outline: none !important;
+    margin-top: 0 !important;
+    border: 1px solid #856735 !important;
+    border-radius: 2px !important;
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.85) !important;
+    backdrop-filter: none;
+}
+
+/* Прозрачность для оберток в index.html, если на них висит глухой класс bg-slate-900 / bg-slate-950 */
+body.theme-warhammer > div:not(#toastContainer):not([id*="Modal"]):not(#lightbox),
+body.theme-warhammer main {
+    background-color: transparent !important;
+}
+
+body.theme-warhammer h1, 
+body.theme-warhammer h2, 
+body.theme-warhammer h3 {
+    font-family: var(--wh-title) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+    color: #f3e5ab !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
+}
+
+/* --- ВЕРХНЯЯ ПАНЕЛЬ (ШАПКА) С БАРЕЛЬЕФОМ МЕХАНИКУС --- */
+body.theme-warhammer nav {
+    background: 
+        linear-gradient(180deg, rgba(60, 44, 28, 0.85) 0%, rgba(18, 13, 9, 0.95) 100%),
+        repeating-linear-gradient(90deg, #1c1510 0px, #1c1510 120px, #15100c 120px, #15100c 122px) !important;
+    border-top: 2px solid #8c6d3b !important;
+    border-bottom: 4px double #8c6d3b !important;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 215, 128, 0.25) !important;
+    position: relative;
+}
+
+/* Векторный барельеф: Шестерня + Крылья Аквилы + Череп по центру шапки */
+body.theme-warhammer nav::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translate(-50%, -58%);
+    width: 190px;
+    height: 62px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23d4b26f'/%3E%3Cstop offset='50%25' stop-color='%238a6832'/%3E%3Cstop offset='100%25' stop-color='%233d2c12'/%3E%3C/linearGradient%3E%3Cfilter id='s'%3E%3CfeDropShadow dx='0' dy='3' stdDeviation='3' flood-color='%23000' flood-opacity='0.9'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23s)'%3E%3Cpath d='M10 18 L90 18 L80 28 L22 28 Z M20 31 L82 31 L74 40 L32 40 Z M34 43 L76 43 L68 51 L46 51 Z' fill='url(%23g)' stroke='%23261a0a' stroke-width='1'/%3E%3Cpath d='M230 18 L150 18 L160 28 L218 28 Z M220 31 L158 31 L166 40 L208 40 Z M206 43 L164 43 L172 51 L194 51 Z' fill='url(%23g)' stroke='%23261a0a' stroke-width='1'/%3E%3Ccircle cx='120' cy='38' r='28' fill='%231a130d' stroke='url(%23g)' stroke-width='5' stroke-dasharray='8 4'/%3E%3Ccircle cx='120' cy='38' r='22' fill='%2316100b' stroke='url(%23g)' stroke-width='2'/%3E%3Cpath d='M120 20 C110 20 105 27 105 35 C105 40 108 44 111 46 L111 53 L129 53 L129 46 C132 44 135 40 135 35 C135 27 130 20 120 20 Z' fill='%23d8c6a5' stroke='%232b1e0d' stroke-width='1.5'/%3E%3Ccircle cx='114' cy='35' r='3.8' fill='%2316100b'/%3E%3Ccircle cx='126' cy='35' r='3.8' fill='%2316100b'/%3E%3Cpath d='M120 39 L117.5 44 L122.5 44 Z' fill='%2316100b'/%3E%3Cline x1='115' y1='48' x2='115' y2='53' stroke='%2316100b' stroke-width='1.5'/%3E%3Cline x1='120' y1='48' x2='120' y2='53' stroke='%2316100b' stroke-width='1.5'/%3E%3Cline x1='125' y1='48' x2='125' y2='53' stroke='%2316100b' stroke-width='1.5'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    pointer-events: none;
+    z-index: 30;
+}
+
+body.theme-warhammer nav button,
+body.theme-warhammer #tokenCounter {
+    font-family: var(--wh-title) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.03em;
+}
+
+/* --- КАРТОЧКИ ПРОЕКТОВ И БЛОК ЗАДАЧ (ЧУГУН + БРОНЗОВАЯ РАМА С ЗАКЛЕПКАМИ) --- */
+body.theme-warhammer .bg-slate-800,
+body.theme-warhammer .bg-slate-800\/90 {
+    background-color: rgba(24, 18, 14, 0.88) !important;
+    backdrop-filter: blur(3px);
+    background-image: 
+        /* 4 угловые металлические заклепки */
+        radial-gradient(circle at 8px 8px, #b89758 2px, #2b1f11 3px, transparent 4px),
+        radial-gradient(circle at calc(100% - 8px) 8px, #b89758 2px, #2b1f11 3px, transparent 4px),
+        radial-gradient(circle at 8px calc(100% - 8px), #b89758 2px, #2b1f11 3px, transparent 4px),
+        radial-gradient(circle at calc(100% - 8px) calc(100% - 8px), #b89758 2px, #2b1f11 3px, transparent 4px),
+        /* Текстура темного металла с теплым отблеском */
+        radial-gradient(circle at 75% 30%, rgba(150, 90, 30, 0.16) 0%, transparent 55%),
+        linear-gradient(165deg, rgba(34, 25, 19, 0.9) 0%, rgba(18, 13, 10, 0.94) 100%) !important;
+    border: 2px solid #7c6032 !important;
+    outline: 1px solid #3d2d16 !important;
+    outline-offset: -5px;
+    border-radius: 2px !important;
+    box-shadow: 
+        0 10px 26px rgba(0, 0, 0, 0.9),
+        inset 0 0 0 1px rgba(212, 178, 111, 0.18),
+        inset 0 0 24px rgba(0, 0, 0, 0.85) !important;
+    position: relative;
+    margin-top: 6px;
+}
+
+/* Векторное клеймо с черепом и крыльями на верхней рамке каждой карточки */
+body.theme-warhammer #projectsContainer > div::before {
+    content: "";
+    position: absolute;
+    top: -11px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 86px;
+    height: 20px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 28'%3E%3Cpath d='M4 14 L42 10 L36 18 L12 18 Z M116 14 L78 10 L84 18 L108 18 Z' fill='%239c7a44' stroke='%23241909' stroke-width='1'/%3E%3Crect x='42' y='4' width='36' height='20' rx='2' fill='%23211811' stroke='%239c7a44' stroke-width='1.5'/%3E%3Ccircle cx='60' cy='12' r='5.5' fill='%23d5c29d'/%3E%3Crect x='57' y='15' width='6' height='4' fill='%23d5c29d'/%3E%3Ccircle cx='58' cy='12' r='1.3' fill='%2318120e'/%3E%3Ccircle cx='62' cy='12' r='1.3' fill='%2318120e'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Рамка вокруг фото проекта */
+body.theme-warhammer #projectsContainer .rounded-xl {
+    border-radius: 2px !important;
+    border: 2px solid #6b5229 !important;
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8) !important;
+}
+
+/* --- ВЫПАДАЮЩИЕ СПИСКИ (SELECT) КАК БРОНЗОВЫЕ ОКОШКИ --- */
+body.theme-warhammer select {
+    background-color: #1a130d !important;
+    color: #e8d8b9 !important;
+    border: 1px solid #856735 !important;
+    border-radius: 2px !important;
+    font-family: var(--wh-body) !important;
+    font-size: 13px !important;
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(212, 178, 111, 0.15) !important;
+    padding-right: 2.3rem !important;
+    background-image: 
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23e8d8b9' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"),
+        linear-gradient(180deg, #6e5227 0%, #3d2c14 100%) !important;
+    background-position: right 0.45rem center, right top !important;
+    background-size: 11px 11px, 1.8rem 100% !important;
+    background-repeat: no-repeat, no-repeat !important;
+}
+
+body.theme-warhammer select:hover {
+    border-color: #b89352 !important;
+}
+
+body.theme-warhammer select option {
+    background-color: #1a130d !important;
+    color: #e8d8b9 !important;
+    font-family: var(--wh-body) !important;
+}
+
+/* --- ДАТЫ И ДЕДЛАЙНЫ: бронзовая табличка с ромбиками по краям (без иконки календаря) --- */
+body.theme-warhammer .dl-icon {
+    display: none;
+}
+
+body.theme-warhammer #projectsContainer .text-xs > span {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 3px 13px !important;
+    background: linear-gradient(180deg, #3b2c1a 0%, #241a10 55%, #1a120b 100%) !important;
+    color: #efdca6 !important;
+    border: 1px solid #8c6d3b !important;
+    border-radius: 2px !important;
+    font-family: var(--wh-title) !important;
+    font-size: 13px;
+    font-weight: 700 !important;
+    letter-spacing: 0.07em;
+    font-variant-numeric: lining-nums tabular-nums;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 222, 150, 0.16),
+        0 2px 5px rgba(0, 0, 0, 0.65) !important;
+}
+
+body.theme-warhammer #projectsContainer .text-xs > span::before,
+body.theme-warhammer #projectsContainer .text-xs > span::after {
+    content: "";
+    flex: none;
+    width: 5px;
+    height: 5px;
+    background: #b08d47;
+    transform: rotate(45deg);
+    box-shadow: 0 0 0 1px #2a1d0c;
+}
+
+/* Горит / просрочено — багровая табличка */
+body.theme-warhammer #projectsContainer .text-xs > span.text-red-400,
+body.theme-warhammer #projectsContainer .text-xs > span.text-red-500 {
+    color: #ffc2b0 !important;
+    border-color: #9b3026 !important;
+    background: linear-gradient(180deg, #5b1b14 0%, #35100c 55%, #240a08 100%) !important;
+}
+body.theme-warhammer #projectsContainer .text-xs > span.text-red-400::before,
+body.theme-warhammer #projectsContainer .text-xs > span.text-red-400::after,
+body.theme-warhammer #projectsContainer .text-xs > span.text-red-500::before,
+body.theme-warhammer #projectsContainer .text-xs > span.text-red-500::after {
+    background: #cf4a3a;
+}
+
+/* Без дедлайна / закрыто — приглушённая табличка */
+body.theme-warhammer #projectsContainer .text-xs > span.text-slate-500 {
+    color: #9c8a63 !important;
+    border-color: #5a4627 !important;
+    background: linear-gradient(180deg, #2a2016 0%, #1a130d 100%) !important;
+    text-shadow: none;
+}
+body.theme-warhammer #projectsContainer .text-xs > span.text-slate-500::before,
+body.theme-warhammer #projectsContainer .text-xs > span.text-slate-500::after {
+    background: #6b5632;
+}
+
+/* --- ПРАВАЯ КОЛОНКА "БЛИЖАЙШИЕ ЗАДАЧИ" С СУРГУЧНЫМИ ПЕЧАТЯМИ ЧИСТОТЫ --- */
+body.theme-warhammer #tasksContainer > div {
+    border-bottom: 1px solid rgba(133, 103, 53, 0.35) !important;
+    padding: 12px 14px !important;
+    position: relative;
+}
+
+body.theme-warhammer #tasksContainer .text-xs > span {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: linear-gradient(180deg, #dfd0b2 0%, #c2ab82 100%) !important;
+    color: #2b1a08 !important;
+    padding: 2px 30px 2px 8px !important;
+    border: 1px solid #634721 !important;
+    border-radius: 2px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.8);
+}
+
+body.theme-warhammer #tasksContainer .text-xs > span.text-red-400,
+body.theme-warhammer #tasksContainer .text-xs > span.text-red-500 {
+    color: #7a1212 !important;
+}
+
+/* Векторная сургучная печать чистоты (Purity Seal) с черепом и свисающей лентой */
+body.theme-warhammer #tasksContainer .text-xs > span::after {
+    content: "";
+    position: absolute;
+    right: -4px;
+    top: -3px;
+    width: 28px;
+    height: 44px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 52'%3E%3Cpath d='M10 18 L10 48 L15 43 L20 50 L22 18 Z' fill='%23d4c29e' stroke='%234a3519' stroke-width='1'/%3E%3Cline x1='12' y1='25' x2='19' y2='25' stroke='%235c4322' stroke-width='1'/%3E%3Cline x1='12' y1='29' x2='18' y2='29' stroke='%235c4322' stroke-width='1'/%3E%3Cline x1='12' y1='33' x2='19' y2='33' stroke='%235c4322' stroke-width='1'/%3E%3Cline x1='12' y1='37' x2='17' y2='37' stroke='%235c4322' stroke-width='1'/%3E%3Ccircle cx='16' cy='13' r='11' fill='%238c1414' stroke='%234a0808' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='13' r='8' fill='%236e0d0d' stroke='%23a82020' stroke-width='1'/%3E%3Ccircle cx='16' cy='12' r='4' fill='%23e0cba8'/%3E%3Crect x='14' y='14' width='4' height='3' fill='%23e0cba8'/%3E%3Ccircle cx='14.7' cy='12' r='1' fill='%236e0d0d'/%3E%3Ccircle cx='17.3' cy='12' r='1' fill='%236e0d0d'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.85));
+}
+
+body.theme-warhammer #projectsContainer .uppercase,
+body.theme-warhammer #projectsContainer .rounded-full {
+    border-radius: 3px !important;
+    font-family: var(--wh-title) !important;
+    letter-spacing: 0.05em;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 2px 4px rgba(0,0,0,0.6);
+}
+
+/* ==========================================================================
+   КНОПКИ ПОД КАЖДЫЙ СТИЛЬ (шапка и окна)
+   «+ Проект» = bg-emerald-600, «+ Задача» = bg-indigo-600, «Сохранить» = bg-blue-600,
+   «Удалить» = bg-red-600, вторичные (вкладки, шестерёнка, «Отмена») = bg-slate-700.
+   Стандартная тема не затрагивается.
+   ========================================================================== */
+
+/* ---------- WARHAMMER: бронзовые и багровые пластины с заклёпками ---------- */
+body.theme-warhammer button.bg-emerald-600,
+body.theme-warhammer button.bg-indigo-600,
+body.theme-warhammer button.bg-blue-600,
+body.theme-warhammer button.bg-red-600 {
+    /* «+ Проект», «Создать», «Сохранить» — золочёная бронза */
+    --plate-a: #7a5c2a;
+    --plate-b: #3a2a13;
+    --edge: #c9a45e;
+    background-color: var(--plate-b) !important;
+    background-image:
+        radial-gradient(circle at 9px 50%, #e3c987 1.4px, #2b1f11 2.6px, transparent 3.7px),
+        radial-gradient(circle at calc(100% - 9px) 50%, #e3c987 1.4px, #2b1f11 2.6px, transparent 3.7px),
+        linear-gradient(180deg, var(--plate-a) 0%, var(--plate-b) 100%) !important;
+    border: 1px solid var(--edge) !important;
+    border-radius: 2px !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+    color: #f8ebbd !important;
+    font-family: var(--wh-title) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.03em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 228, 160, 0.38),
+        inset 0 -2px 5px rgba(0, 0, 0, 0.55),
+        0 3px 7px rgba(0, 0, 0, 0.75) !important;
+    transition: filter 0.15s, transform 0.1s;
+}
+/* «+ Задача» — багровая пластина с золотой кромкой */
+body.theme-warhammer button.bg-indigo-600 { --plate-a: #92291f; --plate-b: #4a110c; --edge: #cfa55f; }
+/* «Удалить» — тёмно-красная */
+body.theme-warhammer button.bg-red-600    { --plate-a: #a3261c; --plate-b: #3f0a07; --edge: #e0665a; }
+
+body.theme-warhammer button.bg-emerald-600:hover,
+body.theme-warhammer button.bg-indigo-600:hover,
+body.theme-warhammer button.bg-blue-600:hover,
+body.theme-warhammer button.bg-red-600:hover { filter: brightness(1.2); }
+body.theme-warhammer button.bg-emerald-600:active,
+body.theme-warhammer button.bg-indigo-600:active,
+body.theme-warhammer button.bg-blue-600:active,
+body.theme-warhammer button.bg-red-600:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 1px 2px rgba(0, 0, 0, 0.7) !important;
+}
+
+/* вторичные кнопки: тёмный металл; активная вкладка — позолоченная */
+body.theme-warhammer button.bg-slate-700 {
+    background: linear-gradient(180deg, #3a2c1a 0%, #1d150d 100%) !important;
+    border: 1px solid #6b5229 !important;
+    border-radius: 2px !important;
+    color: #e8d8b9 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    box-shadow: inset 0 1px 0 rgba(255, 228, 160, 0.14), 0 2px 4px rgba(0, 0, 0, 0.6);
+    transition: filter 0.15s, border-color 0.15s;
+}
+body.theme-warhammer button.bg-slate-700:hover { border-color: #b89352 !important; filter: brightness(1.2); }
+body.theme-warhammer nav button[id^="tab-btn"].bg-slate-700,
+body.theme-warhammer #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
+    background: linear-gradient(180deg, #86652d 0%, #46320f 100%) !important;
+    border-color: #d4b26f !important;
+    color: #fff2c4 !important;
+}
+body.theme-warhammer nav .bg-slate-900,
+body.theme-warhammer #settingsModal .bg-slate-900.p-1 {
+    background: rgba(10, 7, 5, 0.75) !important;
+    border-color: #6b5229 !important;
+}
+
+/* Тёплые неактивные вкладки и логотип в тон теме Warhammer */
+body.theme-warhammer nav button[id^="tab-btn"]:not(.bg-slate-700),
+body.theme-warhammer #settingsModal button[id^="cfgTabBtn"]:not(.bg-slate-700) { color: #c9b48a !important; }
+body.theme-warhammer nav button[id^="tab-btn"]:not(.bg-slate-700):hover { color: #fff2c4 !important; background: rgba(184, 147, 82, 0.12) !important; }
+body.theme-warhammer nav .bg-indigo-500 {
+    background: linear-gradient(180deg, #7a5c2a 0%, #3a2a13 100%) !important;
+    border: 1px solid #c9a45e;
+    color: #f8ebbd;
+    border-radius: 2px !important;
+    font-family: var(--wh-title);
+    box-shadow: inset 0 1px 0 rgba(255, 228, 160, 0.35), 0 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+/* === END THEME: theme-warhammer === */
+
+/* === THEME: theme-scp === */
+body.theme-scp {
+    --chart-font: 'PT Mono', 'JetBrains Mono', ui-monospace, monospace;
+    --chart-text: #e5e5e0;
+    --chart-muted: #9e9d95;
+    --chart-grid: rgba(229, 229, 224, 0.14);
+    --chart-stage-1: #52524e;
+    --chart-stage-2: #d97706;
+    --chart-stage-3: #eab308;
+    --chart-stage-4: #84cc16;
+    --chart-stage-5: #38bdf8;
+    --chart-stage-6: #dc2626;
+    --chart-series-1: #d97706;
+    --chart-series-2: #dc2626;
+    --chart-border: #141413;
+    --chart-border-width: 1;
+    --chart-radius: 0;
+
+    background-color: #141413 !important;
+    background-image:
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 3px),
+        radial-gradient(circle at 50% 20%, #1f1f1d 0%, #10100f 100%) !important;
+    color: #e5e5e0 !important;
+    font-family: 'PT Mono', 'JetBrains Mono', monospace !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-scp select,
+body.theme-scp input,
+body.theme-scp button,
+body.theme-scp textarea {
+    font-family: 'PT Mono', 'JetBrains Mono', monospace !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-scp h1,
+body.theme-scp h2,
+body.theme-scp h3 {
+    font-family: 'Oswald', sans-serif !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    color: #f5f5f0 !important;
+}
+
+body.theme-scp nav {
+    background: #1a1a18 !important;
+    border-bottom: 3px solid #b91c1c !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85) !important;
+    position: relative;
+}
+
+body.theme-scp nav::after {
+    content: "CLEARANCE LEVEL 4 // RESTRICTED ACCESS // SCP-ARCHIVE";
+    position: absolute;
+    left: 50%;
+    bottom: 2px;
+    transform: translateX(-50%);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    color: #ef4444;
+    opacity: 0.75;
+    pointer-events: none;
+    z-index: 20;
+}
+
+body.theme-scp .bg-slate-800,
+body.theme-scp .bg-slate-800\/90 {
+    background-color: #1e1e1c !important;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(0, 0, 0, 0.25) 100%) !important;
+    border: 1px solid #4a4a44 !important;
+    border-top: 3px solid #78786e !important;
+    border-radius: 0 !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.75) !important;
+    position: relative;
+}
+
+body.theme-scp #projectsContainer > div {
+    padding-top: 1.75rem !important;
+}
+
+body.theme-scp #projectsContainer > div::before {
+    content: "FILE // CONTAINMENT DOSSIER";
+    position: absolute;
+    top: 5px;
+    left: 14px;
+    font-size: 9px;
+    color: #a8a29e;
+    letter-spacing: 0.14em;
+    pointer-events: none;
+}
+
+body.theme-scp #projectsContainer > div::after {
+    content: "CLASSIFIED";
+    position: absolute;
+    bottom: 48px;
+    right: 14px;
+    font-family: 'Oswald', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: rgba(220, 38, 38, 0.38);
+    border: 1.5px solid rgba(220, 38, 38, 0.38);
+    padding: 1px 6px;
+    transform: rotate(-6deg);
+    pointer-events: none;
+}
+
+body.theme-scp #projectsContainer .rounded-xl {
+    border-radius: 0 !important;
+    border: 1px solid #57534e !important;
+}
+
+body.theme-scp .bg-slate-900,
+body.theme-scp .bg-slate-900\/50,
+body.theme-scp .bg-slate-900\/90,
+body.theme-scp input,
+body.theme-scp textarea {
+    background-color: #121210 !important;
+    border: 1px solid #3f3f3a !important;
+    border-radius: 0 !important;
+    color: #e5e5e0 !important;
+}
+
+body.theme-scp select {
+    background-color: #121210 !important;
+    color: #e5e5e0 !important;
+    border: 1px solid #52524b !important;
+    border-radius: 0 !important;
+    background-image:
+        linear-gradient(90deg, rgba(217, 119, 6, 0.4) 1px, transparent 1px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23d97706' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+body.theme-scp select option {
+    background-color: #141413 !important;
+    color: #e5e5e0 !important;
+}
+
+body.theme-scp .dl-icon {
+    display: none;
+}
+
+body.theme-scp #projectsContainer .text-xs > span,
+body.theme-scp #tasksContainer .text-xs > span {
+    display: inline-block;
+    padding: 2px 8px !important;
+    background: #141412 !important;
+    border: 1px solid #57534e !important;
+    border-left: 3px solid #d97706 !important;
+    color: #e7e5e4 !important;
+    border-radius: 0 !important;
+    font-size: 11px !important;
+}
+
+body.theme-scp #projectsContainer .text-xs > span.text-red-400,
+body.theme-scp #projectsContainer .text-xs > span.text-red-500,
+body.theme-scp #tasksContainer .text-xs > span.text-red-400,
+body.theme-scp #tasksContainer .text-xs > span.text-red-500 {
+    background:
+        linear-gradient(rgba(20, 20, 18, 0.86), rgba(20, 20, 18, 0.86)),
+        repeating-linear-gradient(-45deg, #eab308 0, #eab308 6px, #141413 6px, #141413 12px) !important;
+    border: 1px solid #dc2626 !important;
+    border-left: 4px solid #dc2626 !important;
+    color: #fca5a5 !important;
+    font-weight: 700 !important;
+}
+
+body.theme-scp button.bg-emerald-600,
+body.theme-scp button.bg-indigo-600,
+body.theme-scp button.bg-blue-600,
+body.theme-scp button.bg-red-600 {
+    background: #272724 !important;
+    color: #f5f5f0 !important;
+    border: 1px solid #78716c !important;
+    border-left: 4px solid #d97706 !important;
+    border-radius: 0 !important;
+    font-family: 'Oswald', sans-serif !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    box-shadow: none !important;
+}
+body.theme-scp button.bg-emerald-600 { border-left-color: #84cc16 !important; }
+body.theme-scp button.bg-red-600 { border-left-color: #dc2626 !important; color: #fca5a5 !important; }
+
+body.theme-scp button.bg-emerald-600:hover,
+body.theme-scp button.bg-indigo-600:hover,
+body.theme-scp button.bg-blue-600:hover,
+body.theme-scp button.bg-red-600:hover {
+    background: #33332f !important;
+    border-color: #d97706 !important;
+}
+
+body.theme-scp button.bg-slate-700 {
+    background: #1c1c1a !important;
+    border: 1px solid #44403c !important;
+    border-radius: 0 !important;
+    color: #d6d3d1 !important;
+}
+
+body.theme-scp nav button[id^="tab-btn"].bg-slate-700,
+body.theme-scp #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
+    background: #b91c1c !important;
+    border-color: #ef4444 !important;
+    color: #ffffff !important;
+}
+/* === END THEME: theme-scp === */
+/* === THEME: theme-workbench === */
+body.theme-workbench {
+    --chart-font: 'Jura', sans-serif;
+    --chart-text: #e8efe9;
+    --chart-muted: #9cb5a4;
+    --chart-grid: rgba(232, 239, 233, 0.14);
+    --chart-stage-1: #5c7065;
+    --chart-stage-2: #38bdf8;
+    --chart-stage-3: #f59e0b;
+    --chart-stage-4: #a3e635;
+    --chart-stage-5: #cbd5e1;
+    --chart-stage-6: #fb7185;
+    --chart-series-1: #f59e0b;
+    --chart-series-2: #a3e635;
+    --chart-border: #16241d;
+    --chart-border-width: 1;
+    --chart-radius: 3;
+
+    background-color: #16261f !important;
+    background-image:
+        linear-gradient(rgba(210, 235, 220, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(210, 235, 220, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(210, 235, 220, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(210, 235, 220, 0.03) 1px, transparent 1px),
+        radial-gradient(circle at 50% 30%, #1e352b 0%, #111d17 100%) !important;
+    background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px, 100% 100% !important;
+    /* Фоновая картинка static/workbench_bg.jpg лежит поверх сетки; нет файла — видна сетка */
+    background-image:
+        linear-gradient(rgba(17, 29, 23, 0.72), rgba(17, 29, 23, 0.85)),
+        url('workbench_bg.jpg'),
+        linear-gradient(rgba(210, 235, 220, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(210, 235, 220, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(210, 235, 220, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(210, 235, 220, 0.03) 1px, transparent 1px),
+        radial-gradient(circle at 50% 30%, #1e352b 0%, #111d17 100%) !important;
+    background-size: 100% 100%, cover, 80px 80px, 80px 80px, 16px 16px, 16px 16px, 100% 100% !important;
+    background-position: center !important;
+    background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, repeat, no-repeat !important;
+    background-attachment: fixed, fixed, scroll, scroll, scroll, scroll, scroll !important;
+    color: #e8efe9 !important;
+    font-family: 'Jura', sans-serif !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-workbench select,
+body.theme-workbench input,
+body.theme-workbench button,
+body.theme-workbench textarea {
+    font-family: 'Jura', sans-serif !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-workbench h1,
+body.theme-workbench h2,
+body.theme-workbench h3 {
+    font-family: 'Oswald', sans-serif !important;
+    letter-spacing: 0.05em !important;
+    color: #f4f1ea !important;
+}
+
+body.theme-workbench nav {
+    background: linear-gradient(180deg, #262b28 0%, #1b1f1d 100%) !important;
+    border-bottom: 3px solid #d97706 !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7) !important;
+}
+
+body.theme-workbench .bg-slate-800,
+body.theme-workbench .bg-slate-800\/90 {
+    background-color: #232926 !important;
+    background-image:
+        radial-gradient(circle at 10px 10px, #d4a359 2.2px, #141816 3.2px, transparent 4px),
+        radial-gradient(circle at calc(100% - 10px) 10px, #d4a359 2.2px, #141816 3.2px, transparent 4px),
+        radial-gradient(circle at 10px calc(100% - 10px), #d4a359 2.2px, #141816 3.2px, transparent 4px),
+        radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), #d4a359 2.2px, #141816 3.2px, transparent 4px),
+        linear-gradient(160deg, #28302c 0%, #1c221f 100%) !important;
+    border: 1px solid #48564e !important;
+    border-radius: 4px !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+body.theme-workbench #projectsContainer .rounded-xl {
+    border-radius: 3px !important;
+    border: 2px solid #526058 !important;
+}
+
+body.theme-workbench .bg-slate-900,
+body.theme-workbench .bg-slate-900\/50,
+body.theme-workbench .bg-slate-900\/90,
+body.theme-workbench input,
+body.theme-workbench textarea {
+    background-color: #171c19 !important;
+    border: 1px solid #3b4740 !important;
+    border-radius: 3px !important;
+    color: #e8efe9 !important;
+}
+
+body.theme-workbench select {
+    background-color: #171c19 !important;
+    color: #e8efe9 !important;
+    border: 1px solid #52635a !important;
+    border-radius: 3px !important;
+    background-image:
+        linear-gradient(90deg, rgba(217, 119, 6, 0.4) 1px, transparent 1px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+body.theme-workbench select option {
+    background-color: #171c19 !important;
+    color: #e8efe9 !important;
+}
+
+body.theme-workbench .dl-icon {
+    display: none;
+}
+
+body.theme-workbench #projectsContainer .text-xs > span,
+body.theme-workbench #tasksContainer .text-xs > span {
+    display: inline-block;
+    background: linear-gradient(90deg, #e6d39a 0%, #dec783 100%) !important;
+    color: #262114 !important;
+    padding: 2px 10px !important;
+    border-radius: 1px !important;
+    border-left: 2px dashed rgba(38, 33, 20, 0.4) !important;
+    border-right: 2px dashed rgba(38, 33, 20, 0.4) !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+}
+
+body.theme-workbench #projectsContainer .text-xs > span.text-red-400,
+body.theme-workbench #projectsContainer .text-xs > span.text-red-500,
+body.theme-workbench #tasksContainer .text-xs > span.text-red-400,
+body.theme-workbench #tasksContainer .text-xs > span.text-red-500 {
+    background: linear-gradient(90deg, #f97316 0%, #ea580c 100%) !important;
+    color: #fff7ed !important;
+    border-left-color: rgba(255, 255, 255, 0.5) !important;
+    border-right-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+body.theme-workbench button.bg-emerald-600,
+body.theme-workbench button.bg-indigo-600,
+body.theme-workbench button.bg-blue-600,
+body.theme-workbench button.bg-red-600 {
+    background: linear-gradient(180deg, #d97706 0%, #b45309 100%) !important;
+    color: #fffbeb !important;
+    border: 1px solid #f59e0b !important;
+    border-radius: 3px !important;
+    font-family: 'Oswald', sans-serif !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5) !important;
+}
+body.theme-workbench button.bg-emerald-600 {
+    background: linear-gradient(180deg, #4d7c0f 0%, #3f6212 100%) !important;
+    border-color: #84cc16 !important;
+}
+body.theme-workbench button.bg-red-600 {
+    background: linear-gradient(180deg, #b91c1c 0%, #991b1b 100%) !important;
+    border-color: #f87171 !important;
+}
+
+body.theme-workbench button.bg-slate-700 {
+    background: #2b332f !important;
+    border: 1px solid #48564e !important;
+    border-radius: 3px !important;
+    color: #d6e2d9 !important;
+}
+
+body.theme-workbench nav button[id^="tab-btn"].bg-slate-700,
+body.theme-workbench #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
+    background: #d97706 !important;
+    border-color: #fbbf24 !important;
+    color: #141816 !important;
+    font-weight: 700 !important;
+}
+/* === END THEME: theme-workbench === */
+/* === THEME: theme-synthwave === */
+body.theme-synthwave {
+    --chart-font: 'Orbitron', 'JetBrains Mono', sans-serif;
+    --chart-text: #fce7f3;
+    --chart-muted: #c084fc;
+    --chart-grid: rgba(255, 0, 127, 0.2);
+    --chart-stage-1: #4c1d95;
+    --chart-stage-2: #00f0ff;
+    --chart-stage-3: #ffbe0b;
+    --chart-stage-4: #ff007f;
+    --chart-stage-5: #8338ec;
+    --chart-stage-6: #06d6a0;
+    --chart-series-1: #00f0ff;
+    --chart-series-2: #ff007f;
+    --chart-border: #120624;
+    --chart-border-width: 1;
+    --chart-radius: 2;
+
+    background-color: #100621 !important;
+    background-image:
+        linear-gradient(rgba(0, 240, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 0, 127, 0.06) 1px, transparent 1px),
+        radial-gradient(circle at 50% 100%, rgba(255, 0, 127, 0.28) 0%, rgba(131, 56, 236, 0.18) 40%, transparent 75%),
+        linear-gradient(180deg, #0b0418 0%, #190933 65%, #2b0b3d 100%) !important;
+    background-size: 36px 36px, 36px 36px, 100% 100%, 100% 100% !important;
+    background-attachment: fixed !important;
+    /* Фоновая картинка static/synthwave_bg.jpg лежит поверх сетки; нет файла — видна сетка */
+    background-image:
+        linear-gradient(rgba(16, 6, 33, 0.65), rgba(16, 6, 33, 0.82)),
+        url('synthwave_bg.jpg'),
+        linear-gradient(rgba(0, 240, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 0, 127, 0.06) 1px, transparent 1px),
+        radial-gradient(circle at 50% 100%, rgba(255, 0, 127, 0.28) 0%, rgba(131, 56, 236, 0.18) 40%, transparent 75%),
+        linear-gradient(180deg, #0b0418 0%, #190933 65%, #2b0b3d 100%) !important;
+    background-size: 100% 100%, cover, 36px 36px, 36px 36px, 100% 100%, 100% 100% !important;
+    background-position: center !important;
+    background-repeat: no-repeat, no-repeat, repeat, repeat, no-repeat, no-repeat !important;
+    color: #fce7f3 !important;
+    font-family: 'Jura', 'JetBrains Mono', sans-serif !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-synthwave select,
+body.theme-synthwave input,
+body.theme-synthwave button,
+body.theme-synthwave textarea {
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-synthwave h1,
+body.theme-synthwave h2,
+body.theme-synthwave h3 {
+    font-family: 'Russo One', 'Orbitron', sans-serif !important;
+    letter-spacing: 0.07em !important;
+    text-transform: uppercase !important;
+    color: #00f0ff !important;
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.55), 2px 2px 0px #ff007f !important;
+}
+
+body.theme-synthwave nav {
+    background: rgba(16, 6, 36, 0.92) !important;
+    border-bottom: 2px solid #ff007f !important;
+    box-shadow: 0 0 24px rgba(255, 0, 127, 0.35) !important;
+}
+
+body.theme-synthwave .bg-slate-800,
+body.theme-synthwave .bg-slate-800\/90 {
+    background: linear-gradient(145deg, rgba(28, 12, 54, 0.9) 0%, rgba(16, 6, 34, 0.95) 100%) !important;
+    border: 1px solid #ff007f !important;
+    box-shadow: 0 0 16px rgba(255, 0, 127, 0.22), inset 0 0 15px rgba(0, 240, 255, 0.08) !important;
+    border-radius: 6px !important;
+}
+
+body.theme-synthwave #projectsContainer > div:hover {
+    border-color: #00f0ff !important;
+    box-shadow: 0 0 22px rgba(0, 240, 255, 0.4), inset 0 0 16px rgba(255, 0, 127, 0.15) !important;
+}
+
+body.theme-synthwave #projectsContainer .rounded-xl {
+    border-radius: 4px !important;
+    border: 1px solid #00f0ff !important;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.3) !important;
+}
+
+body.theme-synthwave .bg-slate-900,
+body.theme-synthwave .bg-slate-900\/50,
+body.theme-synthwave .bg-slate-900\/90,
+body.theme-synthwave input,
+body.theme-synthwave textarea {
+    background-color: #0d041c !important;
+    border: 1px solid rgba(0, 240, 255, 0.4) !important;
+    color: #fce7f3 !important;
+    border-radius: 4px !important;
+}
+
+body.theme-synthwave select {
+    background-color: #0d041c !important;
+    color: #00f0ff !important;
+    border: 1px solid #ff007f !important;
+    border-radius: 4px !important;
+    background-image:
+        linear-gradient(90deg, rgba(255, 0, 127, 0.45) 1px, transparent 1px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2300f0ff' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+body.theme-synthwave select option {
+    background-color: #120626 !important;
+    color: #00f0ff !important;
+}
+
+body.theme-synthwave #projectsContainer .text-xs > span,
+body.theme-synthwave #tasksContainer .text-xs > span {
+    display: inline-block;
+    padding: 2px 9px !important;
+    background: rgba(0, 240, 255, 0.1) !important;
+    border: 1px solid rgba(0, 240, 255, 0.5) !important;
+    color: #a5f3fc !important;
+    border-radius: 3px !important;
+}
+
+body.theme-synthwave #projectsContainer .text-xs > span.text-red-400,
+body.theme-synthwave #projectsContainer .text-xs > span.text-red-500,
+body.theme-synthwave #tasksContainer .text-xs > span.text-red-400,
+body.theme-synthwave #tasksContainer .text-xs > span.text-red-500 {
+    background: linear-gradient(90deg, rgba(255, 0, 127, 0.3) 0%, rgba(255, 190, 11, 0.25) 100%) !important;
+    border-color: #ff007f !important;
+    color: #ffbe0b !important;
+    text-shadow: 0 0 8px rgba(255, 0, 127, 0.8) !important;
+}
+
+body.theme-synthwave button.bg-emerald-600,
+body.theme-synthwave button.bg-indigo-600,
+body.theme-synthwave button.bg-blue-600,
+body.theme-synthwave button.bg-red-600 {
+    background: linear-gradient(90deg, #ff007f 0%, #7928ca 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid #00f0ff !important;
+    border-radius: 4px !important;
+    font-family: 'Russo One', sans-serif !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    box-shadow: 0 0 14px rgba(255, 0, 127, 0.5) !important;
+}
+body.theme-synthwave button.bg-emerald-600 {
+    background: linear-gradient(90deg, #00b4d8 0%, #7209b7 100%) !important;
+}
+
+body.theme-synthwave button.bg-slate-700 {
+    background: rgba(131, 56, 236, 0.18) !important;
+    border: 1px solid rgba(192, 132, 252, 0.45) !important;
+    color: #f3e8ff !important;
+    border-radius: 4px !important;
+}
+
+body.theme-synthwave nav button[id^="tab-btn"].bg-slate-700,
+body.theme-synthwave #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
+    background: linear-gradient(90deg, #ff007f 0%, #ffbe0b 100%) !important;
+    border-color: #ffffff !important;
+    color: #100621 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 0 14px rgba(255, 0, 127, 0.7) !important;
+}
+/* === END THEME: theme-synthwave === */
+/* === THEME: theme-ff7 === */
+body.theme-ff7 {
+    --chart-font: 'Philosopher', Georgia, serif;
+    --chart-text: #f8fafc;
+    --chart-muted: #93c5fd;
+    --chart-grid: rgba(255, 255, 255, 0.2);
+    --chart-stage-1: #64748b;
+    --chart-stage-2: #4ade80;
+    --chart-stage-3: #facc15;
+    --chart-stage-4: #38bdf8;
+    --chart-stage-5: #c084fc;
+    --chart-stage-6: #f87171;
+    --chart-series-1: #4ade80;
+    --chart-series-2: #facc15;
+    --chart-border: #ffffff;
+    --chart-border-width: 1;
+    --chart-radius: 2;
+
+    background-color: #04091e !important;
+    background-image:
+        radial-gradient(circle at 15% 20%, rgba(56, 189, 248, 0.14) 0%, transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(74, 222, 128, 0.1) 0%, transparent 45%),
+        linear-gradient(180deg, #061030 0%, #020514 100%) !important;
+    color: #f8fafc !important;
+    font-family: 'Philosopher', Georgia, serif !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-ff7 select,
+body.theme-ff7 input,
+body.theme-ff7 button,
+body.theme-ff7 textarea {
+    font-family: 'Philosopher', Georgia, serif !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-ff7 h1,
+body.theme-ff7 h2,
+body.theme-ff7 h3 {
+    font-family: 'Playfair Display SC', 'Philosopher', serif !important;
+    letter-spacing: 0.04em !important;
+    color: #ffffff !important;
+    text-shadow: 2px 2px 0px #000000 !important;
+}
+
+body.theme-ff7 nav,
+body.theme-ff7 .bg-slate-800,
+body.theme-ff7 .bg-slate-800\/90 {
+    background: linear-gradient(180deg, #1b3280 0%, #0c1947 55%, #050b24 100%) !important;
+    border: 2px solid #e2e8f0 !important;
+    outline: 2px solid #334155 !important;
+    outline-offset: -4px !important;
+    border-radius: 6px !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.85), inset 0 0 12px rgba(255, 255, 255, 0.12) !important;
+}
+
+body.theme-ff7 #projectsContainer > div {
+    padding-top: 1.7rem !important;
+    position: relative;
+}
+
+body.theme-ff7 #projectsContainer > div::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 16px;
+    width: 54px;
+    height: 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 54 12'%3E%3Cline x1='6' y1='6' x2='48' y2='6' stroke='%2394a3b8' stroke-width='2'/%3E%3Ccircle cx='9' cy='6' r='4.5' fill='%234ade80' stroke='%231e293b' stroke-width='1.5'/%3E%3Ccircle cx='27' cy='6' r='4.5' fill='%23facc15' stroke='%231e293b' stroke-width='1.5'/%3E%3Ccircle cx='45' cy='6' r='4.5' fill='%2338bdf8' stroke='%231e293b' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: contain;
+    pointer-events: none;
+}
+
+body.theme-ff7 #projectsContainer .rounded-xl {
+    border-radius: 4px !important;
+    border: 2px solid #cbd5e1 !important;
+    box-shadow: 2px 2px 0 #000000 !important;
+}
+
+body.theme-ff7 .bg-slate-900,
+body.theme-ff7 .bg-slate-900\/50,
+body.theme-ff7 .bg-slate-900\/90,
+body.theme-ff7 input,
+body.theme-ff7 textarea {
+    background-color: #050d2e !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 4px !important;
+    color: #f8fafc !important;
+}
+
+body.theme-ff7 select {
+    background-color: #07123d !important;
+    color: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 4px !important;
+    background-image:
+        linear-gradient(90deg, rgba(203, 213, 225, 0.35) 1px, transparent 1px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23facc15' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+body.theme-ff7 select option {
+    background-color: #07123d !important;
+    color: #ffffff !important;
+}
+
+body.theme-ff7 #projectsContainer .text-xs > span,
+body.theme-ff7 #tasksContainer .text-xs > span {
+    display: inline-block;
+    padding: 2px 10px !important;
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.35) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #f8fafc !important;
+    border-radius: 3px !important;
+    text-shadow: 1px 1px 0 #000 !important;
+}
+
+body.theme-ff7 #projectsContainer .text-xs > span.text-red-400,
+body.theme-ff7 #projectsContainer .text-xs > span.text-red-500,
+body.theme-ff7 #tasksContainer .text-xs > span.text-red-400,
+body.theme-ff7 #tasksContainer .text-xs > span.text-red-500 {
+    background: linear-gradient(90deg, #dc2626 0%, #7f1d1d 100%) !important;
+    border-color: #fde047 !important;
+    color: #fef08a !important;
+}
+
+body.theme-ff7 button.bg-emerald-600,
+body.theme-ff7 button.bg-indigo-600,
+body.theme-ff7 button.bg-blue-600,
+body.theme-ff7 button.bg-red-600,
+body.theme-ff7 button.bg-slate-700 {
+    background: linear-gradient(180deg, #2542a6 0%, #0f1e54 100%) !important;
+    color: #ffffff !important;
+    border: 2px solid #e2e8f0 !important;
+    border-radius: 5px !important;
+    text-shadow: 1px 1px 0 #000000 !important;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.7) !important;
+}
+
+body.theme-ff7 button.bg-emerald-600 { border-color: #86efac !important; }
+body.theme-ff7 button.bg-red-600 { background: linear-gradient(180deg, #991b1b 0%, #450a0a 100%) !important; border-color: #fca5a5 !important; }
+
+body.theme-ff7 nav button[id^="tab-btn"].bg-slate-700,
+body.theme-ff7 #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
+    background: linear-gradient(180deg, #3b5bdb 0%, #1d3587 100%) !important;
+    border-color: #facc15 !important;
+    color: #fef08a !important;
+}
+/* === END THEME: theme-ff7 === */
+/* === THEME: theme-tamiya === */
+body.theme-tamiya {
+    --chart-font: 'PT Mono', 'JetBrains Mono', monospace;
+    --chart-text: #f5f2eb;
+    --chart-muted: #93a8c7;
+    --chart-grid: rgba(245, 242, 235, 0.16);
+    --chart-stage-1: #64748b;
+    --chart-stage-2: #38bdf8;
+    --chart-stage-3: #facc15;
+    --chart-stage-4: #fb923c;
+    --chart-stage-5: #e2e8f0;
+    --chart-stage-6: #ef4444;
+    --chart-series-1: #38bdf8;
+    --chart-series-2: #ef4444;
+    --chart-border: #f5f2eb;
+    --chart-border-width: 1;
+    --chart-radius: 0;
+
+    background-color: #142238 !important;
+    background-image:
+        linear-gradient(rgba(245, 242, 235, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(245, 242, 235, 0.07) 1px, transparent 1px),
+        linear-gradient(rgba(245, 242, 235, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(245, 242, 235, 0.025) 1px, transparent 1px) !important;
+    background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px !important;
+    color: #f5f2eb !important;
+    font-family: 'PT Mono', 'JetBrains Mono', monospace !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-tamiya select,
+body.theme-tamiya input,
+body.theme-tamiya button,
+body.theme-tamiya textarea {
+    font-family: 'PT Mono', 'JetBrains Mono', monospace !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-tamiya h1,
+body.theme-tamiya h2,
+body.theme-tamiya h3 {
+    font-family: 'Oswald', sans-serif !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    color: #ffffff !important;
+}
+
+body.theme-tamiya nav {
+    background: #0f1b2d !important;
+    border-bottom: 2px solid #f5f2eb !important;
+    box-shadow: 0 4px 0 rgba(239, 68, 68, 0.85) !important;
+}
+
+body.theme-tamiya .bg-slate-800,
+body.theme-tamiya .bg-slate-800\/90 {
+    background: #182942 !important;
+    border: 2px solid #e2dfd7 !important;
+    border-radius: 0 !important;
+    box-shadow: 5px 5px 0px rgba(8, 15, 26, 0.85) !important;
+    position: relative;
+}
+
+body.theme-tamiya #projectsContainer > div {
+    padding-top: 1.8rem !important;
+}
+
+body.theme-tamiya #projectsContainer > div::before {
+    content: "STEP // ASSEMBLY DIAGRAM";
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: #e2dfd7;
+    color: #0f1b2d;
+    font-family: 'Oswald', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 1px 10px;
+    pointer-events: none;
+}
+
+body.theme-tamiya #projectsContainer .rounded-xl {
+    border-radius: 0 !important;
+    border: 1.5px dashed #e2dfd7 !important;
+}
+
+body.theme-tamiya .bg-slate-900,
+body.theme-tamiya .bg-slate-900\/50,
+body.theme-tamiya .bg-slate-900\/90,
+body.theme-tamiya input,
+body.theme-tamiya textarea {
+    background-color: #0f1b2d !important;
+    border: 1px solid #647d9e !important;
+    border-radius: 0 !important;
+    color: #f5f2eb !important;
+}
+
+body.theme-tamiya select {
+    background-color: #0f1b2d !important;
+    color: #f5f2eb !important;
+    border: 1.5px solid #e2dfd7 !important;
+    border-radius: 0 !important;
+    background-image:
+        linear-gradient(90deg, rgba(226, 223, 215, 0.4) 1px, transparent 1px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23f5f2eb' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+body.theme-tamiya select option {
+    background-color: #0f1b2d !important;
+    color: #f5f2eb !important;
+}
+
+body.theme-tamiya .dl-icon {
+    display: none;
+}
+
+body.theme-tamiya #projectsContainer .text-xs > span,
+body.theme-tamiya #tasksContainer .text-xs > span {
+    display: inline-block;
+    padding: 2px 8px !important;
+    background: #0f1b2d !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #f5f2eb !important;
+    border-radius: 0 !important;
+}
+
+body.theme-tamiya #projectsContainer .text-xs > span.text-red-400,
+body.theme-tamiya #projectsContainer .text-xs > span.text-red-500,
+body.theme-tamiya #tasksContainer .text-xs > span.text-red-400,
+body.theme-tamiya #tasksContainer .text-xs > span.text-red-500 {
+    background: #dc2626 !important;
+    border: 1.5px solid #ffffff !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+body.theme-tamiya button.bg-emerald-600,
+body.theme-tamiya button.bg-indigo-600,
+body.theme-tamiya button.bg-blue-600,
+body.theme-tamiya button.bg-red-600 {
+    background: #e11d48 !important;
+    color: #ffffff !important;
+    border: 2px solid #ffffff !important;
+    border-radius: 0 !important;
+    font-family: 'Oswald', sans-serif !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    box-shadow: 3px 3px 0px #09111e !important;
+}
+body.theme-tamiya button.bg-indigo-600,
+body.theme-tamiya button.bg-blue-600 {
+    background: #0284c7 !important;
+}
+
+body.theme-tamiya button.bg-slate-700 {
+    background: #142238 !important;
+    border: 1.5px solid #93a8c7 !important;
+    border-radius: 0 !important;
+    color: #f5f2eb !important;
+}
+
+body.theme-tamiya nav button[id^="tab-btn"].bg-slate-700,
+body.theme-tamiya #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
+    background: #f5f2eb !important;
+    border-color: #f5f2eb !important;
+    color: #0f1b2d !important;
+    font-weight: 700 !important;
+}
+/* === END THEME: theme-tamiya === */
+/* === THEME: theme-pcb === */
+body.theme-pcb {
+    --chart-font: 'Chakra Petch', 'JetBrains Mono', monospace;
+    --chart-text: #ecfdf5;
+    --chart-muted: #86efac;
+    --chart-grid: rgba(212, 175, 55, 0.22);
+    --chart-stage-1: #2d5a43;
+    --chart-stage-2: #d4af37;
+    --chart-stage-3: #f59e0b;
+    --chart-stage-4: #10b981;
+    --chart-stage-5: #38bdf8;
+    --chart-stage-6: #ef4444;
+    --chart-series-1: #d4af37;
+    --chart-series-2: #10b981;
+    --chart-border: #081c12;
+    --chart-border-width: 1;
+    --chart-radius: 1;
+
+    background-color: #071910 !important;
+    /* Фоновая картинка static/pcb_bg.jpg лежит поверх узора; нет файла — виден узор дорожек */
+    background-image:
+        linear-gradient(rgba(7, 25, 16, 0.78), rgba(5, 19, 12, 0.88)),
+        url('pcb_bg.jpg'),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23d4af37' stroke-opacity='0.12' stroke-width='1.5'%3E%3Cpath d='M0 30 H40 L60 50 H120'/%3E%3Cpath d='M0 90 H30 L50 70 H95 L110 85 H120'/%3E%3Cpath d='M30 0 V20 L45 35 V120'/%3E%3Ccircle cx='40' cy='30' r='3' fill='%23071910' stroke='%23d4af37' stroke-opacity='0.22'/%3E%3Ccircle cx='60' cy='50' r='3' fill='%23071910' stroke='%23d4af37' stroke-opacity='0.22'/%3E%3Ccircle cx='50' cy='70' r='3' fill='%23071910' stroke='%23d4af37' stroke-opacity='0.22'/%3E%3C/g%3E%3C/svg%3E"),
+        radial-gradient(circle at 50% 0%, #0d2e1e 0%, #05130c 100%) !important;
+    background-size: 100% 100%, cover, 120px 120px, 100% 100% !important;
+    background-position: center !important;
+    background-repeat: no-repeat, no-repeat, repeat, no-repeat !important;
+    background-attachment: fixed, fixed, scroll, scroll !important;
+    color: #ecfdf5 !important;
+    font-family: 'Chakra Petch', 'JetBrains Mono', sans-serif !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-pcb select,
+body.theme-pcb input,
+body.theme-pcb button,
+body.theme-pcb textarea {
+    font-family: 'Chakra Petch', 'JetBrains Mono', sans-serif !important;
+    font-variant-numeric: lining-nums !important;
+}
+
+body.theme-pcb h1,
+body.theme-pcb h2,
+body.theme-pcb h3 {
+    font-family: 'Chakra Petch', 'JetBrains Mono', sans-serif !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    color: #ffffff !important;
+}
+
+body.theme-pcb nav {
+    background: #0a2216 !important;
+    border-bottom: 2px solid #d4af37 !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.85) !important;
+}
+
+body.theme-pcb .bg-slate-800,
+body.theme-pcb .bg-slate-800\/90 {
+    background-color: #111614 !important;
+    background-image:
+        radial-gradient(circle at 14px 14px, rgba(212, 175, 55, 0.55) 3px, transparent 4px),
+        linear-gradient(160deg, #171d1a 0%, #0d110f 100%) !important;
+    border: 1.5px solid #e2e8f0 !important;
+    outline: 2px dashed rgba(212, 175, 55, 0.45) !important;
+    outline-offset: 2px !important;
+    border-radius: 2px !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.85) !important;
+    position: relative;
+}
+
+body.theme-pcb #projectsContainer > div {
+    padding-top: 1.7rem !important;
+}
+
+body.theme-pcb #projectsContainer > div::before {
+    content: "IC-U1 // REV 4.2 // ENIG-GOLD";
+    position: absolute;
+    top: 4px;
+    left: 26px;
+    font-size: 9px;
+    color: #d4af37;
+    letter-spacing: 0.14em;
+    pointer-events: none;
+}
+
+body.theme-pcb #projectsContainer .rounded-xl {
+    border-radius: 2px !important;
+    border: 1.5px solid #d4af37 !important;
+}
+
+body.theme-pcb .bg-slate-900,
+body.theme-pcb .bg-slate-900\/50,
+body.theme-pcb .bg-slate-900\/90,
+body.theme-pcb input,
+body.theme-pcb textarea {
+    background-color: #06130c !important;
+    border: 1px solid #2d5a43 !important;
+    border-radius: 2px !important;
+    color: #ecfdf5 !important;
+}
+
+body.theme-pcb select {
+    background-color: #081a11 !important;
+    color: #f8fafc !important;
+    border: 1px solid #d4af37 !important;
+    border-radius: 2px !important;
+    background-image:
+        linear-gradient(90deg, rgba(212, 175, 55, 0.45) 1px, transparent 1px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+body.theme-pcb select option {
+    background-color: #081a11 !important;
+    color: #ecfdf5 !important;
+}
+
+body.theme-pcb .dl-icon {
+    display: none;
+}
+
+body.theme-pcb #projectsContainer .text-xs > span,
+body.theme-pcb #tasksContainer .text-xs > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 2px 9px !important;
+    background: #0a1f14 !important;
+    border: 1px solid #d4af37 !important;
+    color: #ecfdf5 !important;
+    border-radius: 2px !important;
+}
+
+body.theme-pcb #projectsContainer .text-xs > span::before,
+body.theme-pcb #tasksContainer .text-xs > span::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 1px;
+    background: #22c55e;
+    box-shadow: 0 0 6px #22c55e;
+}
+
+body.theme-pcb #projectsContainer .text-xs > span.text-red-400,
+body.theme-pcb #projectsContainer .text-xs > span.text-red-500,
+body.theme-pcb #tasksContainer .text-xs > span.text-red-400,
+body.theme-pcb #tasksContainer .text-xs > span.text-red-500 {
+    border-color: #ef4444 !important;
+    color: #fecaca !important;
+    background: #2a0a0a !important;
+}
+
+body.theme-pcb #projectsContainer .text-xs > span.text-red-400::before,
+body.theme-pcb #projectsContainer .text-xs > span.text-red-500::before,
+body.theme-pcb #tasksContainer .text-xs > span.text-red-400::before,
+body.theme-pcb #tasksContainer .text-xs > span.text-red-500::before {
+    background: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+}
+
+body.theme-pcb button.bg-emerald-600,
+body.theme-pcb button.bg-indigo-600,
+body.theme-pcb button.bg-blue-600,
+body.theme-pcb button.bg-red-600 {
+    background: linear-gradient(180deg, #d4af37 0%, #9a7b25 100%) !important;
+    color: #071910 !important;
+    border: 1px solid #fef08a !important;
+    border-radius: 2px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7) !important;
+}
+body.theme-pcb button.bg-red-600 {
+    background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%) !important;
+    color: #ffffff !important;
+    border-color: #fca5a5 !important;
+}
+
+body.theme-pcb button.bg-slate-700 {
+    background: #0d281a !important;
+    border: 1px solid #d4af37 !important;
+    border-radius: 2px !important;
+    color: #fef08a !important;
+}
+
+body.theme-pcb nav button[id^="tab-btn"].bg-slate-700,
+body.theme-pcb #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
+    background: #d4af37 !important;
+    border-color: #ffffff !important;
+    color: #071910 !important;
+    font-weight: 700 !important;
+}
+/* === END THEME: theme-pcb === */

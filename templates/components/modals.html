@@ -1,0 +1,498 @@
+   <div id="settingsModal" onclick="if(event.target === this) closeModal('settingsModal')" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-xl w-full shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-white">{{ tr('common.settings') }}</h3>
+                <button onclick="closeModal('settingsModal')" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="flex gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700 mb-4 flex-wrap">
+                <button type="button" id="cfgTabBtn-general" onclick="switchSettingsTab('general')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap bg-slate-700 text-white shadow-sm transition-colors">{{ tr('settings.tab.general') }}</button>
+                <button type="button" id="cfgTabBtn-notifications" onclick="switchSettingsTab('notifications')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.notifications') }}</button>
+                <button type="button" id="cfgTabBtn-schedule" onclick="switchSettingsTab('schedule')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.schedule') }}</button>
+                <button type="button" id="cfgTabBtn-backup" onclick="switchSettingsTab('backup')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.backup') }}</button>
+                <button type="button" id="cfgTabBtn-telegram" onclick="switchSettingsTab('telegram')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Telegram</button>
+                <button type="button" id="cfgTabBtn-security" onclick="switchSettingsTab('security')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.security') }}</button>
+            </div>
+
+            <div class="min-h-[21rem] text-sm">
+                <!-- Основные -->
+                <div id="cfgTab-general" class="space-y-4">
+                    <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                        <div>
+                            <div class="font-semibold text-white">{{ tr('settings.dev_mode') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.dev_mode_hint') }}</div>
+                        </div>
+                        <input type="checkbox" id="cfgDevMode" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                    </label>
+
+                    <div class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700">
+                        <div>
+                            <div class="text-white font-semibold">{{ tr('settings.project_cost') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.project_cost_hint') }}</div>
+                        </div>
+                        <input type="number" id="cfgProjectCost" min="0" step="1" class="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-center text-amber-400 font-bold outline-none ml-3">
+                    </div>
+
+                    <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                        <div>
+                            <div class="font-semibold text-white">{{ tr('settings.delete_keeps_balance') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.delete_keeps_balance_hint') }}</div>
+                        </div>
+                        <input type="checkbox" id="cfgDeleteKeepsBalance" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                    </label>
+
+                    <div class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700">
+                        <div>
+                            <div class="text-white font-semibold">{{ tr('settings.language') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.language_hint') }}</div>
+                        </div>
+                        <select id="cfgLanguage" class="ml-3 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                    </div>
+
+                    <div class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700">
+                        <div>
+                            <div class="text-white font-semibold">{{ tr('settings.date_format') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.date_format_hint') }}</div>
+                        </div>
+                        <select id="cfgDateFormat" class="ml-3 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white outline-none cursor-pointer [color-scheme:dark]">
+                            <option value="dmy">{{ tr('settings.date_dmy') }}</option>
+                            <option value="mdy">{{ tr('settings.date_mdy') }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Уведомления -->
+                <div id="cfgTab-notifications" class="hidden space-y-4">
+                    <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                        <div>
+                            <div class="font-semibold text-white">{{ tr('settings.notify.postpone') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.notify.postpone_hint') }}</div>
+                        </div>
+                        <input type="checkbox" id="cfgAllowPostpone" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                    </label>
+
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-2">
+                        <label class="flex items-center justify-between cursor-pointer">
+                            <div>
+                                <div class="font-semibold text-white">{{ tr('settings.notify.stagnation') }}</div>
+                                <div class="text-xs text-slate-400">{{ tr('settings.notify.stagnation_hint') }}</div>
+                            </div>
+                            <input type="checkbox" id="cfgStagnationAlert" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                        </label>
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                            <span class="text-xs text-slate-400">{{ tr('settings.notify.stagnation_days') }}:</span>
+                            <input type="number" id="cfgStagnationDays" min="1" max="90" class="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-center text-white outline-none">
+                        </div>
+                    </div>
+
+                    <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                        <div>
+                            <div class="font-semibold text-white">{{ tr('settings.notify.friday') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.notify.friday_hint') }}</div>
+                        </div>
+                        <input type="checkbox" id="cfgFridayDigest" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                    </label>
+
+                    <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                        <div>
+                            <div class="font-semibold text-white">{{ tr('settings.notify.monthly') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.notify.monthly_hint') }}</div>
+                        </div>
+                        <input type="checkbox" id="cfgMonthlyReport" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                    </label>
+
+                    <div class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700">
+                        <div>
+                            <div class="font-semibold text-white">{{ tr('settings.notify.test_title') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.notify.test_hint') }}</div>
+                        </div>
+                        <button type="button" onclick="triggerTestNotify()" class="ml-3 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-medium text-indigo-300 transition-colors">{{ tr('settings.notify.test_btn') }}</button>
+                    </div>
+                </div>
+
+                <!-- Расписание -->
+                <div id="cfgTab-schedule" class="hidden space-y-4">
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-2">
+                        <label class="flex items-center justify-between cursor-pointer">
+                            <div>
+                                <div class="font-semibold text-white">{{ tr('settings.schedule.pushes') }}</div>
+                                <div class="text-xs text-slate-400">{{ tr('settings.schedule.hint') }}</div>
+                            </div>
+                            <input type="checkbox" id="cfgNotifyEnabled" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                        </label>
+                        <div class="pt-2 border-t border-slate-800 space-y-0.5">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[11px] uppercase tracking-wider text-slate-500">{{ tr('settings.schedule.by_day') }}</span>
+                                <button type="button" onclick="copyMondayTimeToAll()" class="text-[11px] text-indigo-300 hover:text-indigo-200">{{ tr('settings.schedule.copy_monday') }}</button>
+                            </div>
+                        <div id="cfgDayRow_mon" class="flex items-center justify-between rounded-lg px-2 py-1 transition-opacity">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="cfgDayEn_mon" onchange="syncDayRow('mon')" class="w-4 h-4 accent-indigo-500 rounded cursor-pointer">
+                                <span class="text-xs text-slate-300">{{ tr('day.mon_full') }}</span>
+                            </label>
+                            <div class="flex items-center gap-1">
+                            <select id="cfgDay_monH" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                            <span class="text-slate-400 font-bold">:</span>
+                            <select id="cfgDay_monM" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                        </div>
+                        </div>
+                        <div id="cfgDayRow_tue" class="flex items-center justify-between rounded-lg px-2 py-1 transition-opacity">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="cfgDayEn_tue" onchange="syncDayRow('tue')" class="w-4 h-4 accent-indigo-500 rounded cursor-pointer">
+                                <span class="text-xs text-slate-300">{{ tr('day.tue_full') }}</span>
+                            </label>
+                            <div class="flex items-center gap-1">
+                            <select id="cfgDay_tueH" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                            <span class="text-slate-400 font-bold">:</span>
+                            <select id="cfgDay_tueM" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                        </div>
+                        </div>
+                        <div id="cfgDayRow_wed" class="flex items-center justify-between rounded-lg px-2 py-1 transition-opacity">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="cfgDayEn_wed" onchange="syncDayRow('wed')" class="w-4 h-4 accent-indigo-500 rounded cursor-pointer">
+                                <span class="text-xs text-slate-300">{{ tr('day.wed_full') }}</span>
+                            </label>
+                            <div class="flex items-center gap-1">
+                            <select id="cfgDay_wedH" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                            <span class="text-slate-400 font-bold">:</span>
+                            <select id="cfgDay_wedM" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                        </div>
+                        </div>
+                        <div id="cfgDayRow_thu" class="flex items-center justify-between rounded-lg px-2 py-1 transition-opacity">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="cfgDayEn_thu" onchange="syncDayRow('thu')" class="w-4 h-4 accent-indigo-500 rounded cursor-pointer">
+                                <span class="text-xs text-slate-300">{{ tr('day.thu_full') }}</span>
+                            </label>
+                            <div class="flex items-center gap-1">
+                            <select id="cfgDay_thuH" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                            <span class="text-slate-400 font-bold">:</span>
+                            <select id="cfgDay_thuM" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                        </div>
+                        </div>
+                        <div id="cfgDayRow_fri" class="flex items-center justify-between rounded-lg px-2 py-1 transition-opacity">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="cfgDayEn_fri" onchange="syncDayRow('fri')" class="w-4 h-4 accent-indigo-500 rounded cursor-pointer">
+                                <span class="text-xs text-slate-300">{{ tr('day.fri_full') }}</span>
+                            </label>
+                            <div class="flex items-center gap-1">
+                            <select id="cfgDay_friH" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                            <span class="text-slate-400 font-bold">:</span>
+                            <select id="cfgDay_friM" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                        </div>
+                        </div>
+                        <div id="cfgDayRow_sat" class="flex items-center justify-between rounded-lg px-2 py-1 transition-opacity">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="cfgDayEn_sat" onchange="syncDayRow('sat')" class="w-4 h-4 accent-indigo-500 rounded cursor-pointer">
+                                <span class="text-xs text-slate-300">{{ tr('day.sat_full') }}</span>
+                            </label>
+                            <div class="flex items-center gap-1">
+                            <select id="cfgDay_satH" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                            <span class="text-slate-400 font-bold">:</span>
+                            <select id="cfgDay_satM" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                        </div>
+                        </div>
+                        <div id="cfgDayRow_sun" class="flex items-center justify-between rounded-lg px-2 py-1 transition-opacity">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="cfgDayEn_sun" onchange="syncDayRow('sun')" class="w-4 h-4 accent-indigo-500 rounded cursor-pointer">
+                                <span class="text-xs text-slate-300">{{ tr('day.sun_full') }}</span>
+                            </label>
+                            <div class="flex items-center gap-1">
+                            <select id="cfgDay_sunH" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                            <span class="text-slate-400 font-bold">:</span>
+                            <select id="cfgDay_sunM" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                        </div>
+                        </div>
+                            <div class="text-[11px] text-slate-500 pt-1">{{ tr('settings.schedule.day_hint') }}.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Бэкап -->
+                <div id="cfgTab-backup" class="hidden space-y-4">
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-2">
+                        <label class="flex items-center justify-between cursor-pointer">
+                            <div>
+                                <div class="font-semibold text-white">{{ tr('settings.backup.title') }}</div>
+                                <div class="text-xs text-slate-400">{{ tr('settings.backup.hint') }}</div>
+                            </div>
+                            <input type="checkbox" id="cfgBackupEnabled" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                        </label>
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                            <span class="text-xs text-slate-400">{{ tr('settings.backup.time') }}:</span>
+                            <div class="flex items-center gap-1">
+                            <select id="cfgBackupTimeH" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                            <span class="text-slate-400 font-bold">:</span>
+                            <select id="cfgBackupTimeM" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- Telegram -->
+                <div id="cfgTab-telegram" class="hidden space-y-4">
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-3">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <div class="font-semibold text-white">{{ tr('tg.title') }}</div>
+                                <div class="text-xs text-slate-400">{{ tr('tg.hint') }}.</div>
+                            </div>
+                            <span id="tgStatusBadge" class="ml-3 shrink-0 text-xs px-2.5 py-1 rounded-full border"></span>
+                        </div>
+
+                        <div id="tgBound" class="hidden space-y-2 pt-2 border-t border-slate-800">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-slate-400">{{ tr('tg.chat_id') }}:</span>
+                                <span id="tgChatId" class="font-mono text-sm text-white"></span>
+                            </div>
+                            <div class="flex justify-end">
+                                <button type="button" onclick="unlinkTelegram()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-medium text-red-300 transition-colors">{{ tr('tg.unlink_chat') }}</button>
+                            </div>
+                        </div>
+
+                        <div id="tgUnbound" class="hidden space-y-2 pt-2 border-t border-slate-800">
+                            <div class="text-xs text-slate-400">{{ tr('tg.pairing_code') }}:</div>
+                            <div id="tgCode" class="font-mono text-2xl tracking-widest text-amber-300 text-center py-2 select-all"></div>
+                            <div class="text-xs text-slate-400">{{ tr('tg.pair_instruction') }}.</div>
+                            <div class="flex justify-end">
+                                <button type="button" onclick="newTelegramCode()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-medium text-indigo-300 transition-colors">{{ tr('tg.new_code') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Доступ (вход по паролю) -->
+                <div id="cfgTab-security" class="hidden space-y-4">
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-3">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <div class="font-semibold text-white">{{ tr('auth.title') }}</div>
+                                <div class="text-xs text-slate-400">{{ tr('auth.hint') }}</div>
+                            </div>
+                            <span id="authBadge" class="ml-3 shrink-0 text-xs px-2.5 py-1 rounded-full border"></span>
+                        </div>
+                        <div id="authDefaultHint" class="hidden text-xs text-amber-300"></div>
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                            <span class="text-xs text-slate-400">{{ tr('auth.user') }}: <span id="authUserName" class="font-mono text-white"></span></span>
+                            <div class="flex gap-2">
+                                <button type="button" id="authLogoutBtn" onclick="authLogout()" class="hidden px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-medium text-slate-200 transition-colors">{{ tr('auth.logout') }}</button>
+                                <button type="button" id="authToggleBtn" onclick="authToggle()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-medium text-indigo-300 transition-colors"></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-3">
+                        <div class="font-semibold text-white">{{ tr('auth.change_password') }}</div>
+                        <input type="password" id="authPwdOld" autocomplete="current-password" placeholder="{{ tr('auth.current_password') }}" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-indigo-500">
+                        <div class="text-xs text-slate-500">{{ tr('auth.current_password_hint') }}</div>
+                        <input type="password" id="authPwdNew" autocomplete="new-password" placeholder="{{ tr('auth.new_password') }}" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-indigo-500">
+                        <input type="password" id="authPwdNew2" autocomplete="new-password" placeholder="{{ tr('auth.repeat_password') }}" class="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-indigo-500">
+                        <div class="flex justify-end">
+                            <button type="button" onclick="authChangePassword()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-medium text-white transition-colors">{{ tr('auth.change_password') }}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end items-center gap-2 mt-6 pt-4 border-t border-slate-700">
+                <button onclick="closeModal('settingsModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('common.cancel') }}</button>
+                <button onclick="saveSettings()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm font-medium text-white">{{ tr('common.save') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка: Новый проект -->
+    <div id="projectModal" onclick="if(event.target === this) closeModal('projectModal')" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-white">{{ tr('project.new') }}</h3>
+                <span id="projCostHint" class="text-xs px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 font-medium">{{ tr('project.cost', n=10) }} 💰</span>
+            </div>
+            <div class="space-y-3">
+                <input id="pName" placeholder="{{ tr('project.name') }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+                <select id="pPriority" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+                    <option value="Low">🟢 Low</option><option value="Medium" selected>🟡 Medium</option>
+                    <option value="High">🟠 High</option><option value="Critical">🔴 Critical</option>
+                </select>
+                <input id="pEstimate" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+                <input id="pToken" type="number" step="0.1" placeholder="{{ tr('project.reward') }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeModal('projectModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('common.cancel') }}</button>
+                <button onclick="createProject()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-medium text-white">{{ tr('common.create') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка: Редактировать проект -->
+    <div id="editProjectModal" onclick="if(event.target === this) closeModal('editProjectModal')" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[75]">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
+            <h3 id="epTitle" class="text-lg font-bold text-white mb-4">{{ tr('project.edit') }}</h3>
+            <div class="space-y-3">
+                <input type="hidden" id="epId">
+                <input id="epName" placeholder="{{ tr('project.name') }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+                <div id="epDevFields" class="space-y-3">
+                <select id="epPriority" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+                    <option value="Low">🟢 Low</option><option value="Medium">🟡 Medium</option>
+                    <option value="High">🟠 High</option><option value="Critical">🔴 Critical</option>
+                </select>
+                <input id="epEstimate" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeModal('editProjectModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('common.cancel') }}</button>
+                <button onclick="saveProjectEdit()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-medium text-white">{{ tr('common.save') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка: Редактировать задачу -->
+    <div id="editTaskModal" onclick="if(event.target === this) closeModal('editTaskModal')" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4">{{ tr('task.edit') }}</h3>
+            <div class="space-y-3">
+                <input type="hidden" id="etId">
+                <input id="etName" placeholder="{{ tr('task.description') }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+                <input id="etDeadline" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeModal('editTaskModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('common.cancel') }}</button>
+                <button onclick="saveTaskEdit()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-medium text-white">{{ tr('common.save') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка: Детали проекта (Блокнот для красок + Задачи) -->
+    <div id="projectDetailsModal" onclick="if(event.target === this) closeModal('projectDetailsModal')" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-2xl w-full shadow-2xl flex flex-col max-h-[88vh] overflow-y-auto">
+            <div class="flex justify-between items-start mb-4 border-b border-slate-700 pb-3">
+                <div class="flex items-center gap-3 min-w-0 pr-3">
+                    <div class="flex flex-col items-center gap-1 shrink-0">
+                        <div id="pdPhoto" onclick="onProjectPhotoClick(currentOpenProjectId)" title="{{ tr('photo.title') }}" class="w-16 h-16 rounded-xl border border-slate-600 bg-slate-900 overflow-hidden cursor-pointer hover:border-indigo-400 transition-colors"></div>
+                        <div id="pdPhotoActions" class="hidden flex gap-2">
+                            <button onclick="pickProjectPhoto(currentOpenProjectId)" class="text-[10px] text-slate-500 hover:text-indigo-300">{{ tr('common.change_lc') }}</button>
+                            <button onclick="removeProjectPhoto(currentOpenProjectId)" class="text-[10px] text-slate-500 hover:text-red-400">{{ tr('common.remove_lc') }}</button>
+                        </div>
+                    </div>
+                    <h3 id="pdTitle" class="text-xl font-bold text-white truncate">{{ tr('common.project') }}</h3>
+                    <button onclick="openEditModal(currentOpenProjectId)" class="shrink-0 text-base text-slate-400 hover:text-blue-400 p-1.5 rounded-lg hover:bg-slate-700 transition-colors" title="{{ tr('project.rename_edit') }}">✏️</button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="openTemplateModal()" class="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-amber-300 border border-amber-500/30 rounded-lg transition-colors" title="{{ tr('project.pipeline_hint') }}">
+                        ⚡ {{ tr('project.pipeline_template') }}
+                    </button>
+                    <button onclick="openTaskModalForProject()" class="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">+ {{ tr('common.task') }}</button>
+                    <button id="pdOpenWindow" onclick="openCardTab(currentOpenProjectId)" class="text-slate-400 hover:text-sky-400 p-1.5 rounded-lg hover:bg-slate-700 transition-colors" title="{{ tr('project.open_card_tab') }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                    </button>
+                    <button onclick="closeModal('projectDetailsModal')" class="text-slate-400 hover:text-white text-3xl leading-none px-2">&times;</button>
+                </div>
+            </div>
+
+            <!-- Блокнот для красок (Paint Mixer Notepad) -->
+            <div class="mb-4 bg-slate-900/90 border border-amber-500/20 rounded-xl p-3">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        🎨 {{ tr('recipe.notebook') }}
+                    </span>
+                    <button onclick="savePaintNotes()" class="text-[11px] px-2.5 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-md transition-colors">
+                        💾 {{ tr('recipe.save') }}
+                    </button>
+                </div>
+                <textarea id="pdPaintNotes" onblur="savePaintNotes(true)" rows="3" placeholder="{{ tr('recipe.placeholder') }}..." class="w-full bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-amber-500/50 resize-y font-mono"></textarea>
+            </div>
+
+            <!-- Референсы для покраса (оригиналы, до 10 шт.) -->
+            <div class="mb-4 bg-slate-900/90 border border-sky-500/20 rounded-xl p-3">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                        🖼 {{ tr('ref.title') }} <span id="pdRefsCount" class="text-slate-400 normal-case font-medium tracking-normal">0/10</span>
+                    </span>
+                    <button id="pdRefsAdd" onclick="pickProjectRefs(currentOpenProjectId)" class="text-[11px] px-2.5 py-0.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 rounded-md transition-colors">
+                        + {{ tr('common.add') }}
+                    </button>
+                </div>
+                <div id="pdRefs" class="grid grid-cols-4 sm:grid-cols-5 gap-2"></div>
+                <div class="text-[10px] text-slate-500 mt-2">{{ tr('ref.hint') }}</div>
+            </div>
+
+            <div id="pdTasks" class="space-y-2 pr-1"></div>
+        </div>
+    </div>
+
+    <!-- Модалка: Новая задача -->
+    <div id="taskModal" onclick="if(event.target === this) closeModal('taskModal')" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-[60]">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4">{{ tr('task.new') }}</h3>
+            <div class="space-y-3">
+                <select id="tProjectId" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500"></select>
+                <input id="tName" placeholder="{{ tr('task.description') }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+                <input id="tDeadline" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeModal('taskModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('common.cancel') }}</button>
+                <button onclick="createTask()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm font-medium text-white">{{ tr('common.add') }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Просмотр картинок на весь экран -->
+    <div id="lightbox" onclick="closeLightbox()" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-[90]">
+        <button onclick="event.stopPropagation(); closeLightbox()" class="absolute top-3 right-5 text-white/70 hover:text-white text-4xl leading-none" title="{{ tr('common.close_esc') }}">&times;</button>
+        <button id="lbPrev" onclick="event.stopPropagation(); lightboxStep(-1)" class="hidden absolute left-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-5xl leading-none px-3 py-4" title="{{ tr('common.back') }}">&#8249;</button>
+        <img id="lbImg" onclick="event.stopPropagation()" alt="" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl">
+        <button id="lbNext" onclick="event.stopPropagation(); lightboxStep(1)" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-5xl leading-none px-3 py-4" title="{{ tr('common.forward') }}">&#8250;</button>
+        <div id="lbCaption" class="absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-white/70"></div>
+        <a id="lbOpen" onclick="event.stopPropagation()" target="_blank" rel="noopener" class="absolute bottom-3 right-5 text-xs text-sky-300 hover:text-sky-200">{{ tr('photo.open_original') }} ↗</a>
+    </div>
+
+    <!-- Выбор шаблона пайплайна: 3D-печать или сборная модель -->
+    <div id="templateModal" onclick="if(event.target === this) closeModal('templateModal')" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
+            <!-- Шаг 1: какая модель -->
+            <div id="templateStepKind">
+                <h3 class="text-lg font-bold text-white">{{ tr('project.pipeline_template') }}</h3>
+                <p class="text-sm text-slate-400 mt-1">{{ tr('template.choose') }}</p>
+                <div class="grid gap-3 mt-4">
+                    <button type="button" onclick="chooseTemplate('print')" class="text-left p-4 bg-slate-900 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 rounded-xl transition-colors">
+                        <div class="font-semibold text-white">🖨 {{ tr('template.print') }}</div>
+                        <div class="text-xs text-slate-400 mt-1">{{ tr('template.print_hint') }}</div>
+                    </button>
+                    <button type="button" onclick="chooseTemplate('kit')" class="text-left p-4 bg-slate-900 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 rounded-xl transition-colors">
+                        <div class="font-semibold text-white">🧩 {{ tr('template.kit') }}</div>
+                        <div class="text-xs text-slate-400 mt-1">{{ tr('template.kit_hint') }}</div>
+                    </button>
+                </div>
+                <div class="flex justify-end mt-5">
+                    <button onclick="closeModal('templateModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('common.cancel') }}</button>
+                </div>
+            </div>
+
+            <!-- Шаг 2: сроки этапов -->
+            <div id="templateStepDates" class="hidden">
+                <h3 class="text-lg font-bold text-white">{{ tr('template.dates_title') }}</h3>
+                <p id="templateProjectDeadline" class="text-sm text-slate-400 mt-1"></p>
+                <div id="templateStepsList" class="mt-4 space-y-2 max-h-[50vh] overflow-y-auto pr-1"></div>
+                <button type="button" id="templateSpreadBtn" onclick="spreadTemplateDates()" class="mt-3 text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2">{{ tr('template.spread') }}</button>
+                <div class="flex justify-between gap-3 mt-5">
+                    <button onclick="backToTemplateKind()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('template.back') }}</button>
+                    <button onclick="applyTemplateToProject()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-medium text-white">{{ tr('template.create') }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подтверждение действия (вместо системного confirm) -->
+    <div id="confirmModal" onclick="if(event.target === this) resolveConfirm(false)" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[95]">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 shrink-0 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center text-lg">🗑</div>
+                <div class="min-w-0">
+                    <h3 id="confirmTitle" class="text-lg font-bold text-white">{{ tr('confirm.title') }}</h3>
+                    <p id="confirmMessage" class="text-sm text-slate-400 mt-1 whitespace-pre-line break-words"></p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="confirmCancel" onclick="resolveConfirm(false)" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white outline-none focus:ring-2 focus:ring-slate-500">{{ tr('common.cancel') }}</button>
+                <button id="confirmOk" onclick="resolveConfirm(true)" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-sm font-medium text-white outline-none focus:ring-2 focus:ring-red-400">{{ tr('common.delete') }}</button>
+            </div>
+        </div>
+    </div>

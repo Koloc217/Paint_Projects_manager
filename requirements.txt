@@ -1,0 +1,7 @@
+# Python 3.10+
+fastapi
+uvicorn
+sqlalchemy
+jinja2            # шаблоны страницы (Jinja2Templates)
+httpx[socks]      # Telegram через SOCKS5-прокси (extra "socks" нужен, если задан PROXY_URL)
+python-dotenv

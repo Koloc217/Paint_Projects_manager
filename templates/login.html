@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>RPi5 Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { slate: { 850: '#151e2e' } } } } }
+    </script>
+    <link rel="stylesheet" href="/static/themes.css">
+</head>
+<body class="bg-slate-900 text-slate-300 font-sans antialiased min-h-screen flex items-center justify-center p-4">
+    <form id="authForm" class="w-full max-w-sm bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl" autocomplete="on">
+        <h1 class="text-lg font-bold text-white">{% if change_mode %}{{ tr('auth.change_title') }}{% else %}{{ tr('auth.login_title') }}{% endif %}</h1>
+        {% if change_mode %}
+        <p class="text-xs text-amber-300">{{ tr('auth.change_required') }}</p>
+        {% endif %}
+
+        <input type="text" id="authUser" name="username" value="{{ username }}" autocomplete="username" class="hidden">
+        {% if not change_mode %}
+        <label class="block space-y-1">
+            <span class="text-xs text-slate-400">{{ tr('auth.username') }}</span>
+            <input type="text" id="authUserInput" autocomplete="username" autofocus class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-indigo-500">
+        </label>
+        {% endif %}
+        <label class="block space-y-1">
+            <span class="text-xs text-slate-400">{% if change_mode %}{{ tr('auth.current_password') }}{% else %}{{ tr('auth.password') }}{% endif %}</span>
+            <input type="password" id="authPwd" autocomplete="current-password" {% if change_mode %}autofocus{% endif %} class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-indigo-500">
+        </label>
+        {% if change_mode %}
+        <label class="block space-y-1">
+            <span class="text-xs text-slate-400">{{ tr('auth.new_password') }}</span>
+            <input type="password" id="authNew" autocomplete="new-password" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-indigo-500">
+        </label>
+        <label class="block space-y-1">
+            <span class="text-xs text-slate-400">{{ tr('auth.repeat_password') }}</span>
+            <input type="password" id="authNew2" autocomplete="new-password" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-indigo-500">
+        </label>
+        {% endif %}
+
+        <div id="authError" class="hidden text-sm text-red-400"></div>
+        <button type="submit" id="authSubmit" class="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm font-medium text-white transition-colors">{% if change_mode %}{{ tr('auth.save_new') }}{% else %}{{ tr('auth.sign_in') }}{% endif %}</button>
+    </form>
+
+    <script>
+        window.APP_LANG = {{ lang|tojson }};
+        window.APP_I18N = {{ i18n|tojson }};
+        window.AUTH_CHANGE_MODE = {{ 'true' if change_mode else 'false' }};
+        window.AUTH_USER = {{ username|tojson }};
+        window.PH_MIN_PASSWORD_SERVER = {{ min_len }};
+    </script>
+    <script src="/static/i18n.js"></script>
+    <script src="/static/auth.js"></script>
+    <script>
+        (function () {
+            try {
+                const skin = localStorage.getItem('ph_skin');
+                if (skin && skin !== 'default') document.body.classList.add(skin);
+            } catch (e) { /* без localStorage страница работает так же */ }
+
+            const form = document.getElementById('authForm');
+            const errBox = document.getElementById('authError');
+            const submit = document.getElementById('authSubmit');
+            const showError = msg => { errBox.textContent = msg; errBox.classList.toggle('hidden', !msg); };
+            const post = async (url, body) => {
+                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                return res.json().catch(() => ({ status: 'error', message: tr('auth.err_bad_request') }));
+            };
+
+            form.addEventListener('submit', async (ev) => {
+                ev.preventDefault();
+                showError('');
+                const pwd = document.getElementById('authPwd').value;
+                submit.disabled = true;
+                try {
+                    if (window.AUTH_CHANGE_MODE) {
+                        const n1 = document.getElementById('authNew').value, n2 = document.getElementById('authNew2').value;
+                        if (!pwd) return showError(tr('auth.err_required'));
+                        if (n1.length < PH_MIN_PASSWORD) return showError(tr('auth.err_short', { n: PH_MIN_PASSWORD }));
+                        if (n1 !== n2) return showError(tr('auth.err_mismatch'));
+                        const r = await post('/api/auth/change', { old_digest: phDigest(AUTH_USER, pwd), new_digest: phDigest(AUTH_USER, n1) });
+                        if (r.status === 'ok') { location.href = '/'; return; }
+                        showError(r.message || tr('auth.err_bad_request'));
+                    } else {
+                        const user = document.getElementById('authUserInput').value.trim();
+                        if (!user || !pwd) return showError(tr('auth.err_required'));
+                        const r = await post('/api/auth/login', { username: user, digest: phDigest(user, pwd) });
+                        if (r.status === 'ok') { location.href = r.must_change ? '/login' : '/'; return; }
+                        showError(r.message || tr('auth.err_invalid'));
+                    }
+                } finally {
+                    submit.disabled = false;
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

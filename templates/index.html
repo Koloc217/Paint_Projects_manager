@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPi5 Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { slate: { 850: '#151e2e' } } } } }
+    </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;500;700&family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@400;600;700&family=Jura:wght@500;700&family=Orbitron:wght@600;800&family=Oswald:wght@500;700&family=PT+Mono&family=Philosopher:wght@400;700&family=Playfair+Display+SC:wght@400;700&family=Russo+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/themes.css"> <!-- проверь свой путь к статике -->
+</head>
+<body class="bg-slate-900 text-slate-300 font-sans antialiased min-h-screen">
+    
+    <!-- Навигация -->
+    {% include 'components/nav.html' %}
+
+    <!-- Основные вкладки -->
+    {% include 'components/tabs.html' %}
+
+    <!-- Всплывающие окна (Модалки) -->
+    {% include 'components/modals.html' %}
+
+    <!-- Контейнер для уведомлений -->
+    {% include 'components/toasts.html' %}
+
+    <!-- Скрипты -->
+    <script>
+        window.APP_LANG = {{ lang|tojson }};
+        window.APP_DATE_FORMAT = {{ date_format|tojson }};
+        window.APP_I18N = {{ i18n|tojson }};
+    </script>
+    <script src="/static/i18n.js"></script>
+    <script src="/static/auth.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>

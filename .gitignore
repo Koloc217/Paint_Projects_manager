@@ -1,0 +1,17 @@
+# секреты и локальные данные
+.env
+config.json
+auth.json
+tracker.db
+tracker.db-*
+notify.log
+photos/
+static/refs/
+backups/
+
+# служебное
+__pycache__/
+*.pyc
+.venv/
+*.tmp
+.config.*

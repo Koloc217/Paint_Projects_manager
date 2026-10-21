@@ -1,0 +1,66 @@
+   <main id="view-dashboard" class="max-w-[1700px] mx-auto p-4 md:p-6 grid grid-cols-1 xl:grid-cols-4 gap-6">
+        <div class="xl:col-span-3 space-y-4">
+            <h2 class="text-lg font-medium text-slate-100 flex items-center gap-2">{{ tr('project.active_list') }} <span id="projectCount" class="text-xs bg-slate-800 px-2 py-1 rounded-full border border-slate-700">0</span></h2>
+            <div id="projectsContainer" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+        </div>
+        <div class="space-y-4">
+            <h2 class="text-lg font-medium text-slate-100">{{ tr('analytics.upcoming') }}</h2>
+            <div class="bg-slate-800 rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden">
+                <div id="tasksContainer" class="divide-y divide-slate-700/50 p-2"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ВКЛАДКА 2: ВСЕ ЗАДАЧИ -->
+    <main id="view-allTasks" class="hidden max-w-[1000px] mx-auto p-4 md:p-6 space-y-4">
+        <h2 class="text-lg font-medium text-slate-100">{{ tr('analytics.all_tasks_by_project') }}</h2>
+        <div id="allTasksContainer" class="space-y-6"></div>
+    </main>
+
+    <!-- ВКЛАДКА 3: АНАЛИТИКА И ЗАЛ СЛАВЫ -->
+    <main id="view-analytics" class="hidden max-w-[1500px] mx-auto p-4 md:p-6 space-y-8">
+        <!-- Верхние KPI карточки -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 shadow-lg">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">{{ tr('stats.projects_completed') }}</div>
+                <div id="statDoneProjects" class="text-3xl font-bold text-emerald-400">0</div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 shadow-lg">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">{{ tr('stats.tasks_closed') }}</div>
+                <div id="statDoneTasks" class="text-3xl font-bold text-indigo-400">0</div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 shadow-lg">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">{{ tr('analytics.tokens_earned') }}</div>
+                <div id="statEarnedTokens" class="text-3xl font-bold text-amber-400">+0</div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 shadow-lg">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">{{ tr('analytics.overall_progress') }}</div>
+                <div id="statTaskRate" class="text-3xl font-bold text-sky-400">0%</div>
+            </div>
+        </div>
+
+        <!-- Графики -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-5 shadow-xl">
+                <h3 class="text-base font-bold text-white mb-4">🎨 {{ tr('analytics.funnel') }}</h3>
+                <div class="h-64">
+                    <canvas id="stageChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-5 shadow-xl">
+                <h3 class="text-base font-bold text-white mb-4">📈 {{ tr('analytics.closed_6m') }}</h3>
+                <div class="h-64">
+                    <canvas id="velocityChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Зал Славы (Архив) -->
+        <div class="space-y-4">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                🏆 {{ tr('analytics.hall') }}
+                <span id="archiveCount" class="text-xs bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-700 text-slate-300">0</span>
+            </h2>
+            <div id="hallOfFameContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+    </main>
