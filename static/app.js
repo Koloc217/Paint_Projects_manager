@@ -694,10 +694,42 @@ function getPriorityColor(priority) {
     return 'text-amber-400 bg-amber-400/10 border-amber-400/20';
 }
 
+// ---------- Поиск по проектам ----------
+// Строка запроса — несколько слов через пробел, все должны встретиться (без учёта регистра и ё/е).
+// Ищет по названию, номеру, приоритету, статусу, стадии (и по русскому значению, и по переводу на язык интерфейса),
+// рецепту краски и названиям задач проекта.
+const searchQuery = { active: '', hall: '' };
+const STATUS_TR = { 'В планах': 'status.planned', 'В работе': 'status.in_work', 'На паузе': 'status.on_hold', 'Закончен': 'status.finished' };
+const STAGE_TR = { 'Печать': 'stage.printing', 'Шлифовка': 'stage.sanding', 'Сборка': 'stage.assembly', 'Грунт': 'stage.priming', 'Покрас': 'stage.painting' };
+
+function normSearch(s) { return String(s == null ? '' : s).toLowerCase().replace(/ё/g, 'е'); }
+
+function projectMatches(p, query) {
+    const words = normSearch(query).split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    const parts = [p.Name, p.ID, p.Priority, p.Status, p.Stage, p.PaintNotes];
+    if (STATUS_TR[p.Status]) parts.push(tr(STATUS_TR[p.Status]));
+    if (STAGE_TR[p.Stage]) parts.push(tr(STAGE_TR[p.Stage]));
+    currentTasks.forEach(t => { if (t['Project ID'] === p.ID) parts.push(t.Task); });
+    const hay = normSearch(parts.filter(x => x != null && x !== '').join(' \n '));
+    return words.every(w => hay.includes(w));
+}
+
+function onProjectSearch(which, value) {
+    searchQuery[which] = value || '';
+    if (which === 'hall') renderHall(); else renderProjects();
+}
+
 function renderProjects() {
     const container = document.getElementById('projectsContainer');
-    const activeProjects = currentProjects.filter(p => !['завершен', 'completed', 'закончен'].includes(String(p.Status).toLowerCase()));
-    document.getElementById('projectCount').innerText = activeProjects.length;
+    const allActive = currentProjects.filter(p => !['завершен', 'completed', 'закончен'].includes(String(p.Status).toLowerCase()));
+    const activeProjects = allActive.filter(p => projectMatches(p, searchQuery.active));
+    const searching = searchQuery.active.trim() !== '';
+    document.getElementById('projectCount').innerText = searching ? `${activeProjects.length} / ${allActive.length}` : allActive.length;
+    if (searching && !activeProjects.length) {
+        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-800">${tr('search.nothing')}</div>`;
+        return;
+    }
 
     container.innerHTML = activeProjects.map(p => {
         const pTasks = currentTasks.filter(t => t['Project ID'] === p.ID);
@@ -874,7 +906,6 @@ function renderAnalytics() {
     document.getElementById('statDoneTasks').innerText = doneTasks.length;
     document.getElementById('statEarnedTokens').innerText = `+${earnedTokensTotal}`;
     document.getElementById('statTaskRate').innerText = `${rate}%`;
-    document.getElementById('archiveCount').innerText = doneProjs.length;
 
     const stages = ['—', 'Печать', 'Шлифовка', 'Сборка', 'Грунт', 'Покрас'];
     const stageCounts = stages.map(st => activeProjs.filter(p => (p.Stage || '—') === st).length);
@@ -969,13 +1000,22 @@ function renderAnalytics() {
         }
     });
 
+    renderHall();
+}
+
+// Зал славы: список завершённых проектов с поиском (отдельно от графиков, чтобы набор текста их не перерисовывал)
+function renderHall() {
+    const doneProjs = currentProjects.filter(p => ['завершен', 'completed', 'закончен'].includes(String(p.Status).toLowerCase()));
+    const hallSearching = searchQuery.hall.trim() !== '';
+    const hallProjs = doneProjs.filter(p => projectMatches(p, searchQuery.hall));
+    document.getElementById('archiveCount').innerText = hallSearching ? `${hallProjs.length} / ${doneProjs.length}` : doneProjs.length;
     const hallContainer = document.getElementById('hallOfFameContainer');
-    if (doneProjs.length === 0) {
-        hallContainer.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-800">${tr('hall.empty')}</div>`;
+    if (doneProjs.length === 0 || (hallSearching && hallProjs.length === 0)) {
+        hallContainer.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-800">${tr(doneProjs.length === 0 ? 'hall.empty' : 'search.nothing')}</div>`;
         return;
     }
 
-    hallContainer.innerHTML = doneProjs.map(p => {
+    hallContainer.innerHTML = hallProjs.map(p => {
         const pTasks = currentTasks.filter(t => t['Project ID'] === p.ID);
         const notesHtml = p.PaintNotes && p.PaintNotes.trim()
             ? `<div class="mt-3 p-2.5 bg-slate-900/90 border border-amber-500/20 rounded-lg text-xs text-slate-300 font-mono whitespace-pre-wrap"><span class="text-amber-400 font-bold block mb-1">🎨 ${tr('recipe.title')}:</span>${esc(p.PaintNotes)}</div>`

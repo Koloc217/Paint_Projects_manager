@@ -1,6 +1,9 @@
    <main id="view-dashboard" class="max-w-[1700px] mx-auto p-4 md:p-6 grid grid-cols-1 xl:grid-cols-4 gap-6">
         <div class="xl:col-span-3 space-y-4">
-            <h2 class="text-lg font-medium text-slate-100 flex items-center gap-2">{{ tr('project.active_list') }} <span id="projectCount" class="text-xs bg-slate-800 px-2 py-1 rounded-full border border-slate-700">0</span></h2>
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+                <h2 class="text-lg font-medium text-slate-100 flex items-center gap-2">{{ tr('project.active_list') }} <span id="projectCount" class="text-xs bg-slate-800 px-2 py-1 rounded-full border border-slate-700">0</span></h2>
+                <input type="search" id="projectSearch" oninput="onProjectSearch('active', this.value)" onkeydown="if(event.key==='Escape'){this.value='';onProjectSearch('active','');}" placeholder="🔍 {{ tr('search.placeholder') }}" autocomplete="off" class="w-full sm:w-64 text-sm bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-500 placeholder-slate-500 [color-scheme:dark]">
+            </div>
             <div id="projectsContainer" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
         </div>
         <div class="space-y-4">
@@ -57,10 +60,13 @@
 
         <!-- Зал Славы (Архив) -->
         <div class="space-y-4">
-            <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                🏆 {{ tr('analytics.hall') }}
-                <span id="archiveCount" class="text-xs bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-700 text-slate-300">0</span>
-            </h2>
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    🏆 {{ tr('analytics.hall') }}
+                    <span id="archiveCount" class="text-xs bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-700 text-slate-300">0</span>
+                </h2>
+                <input type="search" id="hallSearch" oninput="onProjectSearch('hall', this.value)" onkeydown="if(event.key==='Escape'){this.value='';onProjectSearch('hall','');}" placeholder="🔍 {{ tr('search.placeholder') }}" autocomplete="off" class="w-full sm:w-64 text-sm bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-500 placeholder-slate-500 [color-scheme:dark]">
+            </div>
             <div id="hallOfFameContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
         </div>
     </main>
