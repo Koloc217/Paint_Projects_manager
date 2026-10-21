@@ -150,7 +150,7 @@ def check(tid, css, fonts_html):
         return errors, warnings
     block = strip_comments(block)
     if re.search(r"@import|@font-face|url\(\s*['\"]?\s*(https?:)?//", block, re.I):
-        errors.append("внешние подключения запрещены (@import, @font-face, url(http...)); шрифты — только ссылкой в index.html, картинки — файлами в static/")
+        errors.append("внешние подключения запрещены (@import, @font-face, url(http...)); шрифты — только ссылкой в index.html, картинки — файлами в static/backgrounds/")
     rules, brace_errors = parse_rules(block)
     errors.extend(brace_errors)
     prefix = f"body.{tid}"
