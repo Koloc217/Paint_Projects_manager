@@ -28,7 +28,7 @@ NAME_KEY = "meta.name"
 
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
 PY_FILES = ["app.py", "bot.py", "notify.py", "common.py", "scheduler.py", "database.py", "i18n.py", "auth.py"]
-JS_FILES = ["static/app.js", "static/i18n.js", "static/auth.js"]
+JS_FILES = ["static/app.js", "static/progress.js", "static/i18n.js", "static/auth.js"]
 HTML_FILES = ["templates/index.html", "templates/components/nav.html", "templates/components/tabs.html",
               "templates/components/modals.html", "templates/components/toasts.html", "templates/login.html"]
 
