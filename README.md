@@ -145,7 +145,7 @@ app.py, bot.py, notify.py, scheduler.py, backup.py   сервер, бот, ув�
 auth.py, tls.py, common.py, database.py, i18n.py     вход, HTTPS, общие функции, модели БД, переводы
 locales.json                                         все тексты интерфейса, бота и уведомлений
 templates/                                           страница, вход, компоненты (nav, tabs, modals, toasts)
-static/                                              app.js, i18n.js, auth.js, themes.css, mobile.css (телефон)
+static/                                              app.js, i18n.js, auth.js, themes.css, mobile.css (телефон), card-tab.css (карточка во вкладке)
 static/sw.js, manifest.webmanifest, pwa.js, icons/   PWA: service worker, манифест, установка, иконки
 tools/                                               check_locales.py, check_theme.py
 progress.py, logs.py                                 фото прогресса (веб и бот), журналы с ротацией

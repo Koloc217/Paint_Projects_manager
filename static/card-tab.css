@@ -1,0 +1,93 @@
+/* ==========================================================================
+   Карточка проекта в отдельной вкладке: /?card=<id>
+   app.js (initStandaloneCard) вешает на <body> класс card-standalone.
+   Окно-модалка становится обычной страницей во всю ширину; на широком экране
+   слева рецепт и задачи, справа колонка с фото (референсы и прогресс) крупными превью.
+   В обычной модалке на дашборде ничего не меняется.
+   ========================================================================== */
+
+/* Не всплывающее окно, а страница: без затемнения, прокрутка всей страницей */
+body.card-standalone #projectDetailsModal:not(.hidden) {
+    position: static;
+    display: block;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    padding: 1.5rem 1rem !important;    /* !important: mobile.css задаёт отступы модалкам на телефоне */
+}
+
+body.card-standalone #pdPanel {
+    max-width: 1500px;
+    max-height: none !important;        /* !important: mobile.css ограничивает высоту модалок экраном */
+    overflow: visible !important;
+    margin: 0 auto;
+}
+
+/* Обложка в шапке крупнее */
+
+
+body.card-standalone #pdPhoto {
+    width: 6rem;
+    height: 6rem;
+}
+
+/* Референсы: крупная сетка вместо 4–5 мелких колонок */
+body.card-standalone #pdRefs {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.75rem;
+}
+
+/* Прогресс: сетка с переносом вместо горизонтальной ленты */
+body.card-standalone #pdProgress {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.75rem;
+    overflow: visible;
+}
+body.card-standalone #pdProgress > div {
+    width: auto;
+}
+body.card-standalone #pdProgress > div > div:not(:first-child) {
+    font-size: 11px;
+}
+
+/* Телефон: меньше отступы, превью по три в ряд, чтобы задачи были недалеко */
+@media (max-width: 640px) {
+    body.card-standalone #projectDetailsModal:not(.hidden) { padding: 8px !important; }
+    body.card-standalone #pdRefs,
+    body.card-standalone #pdProgress {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+}
+
+/* Две колонки на широком экране: слева рецепт и задачи, справа фото */
+@media (min-width: 1024px) {
+    body.card-standalone #pdPanel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+        grid-template-rows: auto auto 1fr;
+        grid-template-areas:
+            "header header"
+            "notes  media"
+            "tasks  media";
+        column-gap: 1.5rem;
+        align-items: start;
+    }
+    body.card-standalone #pdHeader   { grid-area: header; }
+    body.card-standalone #pdNotesBox { grid-area: notes; }
+    body.card-standalone #pdMedia    { grid-area: media; }
+    body.card-standalone #pdTasks    { grid-area: tasks; }
+
+    body.card-standalone #pdPaintNotes {
+        min-height: 8rem;
+    }
+}
+
+/* Кнопка удаления на превью: на сенсорных экранах нет hover, показываем всегда */
+@media (hover: none) {
+    body.card-standalone #pdRefs button,
+    body.card-standalone #pdProgress button {
+        opacity: 1;
+    }
+}

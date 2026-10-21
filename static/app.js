@@ -172,6 +172,7 @@ function closeStandaloneWindow() {
 }
 
 async function initStandaloneCard(id) {
+    document.body.classList.add('card-standalone');      // широкая раскладка, см. static/card-tab.css
     document.querySelector('nav').classList.add('hidden');
     ['view-dashboard', 'view-allTasks', 'view-analytics'].forEach(v => document.getElementById(v).classList.add('hidden'));
     document.getElementById('pdOpenWindow').classList.add('hidden');
