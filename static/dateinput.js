@@ -21,7 +21,9 @@
             position: absolute; left: 0; bottom: 0; width: 100%; height: 100%;
             opacity: 0; pointer-events: none; border: 0; padding: 0; margin: 0;
         }
-        .date-field > .date-text { padding-right: 2rem !important; }
+        body .date-field > input.date-text.date-text { padding-right: 2rem !important; }
+        /* темы рисуют заклёпки и узоры фоном на .bg-slate-800 (это для карточек): в поле ввода они налезают на цифры */
+        body .date-field > input.date-text.date-text { background-image: none !important; }
         .date-field > .date-btn {
             position: absolute; top: 0; bottom: 0; right: 0; padding: 0 0.55rem;
             display: flex; align-items: center; background: none; border: 0;
