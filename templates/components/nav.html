@@ -1,22 +1,23 @@
     <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm flex-wrap gap-3">
-        <div class="flex items-center gap-6">
+        <div class="nav-left flex items-center gap-6">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold">Pi</div>
                 <h1 class="text-xl font-semibold text-white tracking-tight hidden sm:block">Project Hub</h1>
             </div>
-            
-            <div class="flex gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700">
-                <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="px-3.5 py-1.5 text-sm font-medium rounded-md bg-slate-700 text-white transition-colors shadow-sm">{{ tr('nav.dashboard') }}</button>
-                <button onclick="switchTab('allTasks')" id="tab-btn-allTasks" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('nav.all_tasks') }}</button>
-                <button onclick="switchTab('calendar')" id="tab-btn-calendar" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">📅 {{ tr('nav.calendar') }}</button>
-                <button onclick="switchTab('feed')" id="tab-btn-feed" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">📷 {{ tr('nav.feed') }}</button>
-                <button onclick="switchTab('analytics')" id="tab-btn-analytics" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">🏆 {{ tr('nav.hall') }}</button>
+
+            <!-- На телефоне (уже 640px) этот блок становится нижней панелью вкладок: см. static/mobile.css -->
+            <div id="navTabs" class="flex gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700">
+                <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="px-3.5 py-1.5 text-sm font-medium rounded-md bg-slate-700 text-white transition-colors shadow-sm"><span class="tab-ic sm:hidden">🏠</span><span class="tab-lb">{{ tr('nav.dashboard') }}</span></button>
+                <button onclick="switchTab('allTasks')" id="tab-btn-allTasks" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic sm:hidden">📋</span><span class="tab-lb">{{ tr('nav.all_tasks') }}</span></button>
+                <button onclick="switchTab('calendar')" id="tab-btn-calendar" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic">📅</span> <span class="tab-lb">{{ tr('nav.calendar') }}</span></button>
+                <button onclick="switchTab('feed')" id="tab-btn-feed" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic">📷</span> <span class="tab-lb">{{ tr('nav.feed') }}</span></button>
+                <button onclick="switchTab('analytics')" id="tab-btn-analytics" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic">🏆</span> <span class="tab-lb"><span class="hidden sm:inline">{{ tr('nav.hall') }}</span><span class="sm:hidden">{{ tr('nav.hall_short') }}</span></span></button>
             </div>
         </div>
-        
-        <div class="flex items-center gap-3">
-            <div class="bg-amber-500/20 border border-amber-500/30 text-amber-400 px-4 py-1.5 rounded-lg font-bold flex items-center gap-2">
-                💰 {{ tr('nav.tokens') }}: <span id="tokenCounter">0</span>
+
+        <div id="navActions" class="flex items-center gap-3">
+            <div id="navTokens" class="bg-amber-500/20 border border-amber-500/30 text-amber-400 px-4 py-1.5 rounded-lg font-bold flex items-center gap-2">
+                💰 <span class="nav-tokens-label">{{ tr('nav.tokens') }}:</span> <span id="tokenCounter">0</span>
             </div>
             <button onclick="openModal('projectModal')" class="text-sm px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center gap-1 shadow-lg shadow-emerald-500/20">+ {{ tr('common.project') }}</button>
             <button onclick="openModal('taskModal')" class="text-sm px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors flex items-center gap-1 shadow-lg shadow-indigo-500/20">+ {{ tr('common.task') }}</button>

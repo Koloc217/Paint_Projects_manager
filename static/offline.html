@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <title>Project Hub</title>
+    <link rel="icon" type="image/png" href="/static/icons/favicon-32.png">
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; min-height: 100vh; min-height: 100dvh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+            background: #0f172a; color: #cbd5e1;
+            font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+        main { max-width: 22rem; text-align: center; }
+        img { width: 72px; height: 72px; border-radius: 18px; }
+        h1 { margin: 16px 0 8px; font-size: 20px; color: #fff; }
+        p { margin: 0 0 20px; color: #94a3b8; }
+        button {
+            font: inherit; font-weight: 600; color: #fff; cursor: pointer;
+            background: #4f46e5; border: 0; border-radius: 12px; padding: 10px 22px;
+        }
+        button:active { background: #4338ca; }
+    </style>
+</head>
+<body>
+    <main>
+        <img src="/static/icons/icon-192.png" alt="">
+        <h1 id="t">Нет связи с Project Hub</h1>
+        <p id="m">Сервер недоступен. Проверьте, что телефон в домашней сети (или VPN включён) и приложение запущено.</p>
+        <button id="b" onclick="location.reload()">Повторить</button>
+    </main>
+    <script>
+        // язык браузера: русский или английский (эта страница открывается без сервера, словаря приложения здесь нет)
+        if (!/^ru\b/i.test(navigator.language || '')) {
+            document.documentElement.lang = 'en';
+            document.getElementById('t').textContent = 'Project Hub is unreachable';
+            document.getElementById('m').textContent = 'The server is not responding. Make sure the phone is on your home network (or the VPN is on) and the app is running.';
+            document.getElementById('b').textContent = 'Retry';
+        }
+        // как только сеть появилась — пробуем снова сами
+        window.addEventListener('online', () => location.reload());
+    </script>
+</body>
+</html>

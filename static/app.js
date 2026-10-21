@@ -753,13 +753,13 @@ function renderProjects() {
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
             </button>
 
-            <div class="flex gap-4 flex-grow">
-                <div onclick="event.stopPropagation(); onProjectPhotoClick('${p.ID}')" title="${p.Photo ? tr('photo.open') : tr('photo.add')}" class="w-28 h-28 sm:w-32 sm:h-32 shrink-0 rounded-xl border border-slate-600/60 bg-slate-900/60 overflow-hidden cursor-pointer hover:border-indigo-400 transition-colors">
+            <div class="flex gap-3 sm:gap-4 flex-grow">
+                <div onclick="event.stopPropagation(); onProjectPhotoClick('${p.ID}')" title="${p.Photo ? tr('photo.open') : tr('photo.add')}" class="w-20 h-20 sm:w-32 sm:h-32 shrink-0 rounded-xl border border-slate-600/60 bg-slate-900/60 overflow-hidden cursor-pointer hover:border-indigo-400 transition-colors">
                     ${projectPhotoInner(p)}
                 </div>
 
                 <div onclick="openProjectDetails('${p.ID}')" class="cursor-pointer flex-grow min-w-0">
-                    <h3 class="text-base font-semibold text-white mb-2 pr-16 truncate" title="${esc(p.Name)}">${esc(p.Name)}</h3>
+                    <h3 class="text-base font-semibold text-white mb-2 pr-14 sm:pr-16 line-clamp-2 sm:truncate break-words" title="${esc(p.Name)}">${esc(p.Name)}</h3>
 
                     <div class="flex items-center gap-2 mb-3 flex-wrap">
                         ${p['Token Reward'] > 0 ? `<span class="text-[10px] text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">+${p['Token Reward']}</span>` : ''}
@@ -821,8 +821,8 @@ function renderTasks() {
                 <button onclick="openEditTaskModal('${t.ID}')" class="text-slate-500 hover:text-blue-400 p-1" title="${tr('common.edit')}">✏️</button>
                 <button onclick="deleteTask('${t.ID}')" class="text-slate-500 hover:text-red-400 p-1" title="${tr('common.delete')}">✕</button>
             </div>
-            <div class="flex justify-between items-start mb-1 pr-14">
-                <span class="text-[10px] uppercase tracking-wider font-semibold text-indigo-400 truncate w-32" title="${esc(proj ? proj.Name : '')}">${esc(proj ? proj.Name : t['Project ID'])}</span>
+            <div class="flex flex-wrap justify-between items-start gap-x-2 mb-1 pr-14">
+                <span class="text-[10px] uppercase tracking-wider font-semibold text-indigo-400 truncate max-w-[10rem]" title="${esc(proj ? proj.Name : '')}">${esc(proj ? proj.Name : t['Project ID'])}</span>
                 <div class="text-xs">${getDeadlineHTML(t.Deadline, true, isTaskDone)}</div>
             </div>
             <p class="text-sm text-slate-200 font-medium mb-2 leading-snug">${esc(t.Task)}</p>
@@ -863,12 +863,12 @@ function renderAllTasks() {
             const isDone = ['завершен', 'completed', 'закончен'].includes(String(t.Status).toLowerCase());
             const op = isDone ? 'opacity-40 line-through' : '';
             return `
-            <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 flex justify-between items-center group">
-                <div class="${op} flex-grow">
+            <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 group">
+                <div class="${op} flex-grow min-w-0 break-words">
                     <div class="text-xs font-mono text-slate-500 mb-1">${getDeadlineHTML(t.Deadline, true, isDone)}</div>
                     <div class="text-sm text-slate-200 font-medium">${esc(t.Task)}</div>
                 </div>
-                <div class="flex items-center gap-3 ml-4">
+                <div class="flex items-center gap-3 sm:ml-4">
                     <select onchange="updateTaskStatus('${t.ID}', this.value)" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1 outline-none cursor-pointer">
                         <option value="Не начато" ${t.Status === 'Не начато' ? 'selected' : ''}>${tr('status.not_started')} ⏸️</option>
                         <option value="В процессе" ${t.Status === 'В процессе' ? 'selected' : ''}>${tr('status.in_progress')} 🔄</option>
@@ -1071,12 +1071,12 @@ function openProjectDetails(projectId) {
             const isDone = ['завершен', 'completed', 'закончен'].includes(String(t.Status).toLowerCase());
             const op = isDone ? 'opacity-40 line-through' : '';
             return `
-            <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 flex justify-between items-center group mb-2">
-                <div class="${op} flex-grow">
+            <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 group mb-2">
+                <div class="${op} flex-grow min-w-0 break-words">
                     <div class="text-xs font-mono text-slate-500 mb-1">${getDeadlineHTML(t.Deadline, true, isDone)}</div>
                     <div class="text-sm text-slate-200 font-medium">${esc(t.Task)}</div>
                 </div>
-                <div class="flex gap-2 ml-3 items-center">
+                <div class="flex gap-2 sm:ml-3 items-center">
                     <select onchange="updateTaskStatus('${t.ID}', this.value)" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1 outline-none cursor-pointer">
                         <option value="Не начато" ${t.Status === 'Не начато' ? 'selected' : ''}>${tr('status.not_started')} ⏸️</option>
                         <option value="В процессе" ${t.Status === 'В процессе' ? 'selected' : ''}>${tr('status.in_progress')} 🔄</option>

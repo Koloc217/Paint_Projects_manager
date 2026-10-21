@@ -44,7 +44,7 @@ MIN_PASSWORD_LEN = 8                 # проверяется в браузер�
 MAX_FAILS = 5
 FAIL_WINDOW_SEC = 300
 PUBLIC_PREFIXES = ("/static/",)
-PUBLIC_PATHS = ("/login", "/api/auth/login")
+PUBLIC_PATHS = ("/login", "/api/auth/login", "/sw.js", "/manifest.webmanifest")   # PWA: без входа, иначе установка не работает
 # пока пароль по умолчанию не сменён, доступно только это
 MUST_CHANGE_PATHS = ("/login", "/api/auth/login", "/api/auth/change", "/api/auth/logout", "/api/auth/status")
 
