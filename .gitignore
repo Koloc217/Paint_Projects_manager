@@ -21,3 +21,5 @@ __pycache__/
 *.log.*
 logs/
 scheduler_state.json
+.notify_state.json
+.deploy_prev
