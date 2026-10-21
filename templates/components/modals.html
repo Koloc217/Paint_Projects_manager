@@ -514,10 +514,11 @@
                 <h3 class="text-lg font-bold text-white">{{ tr('template.dates_title') }}</h3>
                 <p id="templateProjectDeadline" class="text-sm text-slate-400 mt-1"></p>
                 <div id="templateStepsList" class="mt-4 space-y-2 max-h-[50vh] overflow-y-auto pr-1"></div>
+                <p id="templateAllExist" class="hidden mt-3 text-xs text-emerald-400">{{ tr('template.all_exist') }}</p>
                 <button type="button" id="templateSpreadBtn" onclick="spreadTemplateDates()" class="mt-3 text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2">{{ tr('template.spread') }}</button>
                 <div class="flex justify-between gap-3 mt-5">
                     <button onclick="backToTemplateKind()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('template.back') }}</button>
-                    <button onclick="applyTemplateToProject()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-medium text-white">{{ tr('template.create') }}</button>
+                    <button id="templateCreateBtn" onclick="applyTemplateToProject()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-medium text-white">{{ tr('template.create') }}</button>
                 </div>
             </div>
         </div>

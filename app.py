@@ -18,7 +18,7 @@ import uvicorn
 from database import SessionLocal, Project, Task, Adjustment, Reference, ProgressPhoto, ensure_schema
 import progress
 import logs
-from i18n import tr, tv, get_lang, table_for, available_languages, normalize_lang
+from i18n import tr, tv, get_lang, table_for, available_languages, normalize_lang, translate
 from common import (
     BASE_DIR, DEFAULT_NOTIFY_SETTINGS, DEFAULT_SCHEDULE, DAY_KEYS, DAY_LABELS,
     is_done, load_config, save_config, compute_balance, DATE_FORMATS, detect_image_ext, live_projects, live_tasks,
@@ -602,10 +602,29 @@ async def update_paint_notes(project_id: str, data: PaintNotesUpdate, db: Sessio
         return {"status": "ok"}
     return {"status": "error"}
 
+def _step_match_key(name: str) -> str:
+    """Название этапа для сравнения: без номера в начале («2. », «3) »), пробелов по краям и регистра.
+    Так задачи, созданные старыми шаблонами с номерами, тоже узнаются."""
+    return re.sub(r"^\s*\d+\s*[.)]\s*", "", name or "").strip().casefold()
+
+
+def existing_template_steps(db: Session, project_id: str) -> Dict[str, List[int]]:
+    """Номера этапов каждого шаблона, которые уже есть среди задач проекта (на любом языке интерфейса)."""
+    have = {_step_match_key(name) for (name,) in db.query(Task.task_name).filter(Task.project_id == project_id)}
+    langs = [lang["code"] for lang in available_languages()]
+    result = {}
+    for kind, keys in PIPELINE_TEMPLATES.items():
+        result[kind] = [i for i, key in enumerate(keys)
+                        if any(_step_match_key(translate(key, lang)) in have for lang in langs)]
+    return result
+
+
 @app.get("/api/pipeline-templates")
-async def get_pipeline_templates():
-    """Названия этапов шаблонов на языке интерфейса: для окна со сроками этапов."""
-    return {kind: [tr(key) for key in keys] for kind, keys in PIPELINE_TEMPLATES.items()}
+async def get_pipeline_templates(project_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """Названия этапов шаблонов на языке интерфейса и (для project_id) этапы, которые уже есть в проекте."""
+    names = {kind: [tr(key) for key in keys] for kind, keys in PIPELINE_TEMPLATES.items()}
+    existing = existing_template_steps(db, project_id) if project_id else {kind: [] for kind in PIPELINE_TEMPLATES}
+    return {"templates": names, "existing": existing}
 
 @app.post("/api/projects/{project_id}/template")
 async def apply_project_template(project_id: str, data: Optional[TemplateRequest] = None, db: Session = Depends(get_db)):
@@ -619,7 +638,7 @@ async def apply_project_template(project_id: str, data: Optional[TemplateRequest
         return {"status": "error", "message": tr("err.unknown_template")}
 
     if data is None or data.steps is None:
-        plan = [(key, proj.estimate) for key in keys]
+        plan = [(i, proj.estimate) for i in range(len(keys))]
     else:
         plan, seen = [], set()
         for step in sorted(data.steps, key=lambda x: x.index):
@@ -630,21 +649,28 @@ async def apply_project_template(project_id: str, data: Optional[TemplateRequest
                 dead = datetime.strptime(step.deadline, "%Y-%m-%d") if step.deadline else None
             except ValueError:
                 return {"status": "error", "message": tr("err.bad_template_date")}
-            plan.append((keys[step.index], dead))
+            plan.append((step.index, dead))
         if not plan:
             return {"status": "error", "message": tr("template.none_selected")}
 
-    for key, dead in plan:
+    # Повторное применение шаблона не плодит дубли: этапы, которые уже есть в проекте, пропускаются
+    already = set(existing_template_steps(db, project_id)[kind])
+    skipped = sum(1 for i, _ in plan if i in already)
+    plan = [(i, dead) for i, dead in plan if i not in already]
+    if not plan:
+        return {"status": "error", "message": tr("template.all_exist")}
+
+    for i, dead in plan:
         db.add(Task(
             project_id=project_id,
-            task_name=tr(key),
+            task_name=tr(keys[i]),
             deadline=dead,
             status="Не начато",
             postponed=0
         ))
     proj.updated_at = datetime.now()
     db.commit()
-    return {"status": "ok"}
+    return {"status": "ok", "added": len(plan), "skipped": skipped}
 
 def purge_project(db: Session, proj: Project) -> None:
     """Стирает проект насовсем: задачи, фото, референсы, фото прогресса. Баланс фиксируется корректировкой."""
