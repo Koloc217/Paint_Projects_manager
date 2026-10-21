@@ -6,6 +6,7 @@ tracker.db
 tracker.db-*
 notify.log
 photos/
+static/backgrounds/wh40k_bg.jpg
 static/refs/
 backups/
 
@@ -21,3 +22,6 @@ __pycache__/
 *.log.*
 logs/
 scheduler_state.json
+.notify_state.json
+.notify.lock
+.deploy_prev
