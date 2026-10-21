@@ -47,7 +47,7 @@ PIPELINE_TEMPLATES = {
     ],
     "kit": [
         "pipeline.kit.step1", "pipeline.kit.step2", "pipeline.kit.step3",
-        "pipeline.kit.step4", "pipeline.kit.step5", "pipeline.kit.step6",
+        "pipeline.kit.step4", "pipeline.kit.step5",
     ],
 }
 
