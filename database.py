@@ -1,7 +1,7 @@
 import os
 import uuid
 from datetime import datetime
-from sqlalchemy import create_engine, Column, String, Float, DateTime, Integer, Text, text
+from sqlalchemy import create_engine, event, Column, String, Float, DateTime, Integer, Text, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -9,6 +9,24 @@ DB_PATH = os.path.join(BASE_DIR, "tracker.db")
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+
+
+@event.listens_for(engine, "connect")
+def _sqlite_pragmas(dbapi_connection, _record):
+    """Режим WAL: читатели не блокируют запись и наоборот (веб, бот и скрипты notify/backup работают с одной базой).
+    busy_timeout — подождать до 5 с, если база занята, вместо ошибки "database is locked".
+    Режим WAL хранится в самом файле базы: старая база переключается при первом подключении."""
+    cur = dbapi_connection.cursor()
+    try:
+        cur.execute("PRAGMA busy_timeout=5000")
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA synchronous=NORMAL")
+    except Exception as e:      # например, файловая система без поддержки WAL: работаем в обычном режиме
+        print(f"[DB] не удалось включить WAL: {e!r}")
+    finally:
+        cur.close()
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
