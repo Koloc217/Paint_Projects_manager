@@ -371,7 +371,7 @@ document.addEventListener('keydown', function(e) {
     if (document.activeElement && document.activeElement.tagName === 'TEXTAREA' && e.key === 'Enter') {
         return;
     }
-    const modals = ['templateModal', 'settingsModal', 'editProjectModal', 'editTaskModal', 'taskModal', 'projectDetailsModal', 'projectModal'];
+    const modals = ['trashModal', 'templateModal', 'settingsModal', 'editProjectModal', 'editTaskModal', 'taskModal', 'projectDetailsModal', 'projectModal'];
     const active = modals.filter(id => !document.getElementById(id).classList.contains('hidden'));
     if (active.length === 0) return;
     const topModal = active[0];
@@ -448,12 +448,15 @@ async function loadData() {
         scheduleSettings = data.schedule_settings || {};
         deleteKeepsBalance = data.delete_keeps_balance ?? true;
         languagesList = data.languages || [];
+        trashItems = data.trash || [];
+        trashDays = data.trash_days || 30;
         
         document.getElementById('tokenCounter').innerText = data.total_tokens + (isDevMode ? ' (DEV / MUTE)' : '');
         document.getElementById('projCostHint').innerText = isDevMode ? tr('project.free_dev') : `${tr('project.cost', { n: projectCost })} 💰`;
         renderProjects();
         renderTasks();
         renderAllTasks();
+        renderTrashButton();
         if (!document.getElementById('view-feed').classList.contains('hidden')) renderFeed();
         if (!document.getElementById('view-analytics').classList.contains('hidden')) {
             renderAnalytics();

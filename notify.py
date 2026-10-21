@@ -5,7 +5,7 @@ import httpx
 from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, ensure_schema
-from common import BASE_DIR, esc, load_config, compute_balance
+from common import BASE_DIR, esc, load_config, compute_balance, live_projects, live_tasks
 from i18n import tr, tv
 
 try:
@@ -76,8 +76,8 @@ def build_monthly_report(db, now, config):
     last_month_end = first_day_this_month - timedelta(seconds=1)
     last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    tasks = db.query(Task).all()
-    projects = db.query(Project).all()
+    tasks = live_tasks(db).all()
+    projects = live_projects(db).all()
 
     closed_tasks = [t for t in tasks if t.completed_at and last_month_start <= t.completed_at <= last_month_end]
     closed_projs = [p for p in projects if p.completed_at and last_month_start <= p.completed_at <= last_month_end]
@@ -140,8 +140,8 @@ def main():
             if is_monthly_flag:
                 return
 
-        projects = {p.id: p for p in db.query(Project).all()}
-        tasks = db.query(Task).all()
+        projects = {p.id: p for p in live_projects(db).all()}
+        tasks = live_tasks(db).all()
         today = now.date()
 
         overdue = []

@@ -449,6 +449,19 @@
         </div>
     </div>
 
+    <!-- Корзина проектов -->
+    <div id="trashModal" onclick="if(event.target === this) closeModal('trashModal')" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-xl w-full shadow-2xl max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between gap-3">
+                <h3 class="text-lg font-bold text-white">🗑 {{ tr('trash.title') }}</h3>
+                <button onclick="closeModal('trashModal')" class="text-slate-400 hover:text-white text-2xl leading-none" title="{{ tr('common.close_esc') }}">&times;</button>
+            </div>
+            <p id="trashHint" class="text-xs text-slate-400 mt-1"></p>
+            <div id="trashList" class="space-y-2 mt-4 overflow-y-auto pr-1"></div>
+            <button id="trashEmptyAll" onclick="emptyTrash()" class="hidden mt-4 self-end text-xs px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 rounded-md">{{ tr('trash.empty_all') }}</button>
+        </div>
+    </div>
+
     <!-- Просмотр картинок на весь экран -->
     <div id="lightbox" onclick="closeLightbox()" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-[90]">
         <button onclick="event.stopPropagation(); closeLightbox()" class="absolute top-3 right-5 text-white/70 hover:text-white text-4xl leading-none" title="{{ tr('common.close_esc') }}">&times;</button>

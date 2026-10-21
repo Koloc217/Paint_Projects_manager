@@ -44,7 +44,7 @@ def remove_files(*names) -> None:
 def add_photo(db: Session, project_id: str, raw: bytes, thumb_raw: bytes = None,
               note: str = "", source: str = "web") -> ProgressPhoto:
     """Saves one progress photo. The stage is taken from the project at this moment."""
-    proj = db.query(Project).filter(Project.id == project_id).first()
+    proj = db.query(Project).filter(Project.id == project_id, Project.deleted_at.is_(None)).first()
     if not proj:
         raise ProgressError("err.project_not_found")
     if len(raw) > MAX_PROGRESS_BYTES:
@@ -93,7 +93,8 @@ def serialize(row: ProgressPhoto) -> dict:
 
 def list_photos(db: Session, project_id: str = None, limit: int = None) -> list:
     """Photos whose files still exist, newest first."""
-    q = db.query(ProgressPhoto)
+    q = db.query(ProgressPhoto).filter(
+        ProgressPhoto.project_id.in_(db.query(Project.id).filter(Project.deleted_at.is_(None))))
     if project_id:
         q = q.filter(ProgressPhoto.project_id == project_id)
     q = q.order_by(ProgressPhoto.created_at.desc(), ProgressPhoto.id.desc())

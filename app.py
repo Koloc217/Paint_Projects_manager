@@ -5,7 +5,7 @@ import uuid
 import base64
 import contextlib
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from fastapi import FastAPI, Request, Depends
 from fastapi.responses import HTMLResponse
@@ -17,10 +17,11 @@ import uvicorn
 
 from database import SessionLocal, Project, Task, Adjustment, Reference, ProgressPhoto, ensure_schema
 import progress
+import logs
 from i18n import tr, tv, get_lang, table_for, available_languages, normalize_lang
 from common import (
     BASE_DIR, DEFAULT_NOTIFY_SETTINGS, DEFAULT_SCHEDULE, DAY_KEYS, DAY_LABELS,
-    is_done, load_config, save_config, compute_balance, DATE_FORMATS, detect_image_ext,
+    is_done, load_config, save_config, compute_balance, DATE_FORMATS, detect_image_ext, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, new_pairing_code, unlink_chat, format_pairing_code,
 )
 from bot import start_bot_polling
@@ -75,14 +76,29 @@ def validate_name(raw):
     return name, None
 
 
+async def trash_loop():
+    """Раз в несколько часов стирает проекты, у которых вышел срок в корзине (и сразу при запуске)."""
+    while True:
+        try:
+            n = await asyncio.to_thread(purge_expired_trash)
+            if n:
+                print(f"🗑 Из корзины стёрто проектов: {n}")
+        except Exception as e:
+            print(f"[TRASH ERROR] {e!r}")
+        await asyncio.sleep(6 * 3600)
+
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
+    logs.setup_app_log()
     print("🚀 Инициализация бота и планировщика...")
     bot_task = asyncio.create_task(start_bot_polling())
     scheduler_task = asyncio.create_task(scheduler_loop())
+    trash_task = asyncio.create_task(trash_loop())
     yield
     bot_task.cancel()
     scheduler_task.cancel()
+    trash_task.cancel()
 
 app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -216,8 +232,8 @@ async def index(request: Request):
 @app.get("/api/data")
 async def get_data(db: Session = Depends(get_db)):
     config = load_config()
-    projects = db.query(Project).all()
-    tasks = db.query(Task).all()
+    projects = live_projects(db).all()
+    tasks = live_tasks(db).all()
 
     current_tokens, earned = compute_balance(db, config)
 
@@ -250,6 +266,7 @@ async def get_data(db: Session = Depends(get_db)):
         pr["Refs"] = refs_by_project.get(pr["ID"], [])
         pr["Progress"] = progress_by_project.get(pr["ID"], [])
 
+    trash_list = serialize_trash(db)
     task_list = [{
         "ID": t.id,
         "Project ID": t.project_id,
@@ -272,7 +289,9 @@ async def get_data(db: Session = Depends(get_db)):
         "schedule_settings": config.get("SCHEDULE", DEFAULT_SCHEDULE),
         "language": get_lang(),
         "languages": available_languages(),
-        "date_format": config.get("DATE_FORMAT", "dmy")
+        "date_format": config.get("DATE_FORMAT", "dmy"),
+        "trash": trash_list,
+        "trash_days": config.get("TRASH_DAYS", 30),
     }
 
 @app.post("/api/config")
@@ -613,34 +632,95 @@ async def apply_project_template(project_id: str, data: Optional[TemplateRequest
     db.commit()
     return {"status": "ok"}
 
+def purge_project(db: Session, proj: Project) -> None:
+    """Стирает проект насовсем: задачи, фото, референсы, фото прогресса. Баланс фиксируется корректировкой."""
+    config = load_config()
+    if config.get("DELETE_KEEPS_BALANCE", True):
+        # Вклад проекта в баланс: награда (если завершён) минус стоимость старта.
+        # Фиксируем его корректировкой, чтобы удаление не меняло баланс.
+        reward = (proj.token_reward or 0) if is_done(proj.status) else 0
+        contribution = reward - (proj.token or 0)
+        if contribution:
+            db.add(Adjustment(amount=contribution, reason=f"Удалён проект «{proj.name}»"))
+    photo_name = getattr(proj, "photo", "")
+    ref_files = []
+    for r in db.query(Reference).filter(Reference.project_id == proj.id).all():
+        ref_files += [r.filename, r.thumb]
+        db.delete(r)
+    progress_files = progress.delete_project_photos(db, proj.id)
+    db.query(Task).filter(Task.project_id == proj.id).delete()
+    db.delete(proj)
+    db.commit()
+    remove_photo_file(photo_name)
+    remove_ref_files(*ref_files)
+    progress.remove_files(*progress_files)
+
+
+def purge_expired_trash() -> int:
+    """Стирает проекты, пролежавшие в корзине дольше TRASH_DAYS. Возвращает, сколько стёрто."""
+    cutoff = datetime.now() - timedelta(days=load_config()["TRASH_DAYS"])
+    db = SessionLocal()
+    try:
+        old = db.query(Project).filter(Project.deleted_at.isnot(None), Project.deleted_at < cutoff).all()
+        for proj in old:
+            purge_project(db, proj)
+        return len(old)
+    finally:
+        db.close()
+
+
+def serialize_trash(db: Session) -> list:
+    days = load_config()["TRASH_DAYS"]
+    now = datetime.now()
+    out = []
+    for p in db.query(Project).filter(Project.deleted_at.isnot(None)).order_by(Project.deleted_at.desc()).all():
+        left = days - (now - p.deleted_at).days
+        out.append({
+            "ID": p.id, "Name": p.name, "Status": p.status,
+            "DeletedAt": p.deleted_at.strftime("%Y-%m-%d"), "DaysLeft": max(0, left),
+            "Tasks": db.query(Task).filter(Task.project_id == p.id).count(),
+        })
+    return out
+
+
 @app.delete("/api/projects/{project_id}")
 async def delete_project(project_id: str, db: Session = Depends(get_db)):
-    proj = db.query(Project).filter(Project.id == project_id).first()
+    """Удаление = перенос в корзину. Насовсем проект стирается через TRASH_DAYS дней или вручную."""
+    proj = db.query(Project).filter(Project.id == project_id, Project.deleted_at.is_(None)).first()
     if proj:
-        config = load_config()
-        if config.get("DELETE_KEEPS_BALANCE", True):
-            # Вклад проекта в баланс: награда (если завершён) минус стоимость старта.
-            # Фиксируем его корректировкой, чтобы удаление не меняло баланс.
-            reward = (proj.token_reward or 0) if is_done(proj.status) else 0
-            contribution = reward - (proj.token or 0)
-            if contribution:
-                db.add(Adjustment(amount=contribution, reason=f"Удалён проект «{proj.name}»"))
-        photo_name = getattr(proj, "photo", "")
-        ref_files = []
-        for r in db.query(Reference).filter(Reference.project_id == project_id).all():
-            ref_files += [r.filename, r.thumb]
-            db.delete(r)
-        progress_files = progress.delete_project_photos(db, project_id)
-        db.query(Task).filter(Task.project_id == project_id).delete()
-        db.delete(proj)
+        proj.deleted_at = datetime.now()
         db.commit()
-        remove_photo_file(photo_name)
-        remove_ref_files(*ref_files)
-        progress.remove_files(*progress_files)
+    return {"status": "ok"}
+
+@app.post("/api/projects/{project_id}/restore")
+async def restore_project(project_id: str, db: Session = Depends(get_db)):
+    proj = db.query(Project).filter(Project.id == project_id, Project.deleted_at.isnot(None)).first()
+    if not proj:
+        return {"status": "error", "message": tr("trash.not_found")}
+    proj.deleted_at = None
+    proj.updated_at = datetime.now()
+    db.commit()
+    return {"status": "ok"}
+
+@app.delete("/api/trash/{project_id}")
+async def purge_trashed_project(project_id: str, db: Session = Depends(get_db)):
+    proj = db.query(Project).filter(Project.id == project_id, Project.deleted_at.isnot(None)).first()
+    if not proj:
+        return {"status": "error", "message": tr("trash.not_found")}
+    purge_project(db, proj)
+    return {"status": "ok"}
+
+@app.delete("/api/trash")
+async def empty_trash(db: Session = Depends(get_db)):
+    for proj in db.query(Project).filter(Project.deleted_at.isnot(None)).all():
+        purge_project(db, proj)
     return {"status": "ok"}
 
 @app.post("/api/tasks")
 async def create_task(data: TaskCreate, db: Session = Depends(get_db)):
+    target = db.query(Project).filter(Project.id == data.project_id).first()
+    if target is not None and target.deleted_at is not None:
+        return {"status": "error", "message": tr("err.project_not_found")}
     dead_date = datetime.strptime(data.deadline, "%Y-%m-%d") if data.deadline else None
     new_task = Task(project_id=data.project_id, task_name=data.task_name, deadline=dead_date, status="Не начато", postponed=0)
     db.add(new_task)
@@ -674,5 +754,6 @@ if __name__ == "__main__":
         options = tls.uvicorn_options()      # HTTPS=1 in .env turns on HTTPS (see tls.py)
     except tls.TlsError as e:
         raise SystemExit("HTTPS setup failed: " + str(e))
+    logs.setup_app_log()
     print(f"Project Hub: {'https' if 'ssl_certfile' in options else 'http'}://0.0.0.0:{options['port']}")
     uvicorn.run("app:app", **options)

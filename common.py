@@ -6,7 +6,7 @@ import hmac
 import secrets
 import tempfile
 
-from database import Project, Adjustment
+from database import Project, Task, Adjustment
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
@@ -62,6 +62,8 @@ DEFAULT_CONFIG = {
     "LANGUAGE": "ru-RU",
     # формат дат в интерфейсе, боте и уведомлениях: dmy = 21.03.2027, mdy = 03/21/2027
     "DATE_FORMAT": "dmy",
+    # сколько дней удалённый проект лежит в корзине, потом стирается насовсем
+    "TRASH_DAYS": 30,
 }
 
 DATE_FORMATS = {"dmy": "%d.%m.%Y", "mdy": "%m/%d/%Y"}
@@ -110,6 +112,8 @@ def load_config() -> dict:
     cfg["LANGUAGE"] = LEGACY_LANGUAGES.get(cfg.get("LANGUAGE"), cfg.get("LANGUAGE"))
     if cfg.get("DATE_FORMAT") not in DATE_FORMATS:
         cfg["DATE_FORMAT"] = DEFAULT_CONFIG["DATE_FORMAT"]
+    if not isinstance(cfg.get("TRASH_DAYS"), int) or isinstance(cfg.get("TRASH_DAYS"), bool) or not 1 <= cfg["TRASH_DAYS"] <= 3650:
+        cfg["TRASH_DAYS"] = DEFAULT_CONFIG["TRASH_DAYS"]
     return cfg
 
 
@@ -131,6 +135,16 @@ def save_config(cfg: dict) -> None:
         raise
 
 
+def live_projects(db):
+    """Запрос по проектам вне корзины: везде, где проекты показываются или считаются."""
+    return db.query(Project).filter(Project.deleted_at.is_(None))
+
+
+def live_tasks(db):
+    """Запрос по задачам проектов вне корзины."""
+    return db.query(Task).filter(Task.project_id.in_(db.query(Project.id).filter(Project.deleted_at.is_(None))))
+
+
 def compute_balance(db, config=None):
     """Возвращает (баланс, заработано).
 
@@ -139,7 +153,10 @@ def compute_balance(db, config=None):
     """
     if config is None:
         config = load_config()
-    projects = db.query(Project).all()
+    projects = live_projects(db).all()
+    if config.get("DELETE_KEEPS_BALANCE", True):
+        # проект в корзине ещё может вернуться, поэтому его вклад в баланс пока сохраняется
+        projects += db.query(Project).filter(Project.deleted_at.isnot(None)).all()
     earned = sum((p.token_reward or 0) for p in projects if is_done(p.status))
     spent = sum((p.token or 0) for p in projects)
     adjustments = sum((a.amount or 0) for a in db.query(Adjustment).all())
