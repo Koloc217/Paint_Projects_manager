@@ -262,7 +262,7 @@ body.theme-cyberpunk #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
 
 /* === THEME: theme-warhammer === */
 /* ==========================================================================
-   ТЕМА 2: WARHAMMER 40K — С ФОНОМ /static/wh40k_bg.jpg (body.theme-warhammer)
+   ТЕМА 2: WARHAMMER 40K — С ФОНОМ /static/backgrounds/wh40k_bg.jpg (body.theme-warhammer)
    ========================================================================== */
 body.theme-warhammer {
     /* Шрифты темы (оба с кириллицей). Заголовки/кнопки/даты — Playfair Display SC, текст — Alegreya.
@@ -289,7 +289,7 @@ body.theme-warhammer {
     /* Слегка затемняем центр для читаемости карточек, а под ним рендерим фоновую картинку */
     background-image: 
         radial-gradient(circle at 50% 50%, rgba(18, 14, 11, 0.30) 0%, rgba(10, 8, 6, 0.72) 100%),
-        url('wh40k_bg.jpg') !important;
+        url('backgrounds/wh40k_bg.jpg') !important;
     background-position: center center, center center !important;
     background-repeat: no-repeat, no-repeat !important;
     background-size: cover, cover !important;
@@ -884,10 +884,10 @@ body.theme-workbench {
         linear-gradient(90deg, rgba(210, 235, 220, 0.03) 1px, transparent 1px),
         radial-gradient(circle at 50% 30%, #1e352b 0%, #111d17 100%) !important;
     background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px, 100% 100% !important;
-    /* Фоновая картинка static/workbench_bg.jpg лежит поверх сетки; нет файла — видна сетка */
+    /* Фоновая картинка static/backgrounds/workbench_bg.jpg лежит поверх сетки; нет файла — видна сетка */
     background-image:
         linear-gradient(rgba(17, 29, 23, 0.72), rgba(17, 29, 23, 0.85)),
-        url('workbench_bg.jpg'),
+        url('backgrounds/workbench_bg.jpg'),
         linear-gradient(rgba(210, 235, 220, 0.08) 1px, transparent 1px),
         linear-gradient(90deg, rgba(210, 235, 220, 0.08) 1px, transparent 1px),
         linear-gradient(rgba(210, 235, 220, 0.03) 1px, transparent 1px),
@@ -1059,10 +1059,10 @@ body.theme-synthwave {
         linear-gradient(180deg, #0b0418 0%, #190933 65%, #2b0b3d 100%) !important;
     background-size: 36px 36px, 36px 36px, 100% 100%, 100% 100% !important;
     background-attachment: fixed !important;
-    /* Фоновая картинка static/synthwave_bg.jpg лежит поверх сетки; нет файла — видна сетка */
+    /* Фоновая картинка static/backgrounds/synthwave_bg.jpg лежит поверх сетки; нет файла — видна сетка */
     background-image:
         linear-gradient(rgba(16, 6, 33, 0.65), rgba(16, 6, 33, 0.82)),
-        url('synthwave_bg.jpg'),
+        url('backgrounds/synthwave_bg.jpg'),
         linear-gradient(rgba(0, 240, 255, 0.06) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255, 0, 127, 0.06) 1px, transparent 1px),
         radial-gradient(circle at 50% 100%, rgba(255, 0, 127, 0.28) 0%, rgba(131, 56, 236, 0.18) 40%, transparent 75%),
@@ -1533,10 +1533,10 @@ body.theme-pcb {
     --chart-radius: 1;
 
     background-color: #071910 !important;
-    /* Фоновая картинка static/pcb_bg.jpg лежит поверх узора; нет файла — виден узор дорожек */
+    /* Фоновая картинка static/backgrounds/pcb_bg.jpg лежит поверх узора; нет файла — виден узор дорожек */
     background-image:
         linear-gradient(rgba(7, 25, 16, 0.78), rgba(5, 19, 12, 0.88)),
-        url('pcb_bg.jpg'),
+        url('backgrounds/pcb_bg.jpg'),
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23d4af37' stroke-opacity='0.12' stroke-width='1.5'%3E%3Cpath d='M0 30 H40 L60 50 H120'/%3E%3Cpath d='M0 90 H30 L50 70 H95 L110 85 H120'/%3E%3Cpath d='M30 0 V20 L45 35 V120'/%3E%3Ccircle cx='40' cy='30' r='3' fill='%23071910' stroke='%23d4af37' stroke-opacity='0.22'/%3E%3Ccircle cx='60' cy='50' r='3' fill='%23071910' stroke='%23d4af37' stroke-opacity='0.22'/%3E%3Ccircle cx='50' cy='70' r='3' fill='%23071910' stroke='%23d4af37' stroke-opacity='0.22'/%3E%3C/g%3E%3C/svg%3E"),
         radial-gradient(circle at 50% 0%, #0d2e1e 0%, #05130c 100%) !important;
     background-size: 100% 100%, cover, 120px 120px, 100% 100% !important;

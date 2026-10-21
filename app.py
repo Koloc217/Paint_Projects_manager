@@ -8,7 +8,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from fastapi import FastAPI, Request, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -221,6 +221,20 @@ def get_db():
         db.close()
 
 # ==================== РОУТЫ ====================
+# PWA (установка на экран телефона). Service worker и манифест отдаются из корня сайта: service worker
+# действует только на адреса ниже своего, а из /static/ он не смог бы обслуживать главную страницу.
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    return FileResponse(os.path.join(BASE_DIR, "static", "sw.js"), media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+async def web_manifest():
+    return FileResponse(os.path.join(BASE_DIR, "static", "manifest.webmanifest"),
+                        media_type="application/manifest+json", headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     lang = get_lang()
