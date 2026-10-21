@@ -1,0 +1,120 @@
+// ---------- Календарь дедлайнов: месяц сеткой, сроки задач и проектов ----------
+let calMonth = null;          // первый день показываемого месяца
+let calSelected = null;       // выбранный день, 'YYYY-MM-DD'
+
+function calIso(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const CAL_DONE = ['завершен', 'завершено', 'закончен', 'completed'];
+function calIsDone(status) {
+    return CAL_DONE.includes(String(status || '').toLowerCase().trim());
+}
+
+function calLang() {
+    return window.APP_LANG || undefined;
+}
+
+// Сроки по дням: { 'YYYY-MM-DD': [{kind, id, projectId, name, projectName, done, overdue}] }
+function calItemsByDay() {
+    const today = calIso(new Date());
+    const byId = {};
+    currentProjects.forEach(p => { byId[p.ID] = p; });
+    const map = {};
+    const add = (day, item) => { (map[day] = map[day] || []).push(item); };
+    currentProjects.forEach(p => {
+        if (calIsDone(p.Status) || !p.Estimate) return;
+        add(p.Estimate, { kind: 'project', id: p.ID, projectId: p.ID, name: p.Name, projectName: p.Name, done: false, overdue: p.Estimate < today });
+    });
+    currentTasks.forEach(t => {
+        const p = byId[t['Project ID']];
+        if (!p || calIsDone(p.Status) || !t.Deadline) return;
+        const done = calIsDone(t.Status);
+        add(t.Deadline, { kind: 'task', id: t.ID, projectId: p.ID, name: t.Task, projectName: p.Name, done, overdue: !done && t.Deadline < today });
+    });
+    return map;
+}
+
+function calChipClass(item) {
+    if (item.done) return 'bg-slate-700/40 text-slate-500 line-through';
+    if (item.overdue) return 'bg-red-500/20 text-red-300';
+    return item.kind === 'project' ? 'bg-amber-500/20 text-amber-300' : 'bg-indigo-500/20 text-indigo-200';
+}
+
+function calShift(delta) {
+    if (!calMonth) calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + delta, 1);
+    calSelected = null;
+    renderCalendar();
+}
+
+function calToday() {
+    const now = new Date();
+    calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    calSelected = calIso(now);
+    renderCalendar();
+}
+
+function calSelect(day) {
+    calSelected = calSelected === day ? null : day;
+    renderCalendar();
+}
+
+function renderCalendar() {
+    const view = document.getElementById('view-calendar');
+    if (!view) return;
+    if (!calMonth) calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const lang = calLang();
+    const items = calItemsByDay();
+    const todayIso = calIso(new Date());
+    const weekStart = window.APP_DATE_FORMAT === 'mdy' ? 0 : 1;      // США: неделя с воскресенья
+
+    document.getElementById('calTitle').innerText = new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }).format(calMonth);
+    const dayNames = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(2023, 0, 1 + ((weekStart + i) % 7));      // 1 января 2023 — воскресенье
+        dayNames.push(new Intl.DateTimeFormat(lang, { weekday: 'short' }).format(d));
+    }
+    document.getElementById('calWeekdays').innerHTML = dayNames.map(n => `<div class="text-[11px] uppercase tracking-wider text-slate-500 text-center py-1">${esc(n)}</div>`).join('');
+
+    const first = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1);
+    const offset = (first.getDay() - weekStart + 7) % 7;
+    const start = new Date(first.getFullYear(), first.getMonth(), 1 - offset);
+    let cells = '';
+    for (let i = 0; i < 42; i++) {
+        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+        const iso = calIso(d);
+        const list = items[iso] || [];
+        const inMonth = d.getMonth() === calMonth.getMonth();
+        const shown = list.slice(0, 3);
+        const chips = shown.map(it => `<div class="truncate text-[10px] leading-tight rounded px-1 py-0.5 ${calChipClass(it)}" title="${esc(it.projectName)}: ${esc(it.name)}">${it.kind === 'project' ? '📌 ' : ''}${esc(it.name)}</div>`).join('');
+        const more = list.length > shown.length ? `<div class="text-[10px] text-slate-400">${tr('calendar.more', { n: list.length - shown.length })}</div>` : '';
+        const ring = iso === calSelected ? 'ring-2 ring-indigo-400' : (iso === todayIso ? 'ring-1 ring-emerald-400/70' : '');
+        cells += `
+            <button type="button" onclick="calSelect('${iso}')" class="min-h-[4.5rem] sm:min-h-[6.5rem] text-left p-1 rounded-lg border border-slate-700/60 ${inMonth ? 'bg-slate-800' : 'bg-slate-900/50 opacity-60'} hover:border-indigo-400/60 transition-colors flex flex-col gap-0.5 ${ring}">
+                <span class="text-xs ${iso === todayIso ? 'text-emerald-300 font-bold' : 'text-slate-300'}">${d.getDate()}</span>
+                ${chips}${more}
+            </button>`;
+    }
+    document.getElementById('calGrid').innerHTML = cells;
+
+    const panel = document.getElementById('calDay');
+    if (!calSelected) {
+        panel.innerHTML = `<div class="text-sm text-slate-500">${tr('calendar.pick_day')}</div>`;
+        return;
+    }
+    const list = items[calSelected] || [];
+    const head = `<h3 class="text-sm font-semibold text-slate-200 mb-2">${esc(formatIsoDate(calSelected))}</h3>`;
+    if (!list.length) {
+        panel.innerHTML = head + `<div class="text-sm text-slate-500">${tr('calendar.day_empty')}</div>`;
+        return;
+    }
+    panel.innerHTML = head + '<div class="space-y-1.5">' + list.map(it => `
+        <div onclick="openProjectDetails('${esc(it.projectId)}')" class="flex items-center gap-2 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 cursor-pointer hover:border-indigo-400/60">
+            <span class="text-xs">${it.kind === 'project' ? '📌' : (it.done ? '✅' : (it.overdue ? '⚠️' : '🔹'))}</span>
+            <div class="min-w-0">
+                <div class="text-sm ${it.done ? 'line-through text-slate-500' : 'text-slate-100'} truncate">${it.kind === 'project' ? tr('calendar.project_deadline') + ': ' : ''}${esc(it.name)}</div>
+                ${it.kind === 'task' ? `<div class="text-[11px] text-slate-400 truncate">${esc(it.projectName)}</div>` : ''}
+            </div>
+        </div>`).join('') + '</div>';
+}

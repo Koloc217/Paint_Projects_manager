@@ -347,7 +347,7 @@ function showToast(message, type = 'error') {
 }
 
 function switchTab(tab) {
-    ['dashboard', 'allTasks', 'feed', 'analytics'].forEach(t => {
+    ['dashboard', 'allTasks', 'calendar', 'feed', 'analytics'].forEach(t => {
         document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
         document.getElementById(`tab-btn-${t}`).className = t === tab
             ? 'px-3.5 py-1.5 text-sm font-medium rounded-md bg-slate-700 text-white transition-colors shadow-sm'
@@ -355,6 +355,7 @@ function switchTab(tab) {
     });
     if (tab === 'analytics') renderAnalytics();
     if (tab === 'feed') renderFeed();
+    if (tab === 'calendar') renderCalendar();
 }
 
 document.addEventListener('keydown', function(e) {
@@ -457,6 +458,7 @@ async function loadData() {
         renderTasks();
         renderAllTasks();
         renderTrashButton();
+        if (!document.getElementById('view-calendar').classList.contains('hidden')) renderCalendar();
         if (!document.getElementById('view-feed').classList.contains('hidden')) renderFeed();
         if (!document.getElementById('view-analytics').classList.contains('hidden')) {
             renderAnalytics();
