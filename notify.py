@@ -160,12 +160,14 @@ def main():
 
             diff = (d - today).days
             stage_info = f" [{esc(tv(proj.stage))}]" if getattr(proj, 'stage', '—') != '—' else ""
+            n_post = int(getattr(t, 'postponed', 0) or 0)
+            post_info = f" ⏳×{n_post}" if n_post >= 2 else ""
 
             if diff < 0:
-                overdue.append(f"💀 <b>{esc(proj.name)}</b>{stage_info}: {esc(t.task_name)} <i>({tr('notify.overdue_by')} {abs(diff)} {tr('common.days_short')})</i>")
+                overdue.append(f"💀 <b>{esc(proj.name)}</b>{stage_info}: {esc(t.task_name)}{post_info} <i>({tr('notify.overdue_by')} {abs(diff)} {tr('common.days_short')})</i>")
                 action_tasks.append(t)
             elif diff <= 3:
-                burning.append(f"🔥 <b>{esc(proj.name)}</b>{stage_info}: {esc(t.task_name)} <i>({tr('notify.left')} {diff} {tr('common.days_short')})</i>")
+                burning.append(f"🔥 <b>{esc(proj.name)}</b>{stage_info}: {esc(t.task_name)}{post_info} <i>({tr('notify.left')} {diff} {tr('common.days_short')})</i>")
                 action_tasks.append(t)
 
         # 2. Детектор «Застоя» (Stagnation Alert)
@@ -218,13 +220,13 @@ def main():
             msg_lines.extend(friday_plan)
             msg_lines.append("")
 
-        # Формируем инлайн-кнопки (закрытие + одноразовый перенос на 2 дня)
+        # Формируем инлайн-кнопки (закрытие + перенос на 2 дня; повторный перенос бот прокомментирует)
         keyboard = []
         allow_postpone = notify_cfg.get("allow_postpone", True)
         for t in action_tasks[:4]: # Максимум 4 задачи, чтобы не перегружать пуш
             short = t.task_name[:16] + ".." if len(t.task_name) > 16 else t.task_name
             row = [{"text": f"✅ {short}", "callback_data": f"n_done:{t.id}"}]
-            if allow_postpone and not getattr(t, 'postponed', 0):
+            if allow_postpone:
                 row.append({"text": f"⏳ {tr('notify.postpone_short')}: {short}", "callback_data": f"t_postpone:{t.id}"})
             keyboard.append(row)
 

@@ -211,7 +211,7 @@ def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True)
             st_lower = str(t.status).lower().strip()
             is_done = st_lower in ['закончен', 'завершено', 'completed']
             icon = "✅" if is_done else ("🔄" if st_lower == "в процессе" else "⏸️")
-            post_mark = " ⏳" if getattr(t, 'postponed', 0) else ""
+            post_mark = postpone_mark(getattr(t, 'postponed', 0))
             lines.append(f"{icon} {esc(t.task_name)}{post_mark} <i>({format_deadline(t.deadline, is_done)})</i>")
 
             if not is_done:
@@ -231,6 +231,31 @@ def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True)
         keyboard.append([{"text": f"📋 {tr('bot.btn_all_active')}", "callback_data": "show_all_proj"}])
 
     return "\n".join(lines), {"inline_keyboard": keyboard}
+
+# Ехидные комментарии к повторным переносам: 2-й, 3-й, 4-й и 5-й и дальше. Штрафа токенами нет.
+POSTPONE_SNARK_KEYS = (
+    "bot.postpone_snark_2",
+    "bot.postpone_snark_3",
+    "bot.postpone_snark_4",
+    "bot.postpone_snark_5",
+)
+
+
+def postpone_snark(count: int) -> str:
+    """Текст реакции на перенос номер count (1 — первый перенос, без комментария)."""
+    if count < 2:
+        return ""
+    key = POSTPONE_SNARK_KEYS[min(count, 5) - 2]
+    return f"😏 {tr(key, n=count)}"
+
+
+def postpone_mark(count) -> str:
+    """Значок переноса у задачи в карточке: ⏳ за один перенос, ⏳×N за несколько."""
+    count = int(count or 0)
+    if count <= 0:
+        return ""
+    return " ⏳" if count == 1 else f" ⏳×{count}"
+
 
 def build_current_focus_view(specific_proj_id: str = None):
     db = SessionLocal()
@@ -1000,25 +1025,28 @@ async def handle_callback(cb: dict):
                 await edit_message_text(chat_id, message_id, text, markup)
 
         elif data.startswith("t_postpone:"):
-            # Одноразовый перенос дедлайна на +2 дня из пуша
+            # Перенос дедлайна на +2 дня из пуша. Первый раз — молча, повторные — с ехидным комментарием
+            # (только текст, токены не списываются).
             task_id = data.split(":", 1)[1]
             task = db.query(Task).filter(Task.id == task_id).first()
             if not task:
                 await answer_callback(cb_id, tr("bot.task_not_found"))
-                return
-            if getattr(task, 'postponed', 0) >= 1:
-                await answer_callback(cb_id, f"⚠️ {tr('bot.already_postponed')}", show_alert=True)
                 return
             base_date = to_date(task.deadline) or now.date()
             if base_date < now.date():
                 base_date = now.date()
             new_deadline = base_date + timedelta(days=2)
             task.deadline = datetime.combine(new_deadline, datetime.min.time())
-            task.postponed = 1
+            count = int(getattr(task, 'postponed', 0) or 0) + 1
+            task.postponed = count
             proj = db.query(Project).filter(Project.id == task.project_id).first()
             if proj: proj.updated_at = now
             db.commit()
-            await answer_callback(cb_id, f"⏳ {tr('bot.postponed', date=fmt_date(new_deadline))}", show_alert=True)
+            reply = f"⏳ {tr('bot.postponed', date=fmt_date(new_deadline))}"
+            snark = postpone_snark(count)
+            if snark:
+                reply += f"\n\n{snark}"
+            await answer_callback(cb_id, reply, show_alert=True)
             text, markup = build_current_focus_view(task.project_id)
             await edit_message_text(chat_id, message_id, text, markup)
 
