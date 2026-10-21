@@ -12,9 +12,9 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta, time as dtime
 
+import logs
 from common import BASE_DIR, DAY_KEYS, load_config, normalize_schedule
 
-LOG_MAX_BYTES = 1_000_000
 JOB_TIMEOUT_SEC = 180
 TICK_SEC = 20
 STATE_FILE = os.path.join(BASE_DIR, "scheduler_state.json")
@@ -160,19 +160,11 @@ def seconds_to_next_run(cfg=None, now=None):
     return best
 
 
-def _rotate_log(path: str) -> None:
-    try:
-        if os.path.getsize(path) > LOG_MAX_BYTES:
-            os.replace(path, path + ".1")
-    except OSError:
-        pass
-
-
 async def run_script(script: str, args=(), timeout: float = JOB_TIMEOUT_SEC):
-    """Запускает скрипт из папки проекта отдельным процессом, вывод — в <имя>.log."""
+    """Запускает скрипт из папки проекта отдельным процессом, вывод — в logs/<имя>.log (с ротацией)."""
     script_path = os.path.join(BASE_DIR, script)
-    log_path = os.path.join(BASE_DIR, os.path.splitext(script)[0] + ".log")
-    _rotate_log(log_path)
+    log_path = logs.log_path(os.path.splitext(script)[0] + ".log")
+    logs.rotate_file(log_path)
     args = [str(a) for a in args]
 
     with open(log_path, "ab") as log:

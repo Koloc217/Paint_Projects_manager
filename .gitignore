@@ -18,4 +18,6 @@ __pycache__/
 .config.*
 
 *.log
+*.log.*
+logs/
 scheduler_state.json

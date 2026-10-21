@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, ensure_schema
+from common import live_projects, live_tasks
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,8 +22,8 @@ def main():
 
     db = SessionLocal()
     try:
-        projects = db.query(Project).all()
-        tasks = db.query(Task).all()
+        projects = live_projects(db).all()
+        tasks = live_tasks(db).all()
 
         proj_data = [{
             "id": p.id,

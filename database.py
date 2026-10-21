@@ -50,6 +50,7 @@ class Project(Base):
     photo = Column(String, default="")      # Имя файла фото проекта в папке photos/
     updated_at = Column(DateTime, default=datetime.now)
     completed_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)   # не пусто — проект в корзине
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -107,6 +108,8 @@ def ensure_schema():
             conn.execute(text(f"UPDATE projects SET updated_at = '{now_str}' WHERE updated_at IS NULL"))
         if "completed_at" not in proj_cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN completed_at DATETIME"))
+        if "deleted_at" not in proj_cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN deleted_at DATETIME"))
 
         task_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(tasks)")).fetchall()]
         if "postponed" not in task_cols:

@@ -2,6 +2,7 @@ import os
 import time
 import asyncio
 import json
+import re
 import traceback
 import uuid
 import httpx
@@ -10,7 +11,7 @@ from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, ensure_schema
 import progress
 from common import (
-    BASE_DIR, esc, load_config, compute_balance, fmt_date,
+    BASE_DIR, esc, load_config, compute_balance, fmt_date, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
 )
 from i18n import tr, tv
@@ -47,16 +48,48 @@ def pairing_locked() -> bool:
     return len(_failed_pairing) >= PAIRING_MAX_FAILS
 
 
+# Реестр возможностей бота: отсюда строятся /help, приветствие и меню команд Telegram.
+# Добавил команду или функцию, впиши её сюда (и тексты в locales.json), и справка обновится сама.
+COMMANDS = [                         # (команда, ключ описания)
+    ("current_task", "bot.cmd_start_desc"),
+    ("projects", "bot.cmd_all_desc"),
+    ("task", "bot.cmd_task_desc"),
+    ("photo", "bot.cmd_photo_desc"),
+    ("stats", "bot.cmd_stats_desc"),
+    ("help", "bot.cmd_help_desc"),
+    ("test_notify", "bot.cmd_test_desc"),
+]
+FEATURES = [                         # возможности без команды: ключи текстов
+    "bot.feat_photo",
+    "bot.feat_buttons",
+    "bot.feat_push",
+    "bot.feat_postpone",
+]
+
+
+def commands_text() -> str:
+    return "\n".join(f"• /{name} — {tr(key)}" for name, key in COMMANDS)
+
+
 def welcome_text() -> str:
     return (
         f"🤖 <b>{tr('bot.connected')}</b>\n\n"
-        f"{tr('bot.commands')}:\n"
-        f"• /current_task — {tr('bot.cmd_start_desc')}\n"
-        f"• /projects — {tr('bot.cmd_all_desc')}\n"
-        f"• /stats — {tr('bot.cmd_stats_desc')}\n"
-        f"• /photo — {tr('bot.cmd_photo_desc')}\n"
-        f"• /test_notify — {tr('bot.cmd_test_desc')}"
+        f"{tr('bot.commands')}:\n{commands_text()}"
     )
+
+
+def help_text() -> str:
+    features = "\n".join(f"• {tr(key)}" for key in FEATURES)
+    return (
+        f"📖 <b>{tr('bot.help_title')}</b>\n\n"
+        f"<b>{tr('bot.commands')}:</b>\n{commands_text()}\n\n"
+        f"<b>{tr('bot.help_features_title')}:</b>\n{features}"
+    )
+
+
+def menu_commands() -> list:
+    """Список для setMyCommands (меню «/» в Telegram): описание без служебных пояснений, до 256 символов."""
+    return [{"command": name, "description": tr(key)[:256]} for name, key in COMMANDS]
 
 # ==================== СЕТЕВОЙ СЛОЙ (ЧЕРЕЗ SOCKS5) ====================
 
@@ -189,7 +222,8 @@ def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True)
                 row.append({"text": f"✅ {tr('bot.btn_done')}: {short_name}", "callback_data": f"t_done:{t.id}:{proj.id}"})
                 keyboard.append(row)
 
-    keyboard.append([{"text": f"🎨 {tr('bot.change_stage')} ({tv(stage_str)})", "callback_data": f"stage_menu:{proj.id}"}])
+    keyboard.append([{"text": f"🎨 {tr('bot.change_stage')} ({tv(stage_str)})", "callback_data": f"stage_menu:{proj.id}"},
+                     {"text": f"➕ {tr('bot.btn_add_task')}", "callback_data": f"tk_new:{proj.id}"}])
     photos_count = _count_photos(proj.id)
     if photos_count:
         keyboard.append([{"text": f"📷 {tr('bot.btn_photos', n=photos_count)}", "callback_data": f"ph_v:{proj.id}:0"}])
@@ -202,8 +236,8 @@ def build_current_focus_view(specific_proj_id: str = None):
     db = SessionLocal()
     try:
         config = load_config()
-        all_projects = db.query(Project).all()
-        all_tasks = db.query(Task).all()
+        all_projects = live_projects(db).all()
+        all_tasks = live_tasks(db).all()
         
         tokens, _ = compute_balance(db, config)
 
@@ -291,7 +325,7 @@ def build_stage_menu_view(proj_id: str):
 def build_all_projects_view():
     db = SessionLocal()
     try:
-        projects = db.query(Project).all()
+        projects = live_projects(db).all()
         active = [p for p in projects if str(p.status).lower().strip() not in ['закончен', 'завершено', 'completed']]
         if not active:
             return tr("project.no_active"), None
@@ -301,6 +335,7 @@ def build_all_projects_view():
             st = getattr(p, 'stage', '—')
             lines.append(f"• <b>{esc(p.name)}</b> — {esc(tv(p.status))} [{esc(tv(st))}] ({priority_badge(p.priority)})")
             keyboard.append([{"text": f"🔍 {p.name}", "callback_data": f"open_p:{p.id}"}])
+        keyboard.append([{"text": f"➕ {tr('bot.btn_add_task')}", "callback_data": "tk_new:*"}])
         return "\n".join(lines), {"inline_keyboard": keyboard}
     finally:
         db.close()
@@ -311,8 +346,8 @@ def build_current_month_stats():
     try:
         now = datetime.now()
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        tasks = db.query(Task).all()
-        projects = db.query(Project).all()
+        tasks = live_tasks(db).all()
+        projects = live_projects(db).all()
         config = load_config()
 
         closed_tasks = [t for t in tasks if t.completed_at and t.completed_at >= month_start]
@@ -406,7 +441,7 @@ def _prune_pending():
 
 
 def _active_projects(db):
-    return [p for p in db.query(Project).all()
+    return [p for p in live_projects(db).all()
             if str(p.status).lower().strip() not in ['закончен', 'завершено', 'completed']]
 
 
@@ -651,6 +686,263 @@ async def handle_photo_callback(cb: dict, data: str) -> bool:
     return True
 
 
+# ==================== КОНСТРУКТОР ЗАДАЧИ ====================
+# /task или кнопка «Задача»: проект -> название -> срок -> создание. Черновик живёт в памяти один час.
+
+MAX_TASK_NAME = 120
+_task_drafts = {}          # chat_id -> {"step": ..., "project": id|None, "name": str|None, "ts": float}
+
+
+def _draft(chat_id):
+    d = _task_drafts.get(chat_id)
+    if d and time.time() - d["ts"] > PENDING_TTL_SEC:
+        _task_drafts.pop(chat_id, None)
+        return None
+    return d
+
+
+def _new_draft(chat_id, project=None, name=None):
+    _task_drafts[chat_id] = {"step": "project", "project": project, "name": name, "ts": time.time()}
+    return _task_drafts[chat_id]
+
+
+def parse_user_date(text: str):
+    """Дата из текста по формату из настроек (21.03.2027 или 03/21/2027; год можно опустить)."""
+    m = re.fullmatch(r"\s*(\d{1,2})[./\-](\d{1,2})(?:[./\-](\d{2}|\d{4}))?\s*", text or "")
+    if not m:
+        return None
+    a, b, y = int(m.group(1)), int(m.group(2)), m.group(3)
+    day, month = (b, a) if load_config().get("DATE_FORMAT") == "mdy" else (a, b)
+    today = date.today()
+    year = (int(y) + 2000 if y and len(y) == 2 else int(y)) if y else today.year
+    try:
+        result = date(year, month, day)
+    except ValueError:
+        return None
+    if not y and result < today:
+        try:
+            result = date(year + 1, month, day)
+        except ValueError:
+            return None
+    return result
+
+
+def _cancel_row(extra=None):
+    row = list(extra or [])
+    row.append({"text": f"✖ {tr('common.cancel')}", "callback_data": "tk_x"})
+    return row
+
+
+def _project_choice_view():
+    db = SessionLocal()
+    try:
+        active = [(p.id, p.name) for p in _active_projects(db)]
+    finally:
+        db.close()
+    if not active:
+        return tr("bot.task_no_projects"), None
+    keyboard = [[{"text": f"📁 {name}", "callback_data": f"tk_p:{pid}"}] for pid, name in active]
+    keyboard.append(_cancel_row())
+    return f"➕ {tr('bot.task_pick_project')}", {"inline_keyboard": keyboard}
+
+
+def _date_choice_view(project_id: str, name: str):
+    db = SessionLocal()
+    try:
+        proj = db.query(Project).filter(Project.id == project_id, Project.deleted_at.is_(None)).first()
+        planned = bool(proj) and str(proj.status).strip() == "В планах"
+        estimate = to_date(proj.estimate) if proj and proj.estimate else None
+    finally:
+        db.close()
+    rows = [
+        [{"text": tr("bot.btn_today"), "callback_data": "tk_d:today"}, {"text": tr("bot.btn_tomorrow"), "callback_data": "tk_d:tom"}],
+        [{"text": tr("bot.btn_in_3"), "callback_data": "tk_d:3d"}, {"text": tr("bot.btn_in_week"), "callback_data": "tk_d:7d"}],
+    ]
+    if estimate:
+        rows.append([{"text": tr("bot.btn_project_deadline", date=fmt_date(estimate)), "callback_data": "tk_d:proj"}])
+    rows.append([{"text": f"✏️ {tr('bot.btn_own_date')}", "callback_data": "tk_d:own"}])
+    # у проекта не «в планах» срок задачи обязателен (как в веб-интерфейсе)
+    rows.append(_cancel_row([{"text": tr("bot.btn_no_deadline"), "callback_data": "tk_d:none"}] if planned else None))
+    return f"📅 {tr('bot.task_ask_date', name=esc(name))}", {"inline_keyboard": rows}
+
+
+async def start_task_constructor(chat_id: int, project: str = None, name: str = None):
+    """Начало: если проект ясен (кнопка в карточке или он единственный), сразу к названию."""
+    db = SessionLocal()
+    try:
+        active = _active_projects(db)
+        if project and not any(p.id == project for p in active):
+            project = None
+        if not project and len(active) == 1:
+            project = active[0].id
+    finally:
+        db.close()
+    _new_draft(chat_id, project, name)
+    await _task_step(chat_id)
+
+
+async def _task_step(chat_id: int, message_id: int = None):
+    """Показывает следующий шаг черновика; message_id — сообщение с кнопками, которое можно заменить."""
+    d = _draft(chat_id)
+    if not d:
+        return
+    if not d["project"]:
+        text, markup = _project_choice_view()
+        if markup is None:
+            _task_drafts.pop(chat_id, None)
+        d["step"] = "project"
+    elif not d["name"]:
+        d["step"] = "name"
+        text, markup = f"➕ {tr('bot.task_ask_name', name=esc(_project_name(d['project'])))}", {"inline_keyboard": [_cancel_row()]}
+    else:
+        d["step"] = "date"
+        text, markup = _date_choice_view(d["project"], d["name"])
+    d["ts"] = time.time()
+    if message_id:
+        await edit_message_text(chat_id, message_id, text, markup)
+    else:
+        await send_message(chat_id, text, markup)
+
+
+def _project_name(project_id: str) -> str:
+    db = SessionLocal()
+    try:
+        p = db.query(Project).filter(Project.id == project_id).first()
+        return p.name if p else project_id
+    finally:
+        db.close()
+
+
+async def _reply(chat_id: int, message_id, text: str, markup=None):
+    """Заменяет сообщение с кнопками, а если его нет (ответ на текст пользователя), шлёт новое."""
+    if message_id:
+        await edit_message_text(chat_id, message_id, text, markup)
+    else:
+        await send_message(chat_id, text, markup)
+
+
+async def create_task_from_draft(chat_id: int, message_id, deadline):
+    d = _task_drafts.pop(chat_id, None)
+    if not d:
+        return
+    db = SessionLocal()
+    try:
+        proj = db.query(Project).filter(Project.id == d["project"], Project.deleted_at.is_(None)).first()
+        if not proj:
+            await _reply(chat_id, message_id, tr("err.project_not_found"))
+            return
+        task = Task(project_id=proj.id, task_name=d["name"], deadline=datetime.combine(deadline, datetime.min.time()) if deadline else None,
+                    status="Не начато", postponed=0)
+        db.add(task)
+        proj.updated_at = datetime.now()
+        db.commit()
+        when = fmt_date(deadline) if deadline else tr("bot.not_set")
+        text = (f"✅ <b>{tr('bot.task_created')}</b>\n{esc(d['name'])}\n"
+                f"📁 {esc(proj.name)} · 📅 {when}")
+        markup = {"inline_keyboard": [[
+            {"text": f"➕ {tr('bot.btn_more_task')}", "callback_data": f"tk_new:{proj.id}"},
+            {"text": f"🔍 {tr('bot.btn_open_project')}", "callback_data": f"open_p:{proj.id}"},
+        ]]}
+    finally:
+        db.close()
+    await _reply(chat_id, message_id, text, markup)
+
+
+async def handle_task_text(chat_id: int, text: str) -> bool:
+    """Обычный текст, пока идёт черновик: название задачи или своя дата. True, если сообщение разобрано."""
+    d = _draft(chat_id)
+    if not d or d["step"] not in ("name", "own_date"):
+        return False
+    if d["step"] == "name":
+        name = text.strip()
+        if not name or len(name) > MAX_TASK_NAME:
+            await send_message(chat_id, tr("bot.task_bad_name", n=MAX_TASK_NAME))
+            return True
+        d["name"] = name
+        await _task_step(chat_id)
+        return True
+    parsed = parse_user_date(text)
+    if not parsed:
+        await send_message(chat_id, tr("bot.task_bad_date", example=fmt_date(date.today())))
+        return True
+    await create_task_from_draft(chat_id, None, parsed)
+    return True
+
+
+async def handle_task_callback(cb: dict, data: str) -> bool:
+    cb_id = cb["id"]
+    msg = cb.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
+    message_id = msg.get("message_id")
+    parts = data.split(":")
+    action = parts[0]
+
+    if action == "tk_new" and len(parts) == 2:
+        await answer_callback(cb_id)
+        await start_task_constructor(chat_id, None if parts[1] == "*" else parts[1])
+    elif action == "tk_x":
+        _task_drafts.pop(chat_id, None)
+        await answer_callback(cb_id)
+        await edit_message_text(chat_id, message_id, f"✖ {tr('bot.task_cancelled')}")
+    elif action == "tk_p" and len(parts) == 2:
+        d = _draft(chat_id)
+        if not d:
+            await answer_callback(cb_id, tr("bot.task_expired"), show_alert=True)
+            return True
+        db = SessionLocal()
+        try:
+            exists = any(p.id == parts[1] for p in _active_projects(db))
+        finally:
+            db.close()
+        if not exists:
+            await answer_callback(cb_id, tr("err.project_not_found"), show_alert=True)
+            return True
+        d["project"] = parts[1]
+        await answer_callback(cb_id)
+        await _task_step(chat_id, message_id)
+    elif action == "tk_d" and len(parts) == 2:
+        d = _draft(chat_id)
+        if not d or not d.get("name") or not d.get("project"):
+            await answer_callback(cb_id, tr("bot.task_expired"), show_alert=True)
+            return True
+        today = date.today()
+        code = parts[1]
+        if code == "own":
+            d["step"] = "own_date"
+            await answer_callback(cb_id)
+            await edit_message_text(chat_id, message_id, f"✏️ {tr('bot.task_ask_own_date', example=fmt_date(today))}",
+                                    {"inline_keyboard": [_cancel_row()]})
+            return True
+        if code == "proj":
+            db = SessionLocal()
+            try:
+                proj = db.query(Project).filter(Project.id == d["project"]).first()
+                deadline = to_date(proj.estimate) if proj and proj.estimate else None
+            finally:
+                db.close()
+        else:
+            deadline = {"today": today, "tom": today + timedelta(days=1), "3d": today + timedelta(days=3),
+                        "7d": today + timedelta(days=7), "none": None}.get(code, False)
+        if deadline is False:
+            await answer_callback(cb_id)
+            return True
+        if deadline is None and code == "none":
+            db = SessionLocal()
+            try:
+                proj = db.query(Project).filter(Project.id == d["project"]).first()
+                planned = bool(proj) and str(proj.status).strip() == "В планах"
+            finally:
+                db.close()
+            if not planned:                      # срок обязателен: правило как в веб-интерфейсе
+                await answer_callback(cb_id, tr("bot.task_deadline_required"), show_alert=True)
+                return True
+        await answer_callback(cb_id)
+        await create_task_from_draft(chat_id, message_id, deadline)
+    else:
+        return False
+    return True
+
+
 async def handle_callback(cb: dict):
     cb_id = cb["id"]
     data = cb.get("data", "")
@@ -658,6 +950,15 @@ async def handle_callback(cb: dict):
     chat_id = msg.get("chat", {}).get("id")
     message_id = msg.get("message_id")
     now = datetime.now()
+
+    if data.split(":")[0] in ("tk_new", "tk_p", "tk_d", "tk_x"):
+        try:
+            if await handle_task_callback(cb, data):
+                return
+        except Exception as e:
+            print(f"[CALLBACK ERROR]: {repr(e)}")
+            traceback.print_exc()
+            return
 
     if data == "noop" or data.split(":")[0] in ("ph_to", "ph_cancel", "ph_undo", "ph_v", "ph_d", "ph_dy"):
         try:
@@ -822,11 +1123,21 @@ async def process_update(item: dict):
         await handle_photo_message(chat_id, msg)
         return
 
+    if text.startswith("/"):
+        _task_drafts.pop(chat_id, None)           # любая команда отменяет начатую задачу
+    elif await handle_task_text(chat_id, text):
+        return
+
     if text.startswith("/start"):
         await send_message(chat_id, welcome_text())
     elif text.startswith("/current_task"):
         view_text, markup = build_current_focus_view()
         await send_message(chat_id, view_text, markup)
+    elif text.startswith("/help"):
+        await send_message(chat_id, help_text())
+    elif text.startswith("/task"):
+        rest = text.split(maxsplit=1)[1].strip() if len(text.split(maxsplit=1)) > 1 else ""
+        await start_task_constructor(chat_id, None, rest[:MAX_TASK_NAME] if rest else None)
     elif text.startswith("/projects"):
         view_text, markup = build_all_projects_view()
         await send_message(chat_id, view_text, markup)
@@ -853,6 +1164,10 @@ async def start_bot_polling():
         try:
             await tg_request("POST", "deleteWebhook", payload={"drop_pending_updates": False}, timeout_sec=15.0)
             print(f"✅ [{datetime.now().strftime('%H:%M:%S')}] Telegram-бот начал новую сессию!")
+            try:
+                await tg_request("POST", "setMyCommands", payload={"commands": menu_commands()}, timeout_sec=15.0)
+            except Exception as e:
+                print(f"⚠️ Не удалось обновить меню команд: {repr(e)}")
         except Exception as e:
             print(f"⚠️ Ошибка подключения к Telegram при старте: {repr(e)}")
 
