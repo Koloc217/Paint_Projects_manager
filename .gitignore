@@ -18,3 +18,4 @@ __pycache__/
 .config.*
 
 *.log
+scheduler_state.json
