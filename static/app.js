@@ -1109,7 +1109,6 @@ async function savePaintNotes(silent = false) {
 
 // Шаблон пайплайна: шаг 1 — выбор модели, шаг 2 — сроки этапов (можно пропустить этап или распределить сроки равномерно).
 let templateKind = null;
-let templateNames = null;        // {kind: [названия этапов]} с сервера, кэш на время страницы
 
 function showTemplateStep(step) {
     document.getElementById('templateStepKind').classList.toggle('hidden', step !== 'kind');
@@ -1131,23 +1130,33 @@ function dateToIso(d) {
 async function chooseTemplate(kind) {
     const project = currentProjects.find(p => p.ID === currentOpenProjectId);
     if (!project) return;
-    if (!templateNames) {
-        try { templateNames = await (await fetch('/api/pipeline-templates')).json(); }
-        catch (e) { return showToast(tr('err.save_failed')); }
-    }
-    const names = templateNames[kind];
+    // Каждый раз с сервера: заодно узнаём, какие этапы уже есть в проекте (их не создаём повторно)
+    let info;
+    try { info = await (await fetch(`/api/pipeline-templates?project_id=${encodeURIComponent(project.ID)}`)).json(); }
+    catch (e) { return showToast(tr('err.save_failed')); }
+    const names = info.templates && info.templates[kind];
     if (!names) return showToast(tr('err.unknown_template'));
+    const existing = new Set((info.existing && info.existing[kind]) || []);
     templateKind = kind;
     const est = project.Estimate || '';
     document.getElementById('templateProjectDeadline').textContent =
         `${tr('template.project_deadline')}: ${est ? formatIsoDate(est) : tr('deadline.none')}`;
-    document.getElementById('templateSpreadBtn').classList.toggle('hidden', !est);
-    document.getElementById('templateStepsList').innerHTML = names.map((name, i) => `
+    document.getElementById('templateStepsList').innerHTML = names.map((name, i) => existing.has(i) ? `
+        <div class="flex items-center gap-2 p-2 bg-slate-900 rounded-lg border border-slate-700 opacity-50" data-step="${i}" data-exists="1">
+            <input type="checkbox" disabled class="tpl-on w-4 h-4 accent-indigo-500 shrink-0">
+            <span class="flex-1 min-w-0 text-sm text-slate-400 truncate" title="${esc(name)}">${i + 1}. ${esc(name)}</span>
+            <span class="shrink-0 text-xs text-emerald-400">✓ ${tr('template.step_exists')}</span>
+        </div>` : `
         <div class="flex items-center gap-2 p-2 bg-slate-900 rounded-lg border border-slate-700" data-step="${i}">
             <input type="checkbox" checked class="tpl-on w-4 h-4 accent-indigo-500 cursor-pointer shrink-0">
-            <span class="flex-1 min-w-0 text-sm text-slate-200 truncate" title="${esc(name)}">${esc(name)}</span>
+            <span class="flex-1 min-w-0 text-sm text-slate-200 truncate" title="${esc(name)}">${i + 1}. ${esc(name)}</span>
             <input type="date" value="${esc(est)}" class="tpl-date bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white outline-none [color-scheme:dark]">
         </div>`).join('');
+    const allExist = existing.size >= names.length;
+    document.getElementById('templateAllExist').classList.toggle('hidden', !allExist);
+    document.getElementById('templateCreateBtn').disabled = allExist;
+    document.getElementById('templateCreateBtn').classList.toggle('opacity-50', allExist);
+    document.getElementById('templateSpreadBtn').classList.toggle('hidden', !est || allExist);
     showTemplateStep('dates');
 }
 
@@ -1159,7 +1168,7 @@ function spreadTemplateDates() {
     const end = new Date(+m[1], +m[2] - 1, +m[3]);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const rows = [...document.querySelectorAll('#templateStepsList [data-step]')]
-        .filter(r => r.querySelector('.tpl-on').checked);
+        .filter(r => !r.dataset.exists && r.querySelector('.tpl-on').checked);
     const span = Math.max(0, Math.round((end - today) / 86400000));
     rows.forEach((row, i) => {
         const d = new Date(today);
@@ -1171,7 +1180,7 @@ function spreadTemplateDates() {
 async function applyTemplateToProject() {
     if (!currentOpenProjectId || !templateKind) return;
     const steps = [...document.querySelectorAll('#templateStepsList [data-step]')]
-        .filter(r => r.querySelector('.tpl-on').checked)
+        .filter(r => !r.dataset.exists && r.querySelector('.tpl-on').checked)
         .map(r => ({ index: +r.dataset.step, deadline: r.querySelector('.tpl-date').value || null }));
     if (!steps.length) return showToast(tr('template.none_selected'));
     const res = await fetch(`/api/projects/${currentOpenProjectId}/template`, {
@@ -1180,7 +1189,7 @@ async function applyTemplateToProject() {
     const data = await res.json().catch(() => ({ status: 'error' }));
     if (data.status !== 'ok') return showToast(data.message || tr('err.save_failed'));
     closeModal('templateModal');
-    showToast(tr('toast.pipeline_added'), "success");
+    showToast(data.skipped ? tr('toast.pipeline_added_skipped', { n: data.added, m: data.skipped }) : tr('toast.pipeline_added'), "success");
     loadData();
 }
 
