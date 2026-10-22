@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, ensure_schema
 from common import BASE_DIR, esc, load_config, compute_balance, live_projects, live_tasks
 from i18n import tr, tv
+import vacation
 
 try:
     import fcntl          # Linux / Raspberry Pi
@@ -115,6 +116,11 @@ def main():
     # DEV_MODE работает как Тихий режим для автоматических пушей
     if not is_test and not is_monthly_flag and config.get("DEV_MODE", False):
         print("Включен DEV_MODE (Тихий режим) — автоматическое уведомление пропущено.")
+        return
+
+    # Отпуск: автоматические пуши (включая ежемесячный отчёт) на это время выключены
+    if not is_test and not is_monthly_flag and vacation.is_active(config):
+        print(f"Отпуск до {vacation.state(config)['until']} — автоматическое уведомление пропущено.")
         return
 
     # Автоматический запуск — только один раз за слот (тест, --monthly и --force проверку обходят)

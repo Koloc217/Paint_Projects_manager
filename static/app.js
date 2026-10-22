@@ -452,6 +452,7 @@ async function loadData() {
         languagesList = data.languages || [];
         trashItems = data.trash || [];
         trashDays = data.trash_days || 30;
+        renderVacation(data.vacation);
         
         document.getElementById('tokenCounter').innerText = data.total_tokens + (isDevMode ? ' (DEV / MUTE)' : '');
         document.getElementById('projCostHint').innerText = isDevMode ? tr('project.free_dev') : `${tr('project.cost', { n: projectCost })} 💰`;
@@ -470,7 +471,7 @@ async function loadData() {
 }
 
 function switchSettingsTab(name) {
-    ['general', 'notifications', 'schedule', 'backup', 'telegram', 'security'].forEach(k => {
+    ['general', 'notifications', 'schedule', 'templates', 'backup', 'telegram', 'security'].forEach(k => {
         document.getElementById(`cfgTab-${k}`).classList.toggle('hidden', k !== name);
         const btn = document.getElementById(`cfgTabBtn-${k}`);
         const on = k === name;
@@ -483,6 +484,7 @@ function switchSettingsTab(name) {
     });
     if (name === 'telegram') startTelegramPolling(); else stopTelegramPolling();
     if (name === 'security') refreshAuthStatus();
+    if (name === 'templates' && !tplLoaded) tplLoad();
 }
 
 // ---------- Доступ: вход по паролю (по умолчанию выключен) ----------
@@ -632,13 +634,16 @@ async function newTelegramCode() {
     showToast(tr('tg.new_code_created'), 'success');
 }
 
-function openSettingsModal() {
+function openSettingsModal(tab = 'general') {
     const langs = languagesList.length ? languagesList : [{ code: window.APP_LANG || 'ru-RU', name: tr('meta.name') }];
     document.getElementById('cfgLanguage').innerHTML = langs
         .map(l => `<option value="${esc(l.code)}">${esc(l.name)}</option>`).join('');
     document.getElementById('cfgLanguage').value = window.APP_LANG || 'ru-RU';
     document.getElementById('cfgDateFormat').value = window.APP_DATE_FORMAT === 'mdy' ? 'mdy' : 'dmy';
-    switchSettingsTab('general');
+    tplLoaded = false;          // шаблоны перечитываются при каждом открытии настроек
+    tplDirty = false;
+    renderVacation(vacationState);
+    switchSettingsTab(tab);
     document.getElementById('cfgDevMode').checked = isDevMode;
     document.getElementById('cfgProjectCost').value = projectCost;
     document.getElementById('cfgDeleteKeepsBalance').checked = deleteKeepsBalance;
@@ -660,6 +665,7 @@ function openSettingsModal() {
 }
 
 async function saveSettings() {
+    if (!(await tplSaveIfDirty())) return;
     const costVal = parseFloat(document.getElementById('cfgProjectCost').value);
     const body = {
         dev_mode: document.getElementById('cfgDevMode').checked,
@@ -1050,7 +1056,29 @@ function renderHall() {
     }).join('');
 }
 
+// Подвкладки компактной карточки. При открытии другого проекта — снова «Задачи»,
+// при перерисовке того же проекта (после сохранения) вкладка не меняется.
+let cardTab = 'main';
+let cardTabProjectId = null;
+
+function switchCardTab(tab) {
+    cardTab = tab === 'media' ? 'media' : 'main';
+    document.getElementById('pdPanel').classList.toggle('pd-tab-media', cardTab === 'media');
+    ['main', 'media'].forEach(k => {
+        const btn = document.getElementById(`pdSubBtn-${k}`);
+        const on = k === cardTab;
+        btn.classList.toggle('bg-slate-700', on);
+        btn.classList.toggle('text-white', on);
+        btn.classList.toggle('shadow-sm', on);
+        btn.classList.toggle('text-slate-400', !on);
+        btn.classList.toggle('hover:text-white', !on);
+        btn.classList.toggle('hover:bg-slate-800', !on);
+    });
+}
+
 function openProjectDetails(projectId) {
+    if (cardTabProjectId !== projectId) cardTab = 'main';
+    cardTabProjectId = projectId;
     currentOpenProjectId = projectId;
     const project = currentProjects.find(p => p.ID === projectId);
     if (!project) return;
@@ -1060,6 +1088,9 @@ function openProjectDetails(projectId) {
     document.getElementById('pdPhotoActions').classList.toggle('hidden', !project.Photo);
     renderProjectRefs(project);
     renderProjectProgress(project);
+    const mediaCount = (project.Refs || []).length + (project.Progress || []).length;
+    document.getElementById('pdMediaCount').innerText = mediaCount ? String(mediaCount) : '';
+    switchCardTab(cardTab);
 
     let pTasks = currentTasks.filter(t => t['Project ID'] === projectId);
     const container = document.getElementById('pdTasks');
@@ -1116,11 +1147,7 @@ function showTemplateStep(step) {
     document.getElementById('templateStepDates').classList.toggle('hidden', step !== 'dates');
 }
 
-function openTemplateModal() {
-    if (!currentOpenProjectId) return;
-    showTemplateStep('kind');
-    openModal('templateModal');
-}
+// openTemplateModal — в static/templates.js (список шаблонов приходит из настроек)
 
 function backToTemplateKind() { showTemplateStep('kind'); }
 
@@ -1131,12 +1158,11 @@ function dateToIso(d) {
 async function chooseTemplate(kind) {
     const project = currentProjects.find(p => p.ID === currentOpenProjectId);
     if (!project) return;
-    // Каждый раз с сервера: заодно узнаём, какие этапы уже есть в проекте (их не создаём повторно)
-    let info;
-    try { info = await (await fetch(`/api/pipeline-templates?project_id=${encodeURIComponent(project.ID)}`)).json(); }
-    catch (e) { return showToast(tr('err.save_failed')); }
-    const names = info.templates && info.templates[kind];
-    if (!names) return showToast(tr('err.unknown_template'));
+    // templateInfo загружен при открытии окна (openTemplateModal): шаблоны и этапы, которые уже есть в проекте
+    const info = templateInfo || {};
+    const tpl = (info.templates || []).find(t => t.id === kind);
+    if (!tpl) return showToast(tr('err.unknown_template'));
+    const names = tpl.steps;
     const existing = new Set((info.existing && info.existing[kind]) || []);
     templateKind = kind;
     const est = project.Estimate || '';
@@ -1338,7 +1364,7 @@ function openModal(id) { document.getElementById(id).classList.remove('hidden');
 function closeModal(id) { 
     if (id === 'projectDetailsModal' && typeof standaloneCardId !== 'undefined' && standaloneCardId) { closeStandaloneWindow(); return; }
     document.getElementById(id).classList.add('hidden'); 
-    if (id === 'projectDetailsModal') currentOpenProjectId = null; 
+    if (id === 'projectDetailsModal') { currentOpenProjectId = null; cardTabProjectId = null; }
     if (id === 'taskModal') { document.getElementById('tName').value = ''; document.getElementById('tDeadline').value = ''; }
     if (id === 'editTaskModal') { document.getElementById('etName').value = ''; document.getElementById('etDeadline').value = ''; }
     if (id === 'projectModal') { document.getElementById('pName').value = ''; document.getElementById('pEstimate').value = ''; document.getElementById('pToken').value = ''; }

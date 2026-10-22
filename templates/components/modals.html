@@ -9,6 +9,7 @@
                 <button type="button" id="cfgTabBtn-general" onclick="switchSettingsTab('general')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap bg-slate-700 text-white shadow-sm transition-colors">{{ tr('settings.tab.general') }}</button>
                 <button type="button" id="cfgTabBtn-notifications" onclick="switchSettingsTab('notifications')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.notifications') }}</button>
                 <button type="button" id="cfgTabBtn-schedule" onclick="switchSettingsTab('schedule')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.schedule') }}</button>
+                <button type="button" id="cfgTabBtn-templates" onclick="switchSettingsTab('templates')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.templates') }}</button>
                 <button type="button" id="cfgTabBtn-backup" onclick="switchSettingsTab('backup')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.backup') }}</button>
                 <button type="button" id="cfgTabBtn-telegram" onclick="switchSettingsTab('telegram')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Telegram</button>
                 <button type="button" id="cfgTabBtn-security" onclick="switchSettingsTab('security')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.security') }}</button>
@@ -75,6 +76,24 @@
 
                 <!-- Уведомления -->
                 <div id="cfgTab-notifications" class="hidden space-y-4">
+                    <!-- Отпуск: пауза пушей и сдвиг всех сроков. Действует сразу, без кнопки «Сохранить» -->
+                    <div id="cfgVacation" class="p-3 bg-slate-900 rounded-xl border border-teal-500/30 space-y-2">
+                        <div>
+                            <div class="font-semibold text-white">{{ tr('vacation.title') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('vacation.hint') }}</div>
+                        </div>
+                        <div id="vacOff" class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                            <label class="flex items-center gap-2 text-xs text-slate-400">{{ tr('vacation.days') }}:
+                                <input type="number" id="cfgVacationDays" min="1" max="30" value="7" class="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-center text-white outline-none">
+                            </label>
+                            <button type="button" onclick="startVacation()" class="text-xs px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-md">{{ tr('vacation.start') }}</button>
+                        </div>
+                        <div id="vacOn" class="hidden flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                            <span id="vacOnText" class="text-sm text-teal-300"></span>
+                            <button type="button" onclick="cancelVacation()" class="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-md">{{ tr('vacation.cancel') }}</button>
+                        </div>
+                    </div>
+
                     <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
                         <div>
                             <div class="font-semibold text-white">{{ tr('settings.notify.postpone') }}</div>
@@ -220,6 +239,16 @@
                 </div>
 
                 <!-- Бэкап -->
+                <!-- Шаблоны пайплайна: редактор, static/templates.js. Сохраняются общей кнопкой «Сохранить» -->
+                <div id="cfgTab-templates" class="hidden space-y-4">
+                    <p class="text-xs text-slate-400">{{ tr('settings.templates.hint') }}</p>
+                    <div id="tplEditor" class="space-y-3"></div>
+                    <div class="flex flex-wrap justify-between gap-2">
+                        <button type="button" onclick="tplAddTemplate()" class="text-xs px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-200 border border-indigo-500/30 rounded-md">+ {{ tr('settings.templates.add') }}</button>
+                        <button type="button" onclick="tplResetDefaults()" class="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-md">{{ tr('settings.templates.reset') }}</button>
+                    </div>
+                </div>
+
                 <div id="cfgTab-backup" class="hidden space-y-4">
                     <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-2">
                         <label class="flex items-center justify-between cursor-pointer">
@@ -400,6 +429,13 @@
                 </div>
             </div>
 
+            <!-- Подвкладки компактной карточки: «Задачи» (рецепт и задачи) и «Фото» (референсы и прогресс).
+                 В отдельной вкладке (/?card=) их нет, там всё на одной странице: см. static/card-tab.css -->
+            <div id="pdSubtabs" class="flex gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700 mb-4 self-start">
+                <button type="button" id="pdSubBtn-main" onclick="switchCardTab('main')" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors">{{ tr('card.tab_tasks') }}</button>
+                <button type="button" id="pdSubBtn-media" onclick="switchCardTab('media')" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors">{{ tr('card.tab_photos') }} <span id="pdMediaCount" class="text-slate-500 text-xs"></span></button>
+            </div>
+
             <!-- Блокнот для красок (Paint Mixer Notepad) -->
             <div id="pdNotesBox" class="mb-4 bg-slate-900/90 border border-amber-500/20 rounded-xl p-3">
                 <div class="flex justify-between items-center mb-2">
@@ -487,23 +523,14 @@
         <a id="lbOpen" onclick="event.stopPropagation()" target="_blank" rel="noopener" class="absolute bottom-3 right-5 text-xs text-sky-300 hover:text-sky-200">{{ tr('photo.open_original') }} ↗</a>
     </div>
 
-    <!-- Выбор шаблона пайплайна: 3D-печать или сборная модель -->
+    <!-- Выбор шаблона пайплайна: список из настроек (по умолчанию 3D-печать и сборная модель) -->
     <div id="templateModal" onclick="if(event.target === this) closeModal('templateModal')" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
             <!-- Шаг 1: какая модель -->
             <div id="templateStepKind">
                 <h3 class="text-lg font-bold text-white">{{ tr('project.pipeline_template') }}</h3>
                 <p class="text-sm text-slate-400 mt-1">{{ tr('template.choose') }}</p>
-                <div class="grid gap-3 mt-4">
-                    <button type="button" onclick="chooseTemplate('print')" class="text-left p-4 bg-slate-900 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 rounded-xl transition-colors">
-                        <div class="font-semibold text-white">🖨 {{ tr('template.print') }}</div>
-                        <div class="text-xs text-slate-400 mt-1">{{ tr('template.print_hint') }}</div>
-                    </button>
-                    <button type="button" onclick="chooseTemplate('kit')" class="text-left p-4 bg-slate-900 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 rounded-xl transition-colors">
-                        <div class="font-semibold text-white">🧩 {{ tr('template.kit') }}</div>
-                        <div class="text-xs text-slate-400 mt-1">{{ tr('template.kit_hint') }}</div>
-                    </button>
-                </div>
+                <div id="templateKindList" class="grid gap-3 mt-4 max-h-[55vh] overflow-y-auto pr-1"></div>
                 <div class="flex justify-end mt-5">
                     <button onclick="closeModal('templateModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('common.cancel') }}</button>
                 </div>

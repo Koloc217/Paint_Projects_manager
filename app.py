@@ -27,6 +27,8 @@ from common import (
 from bot import start_bot_polling
 from scheduler import scheduler_loop, spawn_script
 import auth
+import pipeline
+import vacation
 
 ensure_schema()
 
@@ -38,27 +40,13 @@ MAX_THUMB_BYTES = 1536 * 1024
 PHOTOS_DIR = os.path.join(BASE_DIR, "photos")
 REFS_DIR = os.path.join(PHOTOS_DIR, "refs")
 os.makedirs(REFS_DIR, exist_ok=True)
-# Шаблоны пайплайна: ключи переводов названий этапов (тексты — в locales.json).
-# print — модель для 3D-печати, kit — сборная (литая/пластиковая) модель.
-PIPELINE_TEMPLATES = {
-    "print": [
-        "pipeline.print.step1", "pipeline.print.step2", "pipeline.print.step3", "pipeline.print.step4",
-        "pipeline.print.step5", "pipeline.print.step6", "pipeline.print.step7",
-    ],
-    "kit": [
-        "pipeline.kit.step1", "pipeline.kit.step2", "pipeline.kit.step3",
-        "pipeline.kit.step4", "pipeline.kit.step5",
-    ],
-}
-
-
 class TemplateStep(BaseModel):
     index: int                         # номер этапа в шаблоне (с 0)
     deadline: Optional[str] = None     # 'YYYY-MM-DD' или пусто
 
 
 class TemplateRequest(BaseModel):
-    kind: str = "print"
+    kind: str = "print"                # id шаблона из config.json (PIPELINE_TEMPLATES)
     # None — все этапы со сроком проекта; список — только перечисленные, каждый со своим сроком
     steps: Optional[List[TemplateStep]] = None
 
@@ -306,6 +294,7 @@ async def get_data(db: Session = Depends(get_db)):
         "date_format": config.get("DATE_FORMAT", "dmy"),
         "trash": trash_list,
         "trash_days": config.get("TRASH_DAYS", 30),
+        "vacation": vacation.state(config),
     }
 
 @app.post("/api/config")
@@ -348,6 +337,25 @@ async def update_config_route(data: ConfigUpdate):
     }
     save_config(cfg)
     return {"status": "ok"}
+
+class VacationRequest(BaseModel):
+    days: int
+
+
+@app.post("/api/vacation")
+async def start_vacation(data: VacationRequest, db: Session = Depends(get_db)):
+    err, moved = vacation.start(db, data.days)
+    if err == "bad_days":
+        return {"status": "error", "message": tr("err.vacation_days", n=vacation.MAX_DAYS)}
+    if err == "already":
+        return {"status": "error", "message": tr("err.vacation_active")}
+    return {"status": "ok", "vacation": vacation.state(), **moved}
+
+
+@app.post("/api/vacation/cancel")
+async def cancel_vacation():
+    vacation.cancel()
+    return {"status": "ok", "vacation": vacation.state()}
 
 @app.post("/api/notify/test")
 async def trigger_test_notify():
@@ -608,23 +616,40 @@ def _step_match_key(name: str) -> str:
     return re.sub(r"^\s*\d+\s*[.)]\s*", "", name or "").strip().casefold()
 
 
-def existing_template_steps(db: Session, project_id: str) -> Dict[str, List[int]]:
+def existing_template_steps(db: Session, project_id: str, templates: list) -> Dict[str, List[int]]:
     """Номера этапов каждого шаблона, которые уже есть среди задач проекта (на любом языке интерфейса)."""
     have = {_step_match_key(name) for (name,) in db.query(Task.task_name).filter(Task.project_id == project_id)}
-    langs = [lang["code"] for lang in available_languages()]
-    result = {}
-    for kind, keys in PIPELINE_TEMPLATES.items():
-        result[kind] = [i for i, key in enumerate(keys)
-                        if any(_step_match_key(translate(key, lang)) in have for lang in langs)]
-    return result
+    return {t["id"]: [i for i, raw in enumerate(t["steps"])
+                      if any(_step_match_key(v) in have for v in pipeline.step_variants(raw))]
+            for t in templates}
+
+
+class TemplatesUpdate(BaseModel):
+    templates: Optional[List[dict]] = None
+    reset: bool = False
 
 
 @app.get("/api/pipeline-templates")
 async def get_pipeline_templates(project_id: Optional[str] = None, db: Session = Depends(get_db)):
-    """Названия этапов шаблонов на языке интерфейса и (для project_id) этапы, которые уже есть в проекте."""
-    names = {kind: [tr(key) for key in keys] for kind, keys in PIPELINE_TEMPLATES.items()}
-    existing = existing_template_steps(db, project_id) if project_id else {kind: [] for kind in PIPELINE_TEMPLATES}
-    return {"templates": names, "existing": existing}
+    """Шаблоны на языке интерфейса, встроенные (для «Сбросить») и (для project_id) этапы, которые уже есть в проекте."""
+    cfg = load_config()
+    raw = pipeline.get_templates(cfg)
+    existing = existing_template_steps(db, project_id, raw) if project_id else {t["id"]: [] for t in raw}
+    return {"templates": pipeline.for_client(cfg), "defaults": pipeline.defaults_for_client(),
+            "existing": existing, "custom": "PIPELINE_TEMPLATES" in cfg}
+
+
+@app.post("/api/pipeline-templates")
+async def save_pipeline_templates(data: TemplatesUpdate):
+    cfg = load_config()
+    if data.reset:
+        cfg.pop("PIPELINE_TEMPLATES", None)
+    else:
+        err = pipeline.save(cfg, data.templates)
+        if err:
+            return {"status": "error", "message": err}
+    save_config(cfg)
+    return {"status": "ok", "templates": pipeline.for_client(cfg)}
 
 @app.post("/api/projects/{project_id}/template")
 async def apply_project_template(project_id: str, data: Optional[TemplateRequest] = None, db: Session = Depends(get_db)):
@@ -632,10 +657,12 @@ async def apply_project_template(project_id: str, data: Optional[TemplateRequest
     if not proj:
         return {"status": "error", "message": tr("err.project_not_found")}
 
+    cfg = load_config()
     kind = (data.kind if data else "print")
-    keys = PIPELINE_TEMPLATES.get(kind)
-    if keys is None:
+    template = pipeline.find(cfg, kind)
+    if template is None:
         return {"status": "error", "message": tr("err.unknown_template")}
+    keys = template["steps"]
 
     if data is None or data.steps is None:
         plan = [(i, proj.estimate) for i in range(len(keys))]
@@ -654,7 +681,7 @@ async def apply_project_template(project_id: str, data: Optional[TemplateRequest
             return {"status": "error", "message": tr("template.none_selected")}
 
     # Повторное применение шаблона не плодит дубли: этапы, которые уже есть в проекте, пропускаются
-    already = set(existing_template_steps(db, project_id)[kind])
+    already = set(existing_template_steps(db, project_id, [template])[kind])
     skipped = sum(1 for i, _ in plan if i in already)
     plan = [(i, dead) for i, dead in plan if i not in already]
     if not plan:
@@ -663,7 +690,7 @@ async def apply_project_template(project_id: str, data: Optional[TemplateRequest
     for i, dead in plan:
         db.add(Task(
             project_id=project_id,
-            task_name=tr(keys[i]),
+            task_name=pipeline.text(keys[i]),
             deadline=dead,
             status="Не начато",
             postponed=0
