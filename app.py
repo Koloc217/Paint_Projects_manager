@@ -195,6 +195,9 @@ class ProgressUpload(BaseModel):
     thumb: Optional[str] = None    # small preview
     note: str = ""
 
+class RefOrder(BaseModel):
+    ids: List[int]                 # reference ids in the new order
+
 class ProgressNote(BaseModel):
     note: str = ""
 
@@ -306,7 +309,7 @@ def get_data(db: Session = Depends(get_db)):
 
     ref_files = list_dir_names(REFS_DIR)
     refs_by_project = {}
-    for r in db.query(Reference).filter(Reference.project_id.in_(live_ids)).order_by(Reference.id):
+    for r in db.query(Reference).filter(Reference.project_id.in_(live_ids)).order_by(Reference.position, Reference.id):
         name = os.path.basename(r.filename)
         if name not in ref_files:
             continue
@@ -680,10 +683,22 @@ def add_project_ref(project_id: str, data: RefUpload, db: Session = Depends(get_
         except ValueError:
             thumb_name = ""
 
-    ref = Reference(project_id=project_id, filename=filename, thumb=thumb_name)
+    last = db.query(func.max(Reference.position)).filter(Reference.project_id == project_id).scalar()
+    ref = Reference(project_id=project_id, filename=filename, thumb=thumb_name, position=(last or 0) + 1)
     db.add(ref)
     db.commit()
     return {"status": "ok", "id": ref.id}
+
+@app.post("/api/projects/{project_id}/refs/order")
+def reorder_project_refs(project_id: str, data: RefOrder, db: Session = Depends(get_db)):
+    """New order of the references: the full list of their ids, first to last."""
+    refs = {r.id: r for r in db.query(Reference).filter(Reference.project_id == project_id).all()}
+    if sorted(data.ids) != sorted(refs):
+        return {"status": "error", "message": tr("ref.err_order")}
+    for pos, ref_id in enumerate(data.ids, start=1):
+        refs[ref_id].position = pos
+    db.commit()
+    return {"status": "ok"}
 
 @app.delete("/api/projects/{project_id}/refs/{ref_id}")
 def delete_project_ref(project_id: str, ref_id: int, db: Session = Depends(get_db)):
