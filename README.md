@@ -175,6 +175,7 @@ locales.json                                         все тексты инт�
 templates/                                           страница, вход, компоненты (nav, tabs, modals, toasts, pwa_head)
 static/app.js, i18n.js, auth.js, dateinput.js        логика интерфейса, переводы, хэш пароля, поля даты
 static/calendar.js, progress.js, templates.js, trash.js   календарь, фото прогресса, шаблоны и отпуск, корзина
+static/dropzone.js, dropzone.css                        перетаскивание картинок (обложка, референсы, прогресс)
 static/themes.css, mobile.css, card-tab.css          темы, телефонная вёрстка, карточка во вкладке
 static/sw.js, manifest.webmanifest, pwa.js, icons/, offline.html   PWA: service worker, манифест, установка, иконки, заглушка
 static/backgrounds/                                  фоновые картинки тем
