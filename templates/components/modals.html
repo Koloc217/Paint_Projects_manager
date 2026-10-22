@@ -267,6 +267,18 @@
                         </div>
                         </div>
                     </div>
+
+                    <!-- Занятое место (логика в static/app.js: loadStorage) -->
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-2">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="font-semibold text-white">{{ tr('storage.title') }}</div>
+                                <div class="text-xs text-slate-400">{{ tr('storage.hint') }}</div>
+                            </div>
+                            <button type="button" id="storageRefreshBtn" onclick="loadStorage()" class="shrink-0 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-medium text-indigo-300 transition-colors">{{ tr('storage.refresh') }}</button>
+                        </div>
+                        <div id="storageList" class="pt-2 border-t border-slate-800 text-xs space-y-1"></div>
+                    </div>
                 </div>
             
                 <!-- Telegram -->

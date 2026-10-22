@@ -30,6 +30,7 @@ import auth
 import pipeline
 import vacation
 import tgproxy
+import storage
 
 ensure_schema()
 
@@ -428,6 +429,11 @@ async def telegram_proxy_check(data: ProxyForm):
     if res["error"] == "no_token":
         return {"ok": False, "message": tr("tg.proxy_err_token")}
     return {"ok": False, "message": tr("tg.proxy_check_fail", via=via, detail=res.get("detail") or "")}
+
+@app.get("/api/storage")
+async def storage_usage():
+    """Сколько места занимают приложение, база, фото и журналы (обход папок, считается при каждом запросе)."""
+    return {"status": "ok", **(await asyncio.to_thread(storage.usage))}
 
 @app.post("/api/action")
 async def do_action(payload: ActionPayload, db: Session = Depends(get_db)):

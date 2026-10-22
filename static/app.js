@@ -485,6 +485,60 @@ function switchSettingsTab(name) {
     if (name === 'telegram') { startTelegramPolling(); loadTelegramProxy(); } else stopTelegramPolling();
     if (name === 'security') refreshAuthStatus();
     if (name === 'templates' && !tplLoaded) tplLoad();
+    if (name === 'backup') loadStorage();
+}
+
+// ---------- Занятое место: приложение, база, фото, журналы ----------
+// ключи перечислены явно, чтобы tools/check_locales.py видел их в коде
+const STORAGE_LABELS = {
+    app: 'storage.app', db: 'storage.db', photos: 'storage.photos', photos_covers: 'storage.photos_covers',
+    photos_refs: 'storage.photos_refs', photos_progress: 'storage.photos_progress', logs: 'storage.logs',
+    backups: 'storage.backups', venv: 'storage.venv', git: 'storage.git',
+};
+function formatBytes(n) {
+    const units = ['storage.unit_b', 'storage.unit_kb', 'storage.unit_mb', 'storage.unit_gb', 'storage.unit_tb'];
+    let i = 0;
+    n = Number(n) || 0;
+    while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+    const num = i === 0 ? String(n) : n.toLocaleString(window.APP_LANG || 'ru-RU', { maximumFractionDigits: n < 10 ? 1 : 0 });
+    return `${num} ${tr(units[i])}`;
+}
+
+function storageRow(item, total, child) {
+    const pct = total > 0 ? Math.round(item.bytes * 100 / total) : 0;
+    const files = tr('storage.files', { n: item.files });
+    return `<div class="flex items-center justify-between gap-3 ${child ? 'pl-4 text-slate-500' : 'text-slate-300'}">
+        <span class="min-w-0 truncate">${esc(tr(STORAGE_LABELS[item.key] || item.key))}</span>
+        <span class="shrink-0 tabular-nums text-right">
+            <span class="${child ? '' : 'text-white font-semibold'}">${formatBytes(item.bytes)}</span>
+            <span class="text-slate-500"> · ${esc(files)}${child ? '' : ` · ${pct}%`}</span>
+        </span>
+    </div>`;
+}
+
+let storageLoading = false;
+async function loadStorage() {
+    if (storageLoading) return;
+    storageLoading = true;
+    const box = document.getElementById('storageList');
+    const btn = document.getElementById('storageRefreshBtn');
+    btn.disabled = true;
+    box.innerHTML = `<div class="text-slate-500">${esc(tr('storage.loading'))}</div>`;
+    try {
+        const data = await (await fetch('/api/storage')).json();
+        if (data.status !== 'ok') throw new Error(data.message || 'error');
+        const rows = data.items.map(it =>
+            storageRow(it, data.total, false) + (it.children || []).map(ch => storageRow(ch, data.total, true)).join('')
+        ).join('');
+        box.innerHTML = rows + `<div class="flex items-center justify-between gap-3 pt-1 mt-1 border-t border-slate-800 text-white font-semibold">
+            <span>${esc(tr('storage.total'))}</span><span class="tabular-nums">${formatBytes(data.total)}</span></div>
+            <div class="text-[11px] text-slate-500 break-all pt-1">${esc(tr('storage.folder', { path: data.path }))}</div>`;
+    } catch (e) {
+        box.innerHTML = `<div class="text-red-400">${esc(tr('storage.error'))}</div>`;
+    } finally {
+        storageLoading = false;
+        btn.disabled = false;
+    }
 }
 
 // ---------- Доступ: вход по паролю (по умолчанию выключен) ----------
