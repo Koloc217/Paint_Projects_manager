@@ -1,6 +1,6 @@
-// ---------- Календарь дедлайнов: месяц сеткой, сроки задач и проектов ----------
-let calMonth = null;          // первый день показываемого месяца
-let calSelected = null;       // выбранный день, 'YYYY-MM-DD'
+// ---------- Deadline calendar: a month grid with task and project deadlines ----------
+let calMonth = null;          // first day of the month on screen
+let calSelected = null;       // selected day, 'YYYY-MM-DD'
 
 function calIso(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -15,7 +15,7 @@ function calLang() {
     return window.APP_LANG || undefined;
 }
 
-// Сроки по дням: { 'YYYY-MM-DD': [{kind, id, projectId, name, projectName, done, overdue}] }
+// Deadlines by day: { 'YYYY-MM-DD': [{kind, id, projectId, name, projectName, done, overdue}] }
 function calItemsByDay() {
     const today = calIso(new Date());
     const byId = {};
@@ -41,7 +41,7 @@ function calChipClass(item) {
     return item.kind === 'project' ? 'bg-amber-500/20 text-amber-300' : 'bg-indigo-500/20 text-indigo-200';
 }
 
-// Цвет точки в списке дня: те же цвета, что у плашек в сетке
+// Dot color in the day list: the same colors as the chips in the grid
 function calDotClass(item) {
     if (item.done) return 'bg-slate-500';
     if (item.overdue) return 'bg-red-400';
@@ -74,12 +74,12 @@ function renderCalendar() {
     const lang = calLang();
     const items = calItemsByDay();
     const todayIso = calIso(new Date());
-    const weekStart = window.APP_DATE_FORMAT === 'mdy' ? 0 : 1;      // США: неделя с воскресенья
+    const weekStart = window.APP_DATE_FORMAT === 'mdy' ? 0 : 1;      // US: the week starts on Sunday
 
     document.getElementById('calTitle').innerText = new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }).format(calMonth);
     const dayNames = [];
     for (let i = 0; i < 7; i++) {
-        const d = new Date(2023, 0, 1 + ((weekStart + i) % 7));      // 1 января 2023 — воскресенье
+        const d = new Date(2023, 0, 1 + ((weekStart + i) % 7));      // January 1, 2023 was a Sunday
         dayNames.push(new Intl.DateTimeFormat(lang, { weekday: 'short' }).format(d));
     }
     document.getElementById('calWeekdays').innerHTML = dayNames.map(n => `<div class="text-[11px] uppercase tracking-wider text-slate-500 text-center py-1">${esc(n)}</div>`).join('');

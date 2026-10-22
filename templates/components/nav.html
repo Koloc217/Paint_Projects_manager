@@ -5,7 +5,7 @@
                 <h1 class="text-xl font-semibold text-white tracking-tight hidden sm:block">Project Hub</h1>
             </div>
 
-            <!-- На телефоне (уже 640px) этот блок становится нижней панелью вкладок: см. static/mobile.css -->
+            <!-- On phones (narrower than 640px) this block becomes the bottom tab bar: see static/mobile.css -->
             <div id="navTabs" class="flex gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700">
                 <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="px-3.5 py-1.5 text-sm font-medium rounded-md bg-slate-700 text-white transition-colors shadow-sm"><span class="tab-ic sm:hidden">🏠</span><span class="tab-lb">{{ tr('nav.dashboard') }}</span></button>
                 <button onclick="switchTab('allTasks')" id="tab-btn-allTasks" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic sm:hidden">📋</span><span class="tab-lb">{{ tr('nav.all_tasks') }}</span></button>

@@ -1,21 +1,21 @@
 /* ==========================================================================
-   Телефонная вёрстка (экран уже 640px) и мелочи для сенсорных экранов.
-   Подключается ПОСЛЕ themes.css. На десктопе ничего не меняет.
+   Phone layout (screens narrower than 640px) and small fixes for touch screens.
+   Loaded AFTER themes.css. Changes nothing on desktop.
 
-   Что делает:
-   - вкладки (#navTabs) становятся нижней панелью, как в обычном приложении;
-   - шапка не липнет к верху и раскладывается в две строки:
-       1) логотип, выбор темы, настройки;  2) токены, «+ Проект», «+ Задача»;
-   - уведомления поднимаются над нижней панелью;
-   - кнопки, которые видны только при наведении мыши, на сенсорных экранах видны всегда;
-   - на iPhone поля ввода получают 16px, чтобы Safari не увеличивал страницу при нажатии.
+   What it does:
+   - the tabs (#navTabs) become a bottom bar, as in a regular app;
+   - the header does not stick to the top and wraps into two rows:
+       1) logo, theme picker, settings;  2) tokens, "+ Project", "+ Task";
+   - toasts move above the bottom bar;
+   - buttons that only show on mouse hover are always visible on touch screens;
+   - on iPhone inputs get 16px text, so Safari does not zoom the page on tap.
 
-   Для авторов тем: у <nav> и .nav-left на телефоне сбрасываются transform / filter / backdrop-filter /
-   clip-path / mask (иначе панель с position: fixed «прилипнет» к шапке или обрежется), а ::before и ::after
-   шапки скрываются. Украшения шапки на телефоне не видны, это нормально.
+   For theme authors: on phones <nav> and .nav-left get transform / filter / backdrop-filter /
+   clip-path / mask reset (otherwise the position: fixed bar would "stick" to the header or get clipped), and the
+   header ::before and ::after are hidden. Header decorations are not visible on phones; that is expected.
    ========================================================================== */
 
-/* Кнопки «изменить / удалить» у задач и картинок без мыши показываем всегда */
+/* "Edit / delete" buttons on tasks and images are always shown without a mouse */
 @media (hover: none) {
     .group-hover\:opacity-100 { opacity: 1 !important; }
 }
@@ -23,7 +23,7 @@
 @media (max-width: 639.98px) {
     html { -webkit-text-size-adjust: 100%; }
 
-    /* ---------- Шапка ---------- */
+    /* ---------- Header ---------- */
     nav.sticky {
         position: relative !important;
         padding: 10px 12px !important;
@@ -32,11 +32,11 @@
         filter: none !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
-        clip-path: none !important;            /* обрезал бы и нижнюю панель (у Cyberpunk шапка — bg-slate-800) */
+        clip-path: none !important;            /* would also clip the bottom bar (the Cyberpunk header is bg-slate-800) */
         -webkit-mask: none !important;
         mask: none !important;
     }
-    /* украшения шапки рассчитаны на одну строку на десктопе и на телефоне налезают на кнопки */
+    /* header decorations are made for a single desktop row and overlap the buttons on phones */
     nav.sticky::before,
     nav.sticky::after { display: none !important; }
     nav .nav-left {
@@ -46,10 +46,10 @@
         filter: none !important;
         backdrop-filter: none !important;
     }
-    /* дети правого блока становятся строками шапки */
+    /* children of the right-hand block become header rows */
     #navActions { display: contents !important; }
-    /* тема растягивается на остаток первой строки; ширина подобрана так, чтобы «+ Проект» и «+ Задача»
-       всегда уходили во вторую строку (токены до ~100px шириной) */
+    /* the theme picker fills the rest of the first row; the width is chosen so that "+ Project" and "+ Task"
+       always wrap to the second row (tokens up to ~100px wide) */
     #skinSelector { order: 2; flex: 1 1 calc(100% - 210px); min-width: 0; margin-left: 0 !important; }
     #navActions > button[onclick^="openSettingsModal"] { order: 3; }
     #navTokens { order: 4; padding: 6px 10px !important; }
@@ -64,7 +64,7 @@
         white-space: nowrap;
     }
 
-    /* ---------- Нижняя панель вкладок ---------- */
+    /* ---------- Bottom tab bar ---------- */
     #navTabs {
         position: fixed !important;
         left: 0;
@@ -105,10 +105,10 @@
         white-space: nowrap;
         text-overflow: ellipsis;
     }
-    /* место под панель, чтобы она не закрывала конец страницы */
+    /* room for the bar, so it does not cover the end of the page */
     body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important; }
 
-    /* ---------- Уведомления над панелью ---------- */
+    /* ---------- Toasts above the bar ---------- */
     #toastContainer {
         left: 12px !important;
         right: 12px !important;
@@ -117,16 +117,16 @@
         max-width: none !important;
     }
 
-    /* ---------- Окна ---------- */
-    /* выпадающие списки в строках настроек не шире половины окна (длинные варианты обрезаются) */
+    /* ---------- Modals ---------- */
+    /* dropdowns in settings rows are at most half the window wide (long options are cut) */
     #settingsModal select:not(#_) { max-width: 55%; flex-shrink: 0; }
-    /* поменьше полей вокруг окна, чтобы окно занимало почти весь экран */
+    /* smaller margins around a modal, so it takes almost the whole screen */
     body > div.fixed.inset-0:not(#toastContainer):not(#lightbox) { padding: 8px !important; }
     body > div.fixed.inset-0 > div { max-height: calc(100dvh - 16px) !important; overflow-y: auto; }
     body > div.fixed.inset-0 > div.p-6 { padding: 16px !important; }
 }
 
-/* iPhone/iPad: Safari увеличивает страницу при фокусе на поле с шрифтом меньше 16px */
+/* iPhone/iPad: Safari zooms the page when an input with text smaller than 16px gets focus */
 @supports (-webkit-touch-callout: none) {
     @media (max-width: 1024px) {
         input:not([type="checkbox"]):not([type="radio"]):not(#_),

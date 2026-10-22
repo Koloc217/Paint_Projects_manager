@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Убирает из папки проекта файлы, которых нет в git и которые не указаны в .gitignore
-# (остатки старых версий: удалённые модули, старые папки и т.п.).
+# Moves out of the project folder the files that are neither in git nor listed in .gitignore
+# (leftovers of older versions: removed modules, old folders and so on).
 #
-#   tools/clean.sh            показать список и спросить подтверждение
-#   tools/clean.sh --yes      без вопроса
-#   tools/clean.sh --dry-run  только показать
+#   tools/clean.sh            show the list and ask for confirmation
+#   tools/clean.sh --yes      without asking
+#   tools/clean.sh --dry-run  only show
 #
-# Файлы не удаляются насовсем, а переносятся в ../<папка>-leftovers-<дата>/ с сохранением путей.
-# Данные приложения (tracker.db, photos/, config.json, .env, журналы и т.д.) указаны в .gitignore
-# и сюда не попадают.
+# Files are not deleted for good: they are moved to ../<folder>-leftovers-<date>/ with their paths kept.
+# App data (tracker.db, photos/, config.json, .env, logs, etc.) is listed in .gitignore
+# and is never touched.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -45,7 +45,7 @@ for f in "${FILES[@]}"; do
     mkdir -p "$DEST/$(dirname "$f")"
     mv -- "$f" "$DEST/$f"
 done
-# Убираем папки, которые опустели после переноса (только их, другие пустые папки не трогаем)
+# Remove folders that became empty after the move (only those; other empty folders are left alone)
 for f in "${FILES[@]}"; do
     d="$(dirname "$f")"
     while [[ "$d" != "." ]] && rmdir -- "$d" 2>/dev/null; do d="$(dirname "$d")"; done

@@ -1,10 +1,10 @@
-// ---------- Фото прогресса (WIP): блок в карточке проекта и общая «Лента» ----------
+// ---------- Progress (WIP) photos: the block in the project card and the shared "Feed" ----------
 const PROGRESS_STAGE_KEYS = {
     '—': 'stage.none', 'Печать': 'stage.printing', 'Шлифовка': 'stage.sanding',
     'Сборка': 'stage.assembly', 'Грунт': 'stage.priming', 'Покрас': 'stage.painting',
 };
 const PROGRESS_MAX_SIDE = 1600;
-const PROGRESS_MAX_FILES = 10;      // за один раз
+const PROGRESS_MAX_FILES = 10;      // per upload
 
 function progressStageLabel(stage) {
     const key = PROGRESS_STAGE_KEYS[stage || '—'];
@@ -20,7 +20,7 @@ function progressCaption(ph, projectName) {
     return parts.join(' · ');
 }
 
-// ----- карточка проекта -----
+// ----- project card -----
 function renderProjectProgress(project) {
     const list = project.Progress || [];
     document.getElementById('pdProgressCount').innerText = list.length ? String(list.length) : '';
@@ -29,7 +29,7 @@ function renderProjectProgress(project) {
         box.innerHTML = `<div class="text-xs text-slate-600 py-2">${tr('progress.empty')}</div>`;
         return;
     }
-    // Лента времени: слева старые, справа новые; прокрутка по горизонтали, в конце — свежее.
+    // Timeline: oldest on the left, newest on the right; scrolls horizontally and starts at the newest end.
     box.innerHTML = list.map((ph, i) => `
         <div class="shrink-0 w-24">
             <div class="relative group aspect-square rounded-lg overflow-hidden border border-slate-700 bg-slate-950 cursor-pointer hover:border-fuchsia-400 transition-colors" onclick="openProjectProgress('${esc(project.ID)}', ${i})">
@@ -100,7 +100,7 @@ async function removeProgressPhoto(projectId, photoId) {
     loadData();
 }
 
-// ----- общая лента -----
+// ----- shared feed -----
 let feedFilter = '';
 let feedItems = [];
 

@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Выкладка ветки из GitHub на машину, где работает Project Hub (Linux + systemd).
+# Deploys a branch from GitHub to the machine that runs Project Hub (Linux + systemd).
 #
 #   tools/deploy.sh                      # main
 #   tools/deploy.sh feature/postpone-snark
-#   tools/deploy.sh --rollback           # вернуть коммит, который стоял до последней выкладки
-#   tools/deploy.sh --force main         # выложить, даже если нет новых коммитов или есть локальные правки
+#   tools/deploy.sh --rollback           # go back to the commit that was deployed before the last deploy
+#   tools/deploy.sh --force main         # deploy even if there are no new commits or there are local edits
 #
-# Что делает: копия базы в backups/ → git fetch → переключение на свежую версию ветки →
-# pip install, если поменялся requirements.txt → перезапуск сервиса → проверка, что сервер отвечает.
-# Данные (tracker.db, photos/, config.json, .env, auth.json) в git не входят и не трогаются.
+# What it does: database copy into backups/ → git fetch → switch to the latest version of the branch →
+# pip install if requirements.txt changed → restart the service → check that the server answers.
+# Data (tracker.db, photos/, config.json, .env, auth.json) is not in git and is not touched.
 #
-# Настройки через переменные окружения:
-#   VENV=/home/ops13/venv      путь к виртуальному окружению (по умолчанию .venv в папке проекта или ../venv)
-#   SERVICE=tracker            имя systemd-сервиса
-#   PORT=8000                  порт для проверки после перезапуска
-#   KEEP_BACKUPS=10            сколько копий базы хранить
+# Settings through environment variables:
+#   VENV=/home/ops13/venv      path to the virtual environment (default: .venv in the project folder or ../venv)
+#   SERVICE=tracker            systemd service name
+#   PORT=8000                  port to check after the restart
+#   KEEP_BACKUPS=10            how many database copies to keep
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -57,7 +57,7 @@ backup_db() {
     [[ -f tracker.db ]] || return 0
     mkdir -p backups
     local dst="backups/tracker-$(date +%Y%m%d-%H%M%S).db"
-    # sqlite3 backup API: корректная копия даже в режиме WAL и при работающем приложении
+    # sqlite3 backup API: a consistent copy even in WAL mode and while the app is running
     "$PY" - "$dst" <<'EOF'
 import sqlite3, sys
 src = sqlite3.connect("tracker.db")
@@ -102,7 +102,7 @@ fi
 echo "🔄 Перезапуск $SERVICE..."
 sudo systemctl restart "$SERVICE"
 
-# Ждём, пока сервер ответит (HTTPS, если включён, иначе HTTP)
+# Wait until the server answers (HTTPS if enabled, otherwise HTTP)
 ok=0
 for _ in $(seq 1 20); do
     sleep 1

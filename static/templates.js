@@ -1,6 +1,6 @@
-// ---------- Шаблоны пайплайна в настройках и отпуск ----------
-// Шаблоны хранятся в config.json. У встроенных названия и этапы — ключи перевода: если строку не трогали,
-// обратно уходит ключ (и при смене языка текст переведётся), если поправили — уходит новый текст.
+// ---------- Pipeline templates in the settings, and vacation ----------
+// Templates are stored in config.json. Built-in names and steps are translation keys: an untouched row is sent
+// back as the key (so it follows a language change), an edited row is sent as the new text.
 
 const TPL_MAX_TEMPLATES = 20;
 const TPL_MAX_STEPS = 30;
@@ -18,7 +18,7 @@ function tplFromServer(list) {
     }));
 }
 
-// Что отправить на сервер: нетронутая строка — исходное значение (ключ), изменённая — текст
+// What goes to the server: an untouched row sends the stored value (the key), an edited one sends the text
 function tplValue(item) {
     const text = item.text.trim();
     return text === item.orig ? item.raw : text;
@@ -124,7 +124,7 @@ async function tplResetDefaults() {
     tplRender();
 }
 
-// Вызывается из saveSettings: true — можно закрывать окно, false — ошибка (показана)
+// Called from saveSettings: true = the window may close, false = an error (already shown)
 async function tplSaveIfDirty() {
     if (!tplLoaded || !tplDirty) return true;
     const res = await fetch('/api/pipeline-templates', {
@@ -140,7 +140,7 @@ async function tplSaveIfDirty() {
     return true;
 }
 
-// ----- выбор шаблона в карточке проекта -----
+// ----- choosing a template in the project card -----
 let templateInfo = null;
 
 async function openTemplateModal() {
@@ -157,7 +157,7 @@ async function openTemplateModal() {
     openModal('templateModal');
 }
 
-// ----- отпуск -----
+// ----- vacation -----
 let vacationState = { active: false };
 
 function renderVacation(st) {

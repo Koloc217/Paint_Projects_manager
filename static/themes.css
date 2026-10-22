@@ -1,29 +1,29 @@
 /* ==========================================================================
-   0. БАЗОВЫЙ ФИКС ВСЕХ SELECT И OPTION (ДЛЯ ВСЕХ ТЕМ ПО УМОЛЧАНИЮ)
+   0. BASE FIX FOR ALL SELECT AND OPTION ELEMENTS (DEFAULT FOR EVERY THEME)
    ========================================================================== */
 :root {
     color-scheme: dark;
 
     /* ----------------------------------------------------------------------
-       ТОКЕНЫ ГРАФИКОВ (Chart.js читает их из CSS при отрисовке и при смене темы).
-       Значения по умолчанию = стандартный вид. Новая тема переопределяет их внутри
-       своего блока body.theme-<имя> { ... }; описание каждого токена — в THEMES_GUIDE.md.
+       CHART TOKENS (Chart.js reads them from CSS when drawing and when the theme changes).
+       The defaults are the standard look. A new theme overrides them inside
+       its own body.theme-<name> { ... } block; every token is described in THEMES_GUIDE.md.
        ---------------------------------------------------------------------- */
     --chart-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --chart-text: #cbd5e1;          /* подписи оси X и легенда */
-    --chart-muted: #94a3b8;         /* подписи оси Y */
-    --chart-grid: #334155;          /* горизонтальная сетка */
-    --chart-stage-1: #475569;       /* «Без стадии» */
-    --chart-stage-2: #6366f1;       /* Печать */
-    --chart-stage-3: #f59e0b;       /* Шлифовка */
-    --chart-stage-4: #06b6d4;       /* Сборка */
-    --chart-stage-5: #a855f7;       /* Грунт */
-    --chart-stage-6: #10b981;       /* Покрас */
-    --chart-series-1: #6366f1;      /* «Закрыто задач» */
-    --chart-series-2: #10b981;      /* «Завершено проектов» */
-    --chart-border: transparent;    /* контур столбцов */
-    --chart-border-width: 0;        /* толщина контура, px */
-    --chart-radius: 6;              /* скругление столбцов, px */
+    --chart-text: #cbd5e1;          /* X axis labels and the legend */
+    --chart-muted: #94a3b8;         /* Y axis labels */
+    --chart-grid: #334155;          /* horizontal grid */
+    --chart-stage-1: #475569;       /* "No stage" */
+    --chart-stage-2: #6366f1;       /* Printing */
+    --chart-stage-3: #f59e0b;       /* Sanding */
+    --chart-stage-4: #06b6d4;       /* Assembly */
+    --chart-stage-5: #a855f7;       /* Priming */
+    --chart-stage-6: #10b981;       /* Painting */
+    --chart-series-1: #6366f1;      /* "Tasks closed" */
+    --chart-series-2: #10b981;      /* "Projects completed" */
+    --chart-border: transparent;    /* bar outline */
+    --chart-border-width: 0;        /* outline width, px */
+    --chart-radius: 6;              /* bar corner radius, px */
 }
 
 select {
@@ -42,7 +42,7 @@ select {
     background-size: 1px 100%, 12px 12px !important;
 }
 
-/* Жестко задаем темный фон и светлый текст для выпадающего списка */
+/* Force a dark background and light text in the dropdown list */
 select option,
 select optgroup {
     background-color: #0f172a !important;
@@ -53,10 +53,10 @@ select optgroup {
 
 /* === THEME: theme-cyberpunk === */
 /* ==========================================================================
-   ТЕМА 1: CYBERPUNK & TACTICAL HUD (body.theme-cyberpunk)
+   THEME 1: CYBERPUNK & TACTICAL HUD (body.theme-cyberpunk)
    ========================================================================== */
 body.theme-cyberpunk {
-    /* графики: неон на тёмном */
+    /* charts: neon on dark */
     --chart-font: 'JetBrains Mono', ui-monospace, monospace;
     --chart-text: #d1fff0;
     --chart-muted: #5fb8a0;
@@ -172,7 +172,7 @@ body.theme-cyberpunk .bg-red-400\/10 {
 }
 
 
-/* ---------- CYBERPUNK: неоновые кнопки с угловыми метками ---------- */
+/* ---------- CYBERPUNK: neon buttons with corner marks ---------- */
 body.theme-cyberpunk button.bg-emerald-600,
 body.theme-cyberpunk button.bg-indigo-600,
 body.theme-cyberpunk button.bg-blue-600,
@@ -237,7 +237,7 @@ body.theme-cyberpunk button.bg-indigo-600:active,
 body.theme-cyberpunk button.bg-blue-600:active,
 body.theme-cyberpunk button.bg-red-600:active { transform: translateY(0); }
 
-/* вторичные кнопки: тусклый неон; активная вкладка — яркая */
+/* secondary buttons: dim neon; the active tab is bright */
 body.theme-cyberpunk button.bg-slate-700 {
     background: rgba(0, 240, 255, 0.06) !important;
     border: 1px solid rgba(0, 240, 255, 0.35) !important;
@@ -262,14 +262,14 @@ body.theme-cyberpunk #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
 
 /* === THEME: theme-warhammer === */
 /* ==========================================================================
-   ТЕМА 2: WARHAMMER 40K — С ФОНОМ /static/backgrounds/wh40k_bg.jpg (body.theme-warhammer)
+   THEME 2: WARHAMMER 40K, WITH THE /static/backgrounds/wh40k_bg.jpg BACKGROUND (body.theme-warhammer)
    ========================================================================== */
 body.theme-warhammer {
-    /* Шрифты темы (оба с кириллицей). Заголовки/кнопки/даты — Playfair Display SC, текст — Alegreya.
-       Чтобы попробовать другую пару, поменяйте эти две строки и ссылку на Google Fonts в index.html. */
+    /* Theme fonts (both include Cyrillic). Headings/buttons/dates: Playfair Display SC; text: Alegreya.
+       To try another pair, change these two lines and the Google Fonts link in index.html. */
     --wh-title: 'Playfair Display SC', 'Cormorant SC', Georgia, serif;
     --wh-body: 'Alegreya', 'Philosopher', Georgia, serif;
-    /* графики: бронза, золото и багрянец на тёмном пергаменте */
+    /* charts: bronze, gold and crimson on dark parchment */
     --chart-font: 'Alegreya', 'Philosopher', Georgia, serif;
     --chart-text: #e6d5b8;
     --chart-muted: #b9a47a;
@@ -286,7 +286,7 @@ body.theme-warhammer {
     --chart-border-width: 1;
     --chart-radius: 0;
     background-color: #120e0b !important;
-    /* Слегка затемняем центр для читаемости карточек, а под ним рендерим фоновую картинку */
+    /* Slightly darken the center so the cards stay readable; the background image is drawn below */
     background-image: 
         radial-gradient(circle at 50% 50%, rgba(18, 14, 11, 0.30) 0%, rgba(10, 8, 6, 0.72) 100%),
         url('backgrounds/wh40k_bg.jpg') !important;
@@ -299,7 +299,7 @@ body.theme-warhammer {
     color: #e6d5b8 !important;
 }
 
-/* Лиговые (одинаковой высоты) цифры: в Alegreya по умолчанию «старый стиль», из-за него «05» выглядит как «o5» */
+/* Lining (equal-height) numerals: Alegreya uses old-style figures by default, which makes "05" look like "o5" */
 body.theme-warhammer,
 body.theme-warhammer select,
 body.theme-warhammer input,
@@ -308,7 +308,7 @@ body.theme-warhammer textarea {
     font-variant-numeric: lining-nums;
 }
 
-/* Поля ввода в окнах не должны получать заклёпки и рамку «карточки» */
+/* Inputs in modals must not get the rivets and the "card" frame */
 body.theme-warhammer input.bg-slate-800 {
     background-image: none !important;
     background-color: #1a130d !important;
@@ -320,7 +320,7 @@ body.theme-warhammer input.bg-slate-800 {
     backdrop-filter: none;
 }
 
-/* Прозрачность для оберток в index.html, если на них висит глухой класс bg-slate-900 / bg-slate-950 */
+/* Transparent wrappers in index.html that carry a solid bg-slate-900 / bg-slate-950 class */
 body.theme-warhammer > div:not(#toastContainer):not([id*="Modal"]):not(#lightbox),
 body.theme-warhammer main {
     background-color: transparent !important;
@@ -336,7 +336,7 @@ body.theme-warhammer h3 {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
 }
 
-/* --- ВЕРХНЯЯ ПАНЕЛЬ (ШАПКА) С БАРЕЛЬЕФОМ МЕХАНИКУС --- */
+/* --- TOP BAR (HEADER) WITH A MECHANICUS BAS-RELIEF --- */
 body.theme-warhammer nav {
     background: 
         linear-gradient(180deg, rgba(60, 44, 28, 0.85) 0%, rgba(18, 13, 9, 0.95) 100%),
@@ -347,7 +347,7 @@ body.theme-warhammer nav {
     position: relative;
 }
 
-/* Векторный барельеф: Шестерня + Крылья Аквилы + Череп по центру шапки */
+/* Vector bas-relief: cog + Aquila wings + skull in the middle of the header */
 body.theme-warhammer nav::after {
     content: "";
     position: absolute;
@@ -371,18 +371,18 @@ body.theme-warhammer #tokenCounter {
     letter-spacing: 0.03em;
 }
 
-/* --- КАРТОЧКИ ПРОЕКТОВ И БЛОК ЗАДАЧ (ЧУГУН + БРОНЗОВАЯ РАМА С ЗАКЛЕПКАМИ) --- */
+/* --- PROJECT CARDS AND THE TASK BLOCK (CAST IRON + A RIVETED BRONZE FRAME) --- */
 body.theme-warhammer .bg-slate-800,
 body.theme-warhammer .bg-slate-800\/90 {
     background-color: rgba(24, 18, 14, 0.88) !important;
     backdrop-filter: blur(3px);
     background-image: 
-        /* 4 угловые металлические заклепки */
+        /* 4 metal corner rivets */
         radial-gradient(circle at 8px 8px, #b89758 2px, #2b1f11 3px, transparent 4px),
         radial-gradient(circle at calc(100% - 8px) 8px, #b89758 2px, #2b1f11 3px, transparent 4px),
         radial-gradient(circle at 8px calc(100% - 8px), #b89758 2px, #2b1f11 3px, transparent 4px),
         radial-gradient(circle at calc(100% - 8px) calc(100% - 8px), #b89758 2px, #2b1f11 3px, transparent 4px),
-        /* Текстура темного металла с теплым отблеском */
+        /* Dark metal texture with a warm sheen */
         radial-gradient(circle at 75% 30%, rgba(150, 90, 30, 0.16) 0%, transparent 55%),
         linear-gradient(165deg, rgba(34, 25, 19, 0.9) 0%, rgba(18, 13, 10, 0.94) 100%) !important;
     border: 2px solid #7c6032 !important;
@@ -397,7 +397,7 @@ body.theme-warhammer .bg-slate-800\/90 {
     margin-top: 6px;
 }
 
-/* Векторное клеймо с черепом и крыльями на верхней рамке каждой карточки */
+/* Vector emblem with a skull and wings on the top edge of every card */
 body.theme-warhammer #projectsContainer > div::before {
     content: "";
     position: absolute;
@@ -414,14 +414,14 @@ body.theme-warhammer #projectsContainer > div::before {
     z-index: 5;
 }
 
-/* Рамка вокруг фото проекта */
+/* Frame around the project photo */
 body.theme-warhammer #projectsContainer .rounded-xl {
     border-radius: 2px !important;
     border: 2px solid #6b5229 !important;
     box-shadow: inset 0 0 12px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8) !important;
 }
 
-/* --- ВЫПАДАЮЩИЕ СПИСКИ (SELECT) КАК БРОНЗОВЫЕ ОКОШКИ --- */
+/* --- DROPDOWNS (SELECT) AS BRONZE WINDOWS --- */
 body.theme-warhammer select {
     background-color: #1a130d !important;
     color: #e8d8b9 !important;
@@ -449,7 +449,7 @@ body.theme-warhammer select option {
     font-family: var(--wh-body) !important;
 }
 
-/* --- ДАТЫ И ДЕДЛАЙНЫ: бронзовая табличка с ромбиками по краям (без иконки календаря) --- */
+/* --- DATES AND DEADLINES: a bronze plate with diamonds on the sides (no calendar icon) --- */
 body.theme-warhammer .dl-icon {
     display: none;
 }
@@ -487,7 +487,7 @@ body.theme-warhammer #projectsContainer .text-xs > span::after {
     box-shadow: 0 0 0 1px #2a1d0c;
 }
 
-/* Горит / просрочено — багровая табличка */
+/* Urgent / overdue: a crimson plate */
 body.theme-warhammer #projectsContainer .text-xs > span.text-red-400,
 body.theme-warhammer #projectsContainer .text-xs > span.text-red-500 {
     color: #ffc2b0 !important;
@@ -501,7 +501,7 @@ body.theme-warhammer #projectsContainer .text-xs > span.text-red-500::after {
     background: #cf4a3a;
 }
 
-/* Без дедлайна / закрыто — приглушённая табличка */
+/* No deadline / closed: a muted plate */
 body.theme-warhammer #projectsContainer .text-xs > span.text-slate-500 {
     color: #9c8a63 !important;
     border-color: #5a4627 !important;
@@ -513,7 +513,7 @@ body.theme-warhammer #projectsContainer .text-xs > span.text-slate-500::after {
     background: #6b5632;
 }
 
-/* --- ПРАВАЯ КОЛОНКА "БЛИЖАЙШИЕ ЗАДАЧИ" С СУРГУЧНЫМИ ПЕЧАТЯМИ ЧИСТОТЫ --- */
+/* --- RIGHT COLUMN "UPCOMING TASKS" WITH WAX PURITY SEALS --- */
 body.theme-warhammer #tasksContainer > div {
     border-bottom: 1px solid rgba(133, 103, 53, 0.35) !important;
     padding: 12px 14px !important;
@@ -538,7 +538,7 @@ body.theme-warhammer #tasksContainer .text-xs > span.text-red-500 {
     color: #7a1212 !important;
 }
 
-/* Векторная сургучная печать чистоты (Purity Seal) с черепом и свисающей лентой */
+/* Vector wax Purity Seal with a skull and a hanging ribbon */
 body.theme-warhammer #tasksContainer .text-xs > span::after {
     content: "";
     position: absolute;
@@ -562,18 +562,18 @@ body.theme-warhammer #projectsContainer .rounded-full {
 }
 
 /* ==========================================================================
-   КНОПКИ ПОД КАЖДЫЙ СТИЛЬ (шапка и окна)
-   «+ Проект» = bg-emerald-600, «+ Задача» = bg-indigo-600, «Сохранить» = bg-blue-600,
-   «Удалить» = bg-red-600, вторичные (вкладки, шестерёнка, «Отмена») = bg-slate-700.
-   Стандартная тема не затрагивается.
+   BUTTONS FOR EACH STYLE (header and modals)
+   "+ Project" = bg-emerald-600, "+ Task" = bg-indigo-600, "Save" = bg-blue-600,
+   "Delete" = bg-red-600, secondary ones (tabs, the gear, "Cancel") = bg-slate-700.
+   The standard theme is not affected.
    ========================================================================== */
 
-/* ---------- WARHAMMER: бронзовые и багровые пластины с заклёпками ---------- */
+/* ---------- WARHAMMER: riveted bronze and crimson plates ---------- */
 body.theme-warhammer button.bg-emerald-600,
 body.theme-warhammer button.bg-indigo-600,
 body.theme-warhammer button.bg-blue-600,
 body.theme-warhammer button.bg-red-600 {
-    /* «+ Проект», «Создать», «Сохранить» — золочёная бронза */
+    /* "+ Project", "Create", "Save": gilded bronze */
     --plate-a: #7a5c2a;
     --plate-b: #3a2a13;
     --edge: #c9a45e;
@@ -597,9 +597,9 @@ body.theme-warhammer button.bg-red-600 {
         0 3px 7px rgba(0, 0, 0, 0.75) !important;
     transition: filter 0.15s, transform 0.1s;
 }
-/* «+ Задача» — багровая пластина с золотой кромкой */
+/* "+ Task": a crimson plate with a golden edge */
 body.theme-warhammer button.bg-indigo-600 { --plate-a: #92291f; --plate-b: #4a110c; --edge: #cfa55f; }
-/* «Удалить» — тёмно-красная */
+/* "Delete": dark red */
 body.theme-warhammer button.bg-red-600    { --plate-a: #a3261c; --plate-b: #3f0a07; --edge: #e0665a; }
 
 body.theme-warhammer button.bg-emerald-600:hover,
@@ -614,7 +614,7 @@ body.theme-warhammer button.bg-red-600:active {
     box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 1px 2px rgba(0, 0, 0, 0.7) !important;
 }
 
-/* вторичные кнопки: тёмный металл; активная вкладка — позолоченная */
+/* secondary buttons: dark metal; the active tab is gilded */
 body.theme-warhammer button.bg-slate-700 {
     background: linear-gradient(180deg, #3a2c1a 0%, #1d150d 100%) !important;
     border: 1px solid #6b5229 !important;
@@ -637,7 +637,7 @@ body.theme-warhammer #settingsModal .bg-slate-900.p-1 {
     border-color: #6b5229 !important;
 }
 
-/* Тёплые неактивные вкладки и логотип в тон теме Warhammer */
+/* Warm inactive tabs and a logo matching the Warhammer theme */
 body.theme-warhammer nav button[id^="tab-btn"]:not(.bg-slate-700),
 body.theme-warhammer #settingsModal button[id^="cfgTabBtn"]:not(.bg-slate-700) { color: #c9b48a !important; }
 body.theme-warhammer nav button[id^="tab-btn"]:not(.bg-slate-700):hover { color: #fff2c4 !important; background: rgba(184, 147, 82, 0.12) !important; }
@@ -884,7 +884,7 @@ body.theme-workbench {
         linear-gradient(90deg, rgba(210, 235, 220, 0.03) 1px, transparent 1px),
         radial-gradient(circle at 50% 30%, #1e352b 0%, #111d17 100%) !important;
     background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px, 100% 100% !important;
-    /* Фоновая картинка static/backgrounds/workbench_bg.jpg лежит поверх сетки; нет файла — видна сетка */
+    /* The background image static/backgrounds/workbench_bg.jpg lies over the grid; without the file the grid shows */
     background-image:
         linear-gradient(rgba(17, 29, 23, 0.72), rgba(17, 29, 23, 0.85)),
         url('backgrounds/workbench_bg.jpg'),
@@ -1059,7 +1059,7 @@ body.theme-synthwave {
         linear-gradient(180deg, #0b0418 0%, #190933 65%, #2b0b3d 100%) !important;
     background-size: 36px 36px, 36px 36px, 100% 100%, 100% 100% !important;
     background-attachment: fixed !important;
-    /* Фоновая картинка static/backgrounds/synthwave_bg.jpg лежит поверх сетки; нет файла — видна сетка */
+    /* The background image static/backgrounds/synthwave_bg.jpg lies over the grid; without the file the grid shows */
     background-image:
         linear-gradient(rgba(16, 6, 33, 0.65), rgba(16, 6, 33, 0.82)),
         url('backgrounds/synthwave_bg.jpg'),
@@ -1533,7 +1533,7 @@ body.theme-pcb {
     --chart-radius: 1;
 
     background-color: #071910 !important;
-    /* Фоновая картинка static/backgrounds/pcb_bg.jpg лежит поверх узора; нет файла — виден узор дорожек */
+    /* The background image static/backgrounds/pcb_bg.jpg lies over the pattern; without the file the trace pattern shows */
     background-image:
         linear-gradient(rgba(7, 25, 16, 0.78), rgba(5, 19, 12, 0.88)),
         url('backgrounds/pcb_bg.jpg'),

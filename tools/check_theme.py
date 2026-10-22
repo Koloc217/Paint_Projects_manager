@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Проверка темы оформления (static/themes.css + реестр THEMES в static/app.js).
+"""Checks a UI theme (static/themes.css + the THEMES registry in static/app.js).
 
-  python tools/check_theme.py                 проверить все темы из реестра THEMES
-  python tools/check_theme.py theme-neon      проверить одну тему
+  python tools/check_theme.py                 check every theme in the THEMES registry
+  python tools/check_theme.py theme-neon      check one theme
 
-Тема в themes.css должна лежать между маркерами:
+A theme in themes.css must sit between markers:
 
     /* === THEME: theme-neon === */
-    ... правила, каждое начинается с body.theme-neon ...
+    ... rules, each one starting with body.theme-neon ...
     /* === END THEME: theme-neon === */
 
-Ошибки (код возврата 1): тема не зарегистрирована или без маркеров, селектор не начинается с body.<id>,
-нет какого-то из токенов --chart-*, внешние ссылки (http/https, @import, @font-face), скобки не сходятся,
-@keyframes без префикса <id>-.
-Предупреждения: низкий контраст графиков и текста, свойства без !important (Tailwind CDN может перебить),
-свойства раскладки (размеры, отступы, позиционирование) — их нужно проверить глазами.
-Подробности и требования: THEMES_GUIDE.md
+Errors (exit code 1): the theme is not registered or has no markers, a selector does not start with body.<id>,
+one of the --chart-* tokens is missing, external links (http/https, @import, @font-face), unbalanced braces,
+@keyframes without the <id>- prefix.
+Warnings: low contrast of charts and text, properties without !important (the Tailwind CDN may override them),
+layout properties (sizes, margins, positioning), which have to be checked by eye.
+Details and requirements: THEMES_GUIDE.md
 """
 import os
 import re
@@ -73,7 +73,7 @@ def split_selectors(sel):
 
 
 def parse_rules(text):
-    """-> [(контекст, селектор, тело)], ошибки скобок. Понимает один уровень вложенности (@media, @keyframes)."""
+    """-> [(context, selector, body)], brace errors. Understands one nesting level (@media, @keyframes)."""
     rules, errors, stack, buf, i = [], [], [], "", 0
     ctx_stack = []
     while i < len(text):
@@ -182,7 +182,7 @@ def check(tid, css, fonts_html):
         errors.append("в правиле «%s» не заданы токены графиков: %s" % (prefix, ", ".join(missing)))
     if not any(k.startswith("background") for k in root_decls) or "color" not in root_decls:
         warnings.append(f"в правиле «{prefix}» нет background и color: фон и цвет текста страницы остаются стандартными")
-    # контраст
+    # contrast
     bg = None
     for key in ("background-color", "background"):
         if key in root_decls:
@@ -202,7 +202,7 @@ def check(tid, css, fonts_html):
     if layout_hits:
         hits = ", ".join(f"{k}×{v}" for k, v in sorted(layout_hits.items()))
         warnings.append(f"свойства раскладки ({hits}): тема должна менять оформление, а не вёрстку; проверьте глазами на всех экранах")
-    # шрифты
+    # fonts
     generic = {"serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-sans-serif", "ui-monospace", "inherit",
                "georgia", "arial", "helvetica", "verdana", "tahoma", "times new roman", "courier new", "segoe ui", "roboto", "-apple-system"}
     wanted = set()

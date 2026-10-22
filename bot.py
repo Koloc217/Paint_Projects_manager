@@ -25,12 +25,12 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# ==================== ДОСТУП: бот отвечает только привязанному чату ====================
+# ==================== ACCESS: the bot answers only the linked chat ====================
 
-PAIRING_MAX_FAILS = 5          # неверных кодов привязки
-PAIRING_WINDOW_SEC = 600       # за это окно, затем попытки игнорируются
-_failed_pairing = []           # метки времени неудачных попыток (в памяти)
-_ignored_logged = {}           # чат -> когда последний раз писали в лог, чтобы не засорять его
+PAIRING_MAX_FAILS = 5          # wrong pairing codes
+PAIRING_WINDOW_SEC = 600       # within this window; after that, attempts are ignored
+_failed_pairing = []           # times of failed attempts (in memory)
+_ignored_logged = {}           # chat -> when it was last logged, so the log is not flooded
 
 
 def is_owner(chat_id) -> bool:
@@ -42,7 +42,7 @@ def _log_ignored(chat_id, what: str):
     now = time.time()
     if now - _ignored_logged.get(chat_id, 0) > 3600:
         _ignored_logged[chat_id] = now
-        print(f"[BOT] Игнорирую {what} от стороннего чата {chat_id} (бот привязан к другому чату)")
+        print(f"[BOT] Ignoring {what} from a foreign chat {chat_id} (the bot is linked to another chat)")
 
 
 def pairing_locked() -> bool:
@@ -51,9 +51,9 @@ def pairing_locked() -> bool:
     return len(_failed_pairing) >= PAIRING_MAX_FAILS
 
 
-# Реестр возможностей бота: отсюда строятся /help, приветствие и меню команд Telegram.
-# Добавил команду или функцию, впиши её сюда (и тексты в locales.json), и справка обновится сама.
-COMMANDS = [                         # (команда, ключ описания)
+# Registry of the bot features: /help, the welcome text and the Telegram command menu are built from it.
+# When you add a command or a feature, list it here (and its texts in locales.json); the help updates itself.
+COMMANDS = [                         # (command, description key)
     ("current_task", "bot.cmd_start_desc"),
     ("projects", "bot.cmd_all_desc"),
     ("task", "bot.cmd_task_desc"),
@@ -62,7 +62,7 @@ COMMANDS = [                         # (команда, ключ описани�
     ("help", "bot.cmd_help_desc"),
     ("test_notify", "bot.cmd_test_desc"),
 ]
-FEATURES = [                         # возможности без команды: ключи текстов
+FEATURES = [                         # features without a command: text keys
     "bot.feat_photo",
     "bot.feat_buttons",
     "bot.feat_push",
@@ -91,7 +91,7 @@ def help_text() -> str:
 
 
 def menu_commands() -> list:
-    """Список для setMyCommands (меню «/» в Telegram): описание без служебных пояснений, до 256 символов."""
+    """List for setMyCommands (the "/" menu in Telegram): descriptions without extra notes, up to 256 characters."""
     return [{"command": name, "description": tr(key)[:256]} for name, key in COMMANDS]
 
 # ==================== NETWORK LAYER (direct or through a proxy, see tgproxy.py) ====================
@@ -170,9 +170,9 @@ async def send_message(chat_id: int, text: str, reply_markup: dict = None):
     try:
         res = await tg_request("POST", "sendMessage", payload=payload)
         if not res.get("ok"):
-            print(f"[BOT ERROR] Telegram отклонил sendMessage: {res.get('description')}")
+            print(f"[BOT ERROR] Telegram rejected sendMessage: {res.get('description')}")
     except Exception as e:
-        print(f"[BOT ERROR] Ошибка send_message: {safe_error(e)}")
+        print(f"[BOT ERROR] send_message failed: {safe_error(e)}")
 
 async def edit_message_text(chat_id: int, message_id: int, text: str, reply_markup: dict = None):
     payload = {
@@ -186,9 +186,9 @@ async def edit_message_text(chat_id: int, message_id: int, text: str, reply_mark
     try:
         res = await tg_request("POST", "editMessageText", payload=payload)
         if not res.get("ok") and "not modified" not in str(res.get("description", "")):
-            print(f"[BOT ERROR] Telegram отклонил editMessageText: {res.get('description')}")
+            print(f"[BOT ERROR] Telegram rejected editMessageText: {res.get('description')}")
     except Exception as e:
-        print(f"[BOT ERROR] Ошибка edit_message_text: {safe_error(e)}")
+        print(f"[BOT ERROR] edit_message_text failed: {safe_error(e)}")
 
 async def answer_callback(callback_id: str, text: str = "", show_alert: bool = False):
     payload = {"callback_query_id": callback_id, "text": text, "show_alert": show_alert}
@@ -197,7 +197,7 @@ async def answer_callback(callback_id: str, text: str = "", show_alert: bool = F
     except Exception:
         pass
 
-# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+# ==================== HELPERS ====================
 
 def priority_badge(priority: str) -> str:
     p = str(priority).lower()
@@ -218,7 +218,7 @@ def format_deadline(dt, is_done: bool = False) -> str:
     if not d: return tr("bot.no_date")
     date_str = fmt_date(d)
     
-    # Если задача или проект уже закрыты — не пугаем дедлайнами
+    # A closed task or project does not need a scary deadline
     if is_done:
         return f"{tr('bot.closed_lc')} ({date_str})"
         
@@ -277,7 +277,7 @@ def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True)
 
     return "\n".join(lines), {"inline_keyboard": keyboard}
 
-# Ехидные комментарии к повторным переносам: 2-й, 3-й, 4-й и 5-й и дальше. Штрафа токенами нет.
+# Snarky comments on repeated postponing: the 2nd, 3rd, 4th, and the 5th and later. There is no token penalty.
 POSTPONE_SNARK_KEYS = (
     "bot.postpone_snark_2",
     "bot.postpone_snark_3",
@@ -287,7 +287,7 @@ POSTPONE_SNARK_KEYS = (
 
 
 def postpone_snark(count: int) -> str:
-    """Текст реакции на перенос номер count (1 — первый перенос, без комментария)."""
+    """Reaction text for postponement number count (1 = the first one, no comment)."""
     if count < 2:
         return ""
     key = POSTPONE_SNARK_KEYS[min(count, 5) - 2]
@@ -295,7 +295,7 @@ def postpone_snark(count: int) -> str:
 
 
 def postpone_mark(count) -> str:
-    """Значок переноса у задачи в карточке: ⏳ за один перенос, ⏳×N за несколько."""
+    """Postponement mark of a task in the card: ⏳ for one postponement, ⏳×N for several."""
     count = int(count or 0)
     if count <= 0:
         return ""
@@ -315,7 +315,7 @@ def build_current_focus_view(specific_proj_id: str = None):
         if not active_projects:
             return f"🎉 {tr('bot.all_closed')}", None
 
-        # 1. Определяем проект в фокусе
+        # 1. Pick the project in focus
         if specific_proj_id:
             proj = next((p for p in active_projects if p.id == specific_proj_id), active_projects[0])
             is_focus = False
@@ -331,14 +331,14 @@ def build_current_focus_view(specific_proj_id: str = None):
 
         tasks = [t for t in all_tasks if t.project_id == proj.id]
         
-        # Строим основную карточку фокуса
+        # Build the main focus card
         text, markup = build_project_card(proj, tasks, tokens, len(active_projects), is_focus)
 
-        # 2. Ищем горящие задачи в ДРУГИХ проектах
+        # 2. Look for urgent tasks in OTHER projects
         burning_other = []
         today = datetime.now().date()
         
-        # Словарь активных проектов, исключая текущий фокус и те, что "На паузе"
+        # Active projects except the one in focus and those "on hold"
         other_active_projs = {
             p.id: p for p in active_projects 
             if p.id != proj.id and str(p.status).strip() != STATUS_ON_HOLD
@@ -348,7 +348,7 @@ def build_current_focus_view(specific_proj_id: str = None):
             if t.project_id not in other_active_projs:
                 continue
                 
-            # Пропускаем уже закрытые задачи
+            # Skip tasks that are already closed
             if status_done(t.status):
                 continue
                 
@@ -357,12 +357,12 @@ def build_current_focus_view(specific_proj_id: str = None):
                 continue
                 
             diff = (d - today).days
-            if diff <= 3:  # Если осталось 3 дня или задача уже просрочена
+            if diff <= 3:  # 3 days or less left, or already overdue
                 burning_other.append((t, other_active_projs[t.project_id], diff))
 
-        # 3. Если есть горящие в других местах — дописываем их списком вниз
+        # 3. Urgent tasks elsewhere are listed below the card
         if burning_other:
-            burning_other.sort(key=lambda x: x[2]) # Сортируем: сначала самые просроченные
+            burning_other.sort(key=lambda x: x[2])  # most overdue first
             
             extra_lines = [f"\n🚨 <b>{tr('bot.urgent_other')}:</b>"]
             for t, p, diff in burning_other:
@@ -410,7 +410,7 @@ def build_all_projects_view():
         db.close()
 
 def build_current_month_stats():
-    """Статистика выкладки за ТЕКУЩИЙ месяц по команде /stats"""
+    """Statistics for the CURRENT month, for the /stats command."""
     db = SessionLocal()
     try:
         now = datetime.now()
@@ -435,19 +435,19 @@ def build_current_month_stats():
     finally:
         db.close()
 
-# ==================== КОМАНДЫ И КОЛЛБЭКИ ====================
+# ==================== COMMANDS AND CALLBACKS ====================
 
 async def cmd_test_notify(chat_id: int):
     spawn_script("notify.py", ["--test"])
     await send_message(chat_id, f"🧪 {tr('bot.test_started')}...")
 
-# ==================== ФОТО ПРОГРЕССА ====================
-# Фото, присланное боту, попадает в ленту проекта (подпись к фото становится заметкой).
-# Если активных проектов несколько, бот спрашивает, к какому относится фото.
+# ==================== PROGRESS PHOTOS ====================
+# A photo sent to the bot goes to the project timeline (the photo caption becomes the note).
+# With several active projects, the bot asks which one the photo belongs to.
 
 PENDING_TTL_SEC = 3600
-MAX_TG_DOWNLOAD = 20 * 1024 * 1024        # потолок Bot API для скачивания файлов
-_pending_photos = {}                       # токен -> {"files": [file_id], "caption", "ts"}
+MAX_TG_DOWNLOAD = 20 * 1024 * 1024        # Bot API limit for file downloads
+_pending_photos = {}                       # token -> {"files": [file_id], "caption", "ts"}
 _photo_groups = {}                         # media_group_id -> {"token": ..., "project": ..., "ts": ...}
 
 
@@ -490,7 +490,7 @@ async def tg_upload(endpoint: str, data: dict, files: dict):
 
 
 def _extract_image(msg: dict):
-    """(file_id, size) картинки из сообщения: обычное фото (берём самый большой размер) или файл-картинка."""
+    """(file_id, size) of the image in a message: a regular photo (the largest size) or an image sent as a file."""
     sizes = msg.get("photo")
     if sizes:
         best = max(sizes, key=lambda s: (s.get("file_size") or 0, (s.get("width") or 0) * (s.get("height") or 0)))
@@ -514,7 +514,7 @@ def _active_projects(db):
 
 
 async def save_telegram_photos(project_id: str, file_ids: list, note: str):
-    """Скачивает файлы и сохраняет их как фото прогресса. Возвращает (id сохранённых, имя проекта, стадия, ошибка)."""
+    """Downloads the files and saves them as progress photos. Returns (saved ids, project name, stage, error)."""
     db = SessionLocal()
     try:
         proj = db.query(Project).filter(Project.id == project_id).first()
@@ -529,7 +529,7 @@ async def save_telegram_photos(project_id: str, file_ids: list, note: str):
             except progress.ProgressError as e:
                 error = tr(e.key, **e.params)
             except Exception as e:
-                print(f"[BOT ERROR] Не удалось получить фото: {safe_error(e)}")
+                print(f"[BOT ERROR] Could not fetch the photo: {safe_error(e)}")
                 error = tr("bot.photo_download_failed")
         return saved, proj.name, getattr(proj, "stage", "—") or "—", error
     finally:
@@ -559,9 +559,9 @@ async def handle_photo_message(chat_id: int, msg: dict):
     _prune_pending()
 
     entry = _photo_groups.get(group) if group else None
-    if entry:                                           # следующее фото той же подборки
+    if entry:                                           # the next photo of the same album
         if entry.get("project"):
-            await save_telegram_photos(entry["project"], [file_id], note)   # молча: об этой подборке уже ответили
+            await save_telegram_photos(entry["project"], [file_id], note)   # silently: this album was already answered
         elif entry["token"] in _pending_photos:
             _pending_photos[entry["token"]]["files"].append(file_id)
         return
@@ -615,10 +615,10 @@ async def handle_photo_choice(cb_id: str, chat_id: int, message_id: int, token: 
         await edit_message_text(chat_id, message_id, f"⚠️ {error or tr('bot.photo_download_failed')}")
 
 
-# ----- просмотр фото -----
+# ----- viewing photos -----
 
 def _photo_view(scope: str, index: int):
-    """Фото номер index (от новых к старым) в выборке: (строка, подпись, клавиатура, номер, всего) или None."""
+    """Photo number index (newest first) in the selection, as a dict (path, caption, keyboard, index, total), or None."""
     db = SessionLocal()
     try:
         rows = progress.list_photos(db, None if scope == "*" else scope)
@@ -666,10 +666,10 @@ async def send_photo_view(chat_id: int, scope: str, index: int = 0) -> bool:
             "reply_markup": json.dumps(view["markup"]),
         }, {"photo": (os.path.basename(view["path"]), _read_bytes(view["path"]))})
         if not res.get("ok"):
-            print(f"[BOT ERROR] Telegram отклонил sendPhoto: {res.get('description')}")
+            print(f"[BOT ERROR] Telegram rejected sendPhoto: {res.get('description')}")
             await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
     except Exception as e:
-        print(f"[BOT ERROR] Ошибка sendPhoto: {safe_error(e)}")
+        print(f"[BOT ERROR] sendPhoto failed: {safe_error(e)}")
         await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
     return True
 
@@ -688,13 +688,13 @@ async def edit_photo_view(chat_id: int, message_id: int, scope: str, index: int)
             "media": json.dumps(media), "reply_markup": json.dumps(view["markup"]),
         }, {"photo": (os.path.basename(view["path"]), _read_bytes(view["path"]))})
         if not res.get("ok") and "not modified" not in str(res.get("description", "")):
-            print(f"[BOT ERROR] Telegram отклонил editMessageMedia: {res.get('description')}")
+            print(f"[BOT ERROR] Telegram rejected editMessageMedia: {res.get('description')}")
     except Exception as e:
-        print(f"[BOT ERROR] Ошибка editMessageMedia: {safe_error(e)}")
+        print(f"[BOT ERROR] editMessageMedia failed: {safe_error(e)}")
 
 
 async def handle_photo_callback(cb: dict, data: str) -> bool:
-    """Кнопки фото. True, если это была одна из них."""
+    """Photo buttons. True if the callback was one of them."""
     cb_id = cb["id"]
     msg = cb.get("message") or {}
     chat_id = (msg.get("chat") or {}).get("id")
@@ -722,10 +722,10 @@ async def handle_photo_callback(cb: dict, data: str) -> bool:
         await edit_message_text(chat_id, message_id, f"↩ {tr('bot.photo_undone')}")
     elif action == "ph_v" and len(parts) == 3 and parts[2].lstrip("-").isdigit():
         index = int(parts[2])
-        if msg.get("photo"):                                   # листаем в том же сообщении
+        if msg.get("photo"):                                   # flip through in the same message
             await answer_callback(cb_id)
             await edit_photo_view(chat_id, message_id, parts[1], index)
-        elif await send_photo_view(chat_id, parts[1], index):  # из текстовой карточки: новое сообщение с фото
+        elif await send_photo_view(chat_id, parts[1], index):  # from a text card: a new message with the photo
             await answer_callback(cb_id)
         else:
             await answer_callback(cb_id, tr("bot.photo_none"), show_alert=True)
@@ -754,8 +754,8 @@ async def handle_photo_callback(cb: dict, data: str) -> bool:
     return True
 
 
-# ==================== КОНСТРУКТОР ЗАДАЧИ ====================
-# /task или кнопка «Задача»: проект -> название -> срок -> создание. Черновик живёт в памяти один час.
+# ==================== TASK BUILDER ====================
+# /task or the "Task" button: project -> name -> deadline -> created. The draft lives in memory for one hour.
 
 MAX_TASK_NAME = 120
 _task_drafts = {}          # chat_id -> {"step": ..., "project": id|None, "name": str|None, "ts": float}
@@ -775,7 +775,7 @@ def _new_draft(chat_id, project=None, name=None):
 
 
 def parse_user_date(text: str):
-    """Дата из текста по формату из настроек (21.03.2027 или 03/21/2027; год можно опустить)."""
+    """A date from text in the format from the settings (21.03.2027 or 03/21/2027; the year may be omitted)."""
     m = re.fullmatch(r"\s*(\d{1,2})[./\-](\d{1,2})(?:[./\-](\d{2}|\d{4}))?\s*", text or "")
     if not m:
         return None
@@ -829,13 +829,13 @@ def _date_choice_view(project_id: str, name: str):
     if estimate:
         rows.append([{"text": tr("bot.btn_project_deadline", date=fmt_date(estimate)), "callback_data": "tk_d:proj"}])
     rows.append([{"text": f"✏️ {tr('bot.btn_own_date')}", "callback_data": "tk_d:own"}])
-    # у проекта не «в планах» срок задачи обязателен (как в веб-интерфейсе)
+    # for a project that is not "planned" a task deadline is required (as in the web UI)
     rows.append(_cancel_row([{"text": tr("bot.btn_no_deadline"), "callback_data": "tk_d:none"}] if planned else None))
     return f"📅 {tr('bot.task_ask_date', name=esc(name))}", {"inline_keyboard": rows}
 
 
 async def start_task_constructor(chat_id: int, project: str = None, name: str = None):
-    """Начало: если проект ясен (кнопка в карточке или он единственный), сразу к названию."""
+    """Start: if the project is known (a card button, or the only active one), go straight to the name."""
     db = SessionLocal()
     try:
         active = _active_projects(db)
@@ -850,7 +850,7 @@ async def start_task_constructor(chat_id: int, project: str = None, name: str = 
 
 
 async def _task_step(chat_id: int, message_id: int = None):
-    """Показывает следующий шаг черновика; message_id — сообщение с кнопками, которое можно заменить."""
+    """Shows the next step of the draft; message_id is the message with buttons that may be replaced."""
     d = _draft(chat_id)
     if not d:
         return
@@ -882,7 +882,7 @@ def _project_name(project_id: str) -> str:
 
 
 async def _reply(chat_id: int, message_id, text: str, markup=None):
-    """Заменяет сообщение с кнопками, а если его нет (ответ на текст пользователя), шлёт новое."""
+    """Replaces the message with buttons, or sends a new one if there is none (a reply to user text)."""
     if message_id:
         await edit_message_text(chat_id, message_id, text, markup)
     else:
@@ -917,7 +917,7 @@ async def create_task_from_draft(chat_id: int, message_id, deadline):
 
 
 async def handle_task_text(chat_id: int, text: str) -> bool:
-    """Обычный текст, пока идёт черновик: название задачи или своя дата. True, если сообщение разобрано."""
+    """Plain text while a draft is open: the task name or a custom date. True if the message was handled."""
     d = _draft(chat_id)
     if not d or d["step"] not in ("name", "own_date"):
         return False
@@ -1001,7 +1001,7 @@ async def handle_task_callback(cb: dict, data: str) -> bool:
                 planned = bool(proj) and str(proj.status).strip() == STATUS_PLANNED
             finally:
                 db.close()
-            if not planned:                      # срок обязателен: правило как в веб-интерфейсе
+            if not planned:                      # a deadline is required: the same rule as in the web UI
                 await answer_callback(cb_id, tr("bot.task_deadline_required"), show_alert=True)
                 return True
         await answer_callback(cb_id)
@@ -1153,17 +1153,17 @@ def _touch_project(db, project_id: str, now: datetime) -> None:
 
 
 async def handle_foreign_message(chat: dict, text: str):
-    """Сообщение не от владельца. Привязанный бот молчит; непривязанный принимает только «/start КОД»."""
+    """A message from someone else. A linked bot stays silent; an unlinked one accepts only "/start CODE"."""
     chat_id = chat.get("id")
     if is_chat_bound():
-        _log_ignored(chat_id, "сообщение")
+        _log_ignored(chat_id, "a message")
         return
     if not text.startswith("/start"):
         return
     parts = text.split(maxsplit=1)
     payload = parts[1] if len(parts) > 1 else ""
     if pairing_locked():
-        _log_ignored(chat_id, "попытку привязки (слишком много неверных кодов)")
+        _log_ignored(chat_id, "a pairing attempt (too many wrong codes)")
         return
     if chat.get("type") != "private":
         await send_message(chat_id, tr("bot.private_only"))
@@ -1171,7 +1171,7 @@ async def handle_foreign_message(chat: dict, text: str):
     if payload and check_pairing_code(payload):
         bind_chat(chat_id)
         _failed_pairing.clear()
-        print(f"[BOT] Бот привязан к чату {chat_id}")
+        print(f"[BOT] The bot is now linked to chat {chat_id}")
         await send_message(chat_id, f"✅ {tr('bot.chat_linked')}")
         await send_message(chat_id, welcome_text())
         return
@@ -1181,12 +1181,12 @@ async def handle_foreign_message(chat: dict, text: str):
 
 
 async def process_update(item: dict):
-    """Один апдейт Telegram: сообщение или нажатие кнопки."""
+    """One Telegram update: a message or a button press."""
     if "callback_query" in item:
         cb = item["callback_query"]
         cb_chat_id = ((cb.get("message") or {}).get("chat") or {}).get("id")
         if not is_owner(cb_chat_id):
-            _log_ignored(cb_chat_id, "нажатие кнопки")
+            _log_ignored(cb_chat_id, "a button press")
             return
         await handle_callback(cb)
         return
@@ -1208,7 +1208,7 @@ async def process_update(item: dict):
         return
 
     if text.startswith("/"):
-        _task_drafts.pop(chat_id, None)           # любая команда отменяет начатую задачу
+        _task_drafts.pop(chat_id, None)           # any command cancels a task draft in progress
     elif await handle_task_text(chat_id, text):
         return
 

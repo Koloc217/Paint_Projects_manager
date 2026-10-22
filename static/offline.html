@@ -35,14 +35,14 @@
         <button id="b" onclick="location.reload()">Повторить</button>
     </main>
     <script>
-        // язык браузера: русский или английский (эта страница открывается без сервера, словаря приложения здесь нет)
+        // browser language: Russian or English (this page opens without the server, so the app dictionary is not here)
         if (!/^ru\b/i.test(navigator.language || '')) {
             document.documentElement.lang = 'en';
             document.getElementById('t').textContent = 'Project Hub is unreachable';
             document.getElementById('m').textContent = 'The server is not responding. Make sure the phone is on your home network (or the VPN is on) and the app is running.';
             document.getElementById('b').textContent = 'Retry';
         }
-        // как только сеть появилась — пробуем снова сами
+        // as soon as the network is back, retry automatically
         window.addEventListener('online', () => location.reload());
     </script>
 </body>

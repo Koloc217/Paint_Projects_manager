@@ -1,8 +1,8 @@
-/* PWA: регистрация service worker и установка страницы на экран телефона.
+/* PWA: service worker registration and installing the page on a phone home screen.
  *
- * Service worker работает только в «безопасном контексте»: https с доверенным сертификатом или localhost.
- * По обычному http в домашней сети он не регистрируется, но значок на главный экран добавить всё равно можно
- * (подсказка в Настройки → Основные → «Приложение на телефоне»).
+ * A service worker only works in a "secure context": https with a trusted certificate, or localhost.
+ * Over plain http in a home network it is not registered, but a home screen icon can still be added
+ * (see the hint in Settings → General → "App on the phone").
  */
 (function () {
     let deferredPrompt = null;
@@ -11,7 +11,7 @@
         window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     const isIos = () =>
         /iphone|ipad|ipod/i.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS представляется как Mac
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS presents itself as a Mac
 
     function renderPwaState() {
         const btn = document.getElementById('pwaInstallBtn');
@@ -34,12 +34,12 @@
         const prompt = deferredPrompt;
         deferredPrompt = null;
         prompt.prompt();
-        try { await prompt.userChoice; } catch (e) { /* окно закрыли */ }
+        try { await prompt.userChoice; } catch (e) { /* the dialog was closed */ }
         renderPwaState();
     };
 
     window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();          // своё окно не показываем сразу: кнопка в настройках
+        e.preventDefault();          // no prompt right away: there is a button in the settings
         deferredPrompt = e;
         renderPwaState();
     });
@@ -53,7 +53,7 @@
     if ('serviceWorker' in navigator && window.isSecureContext) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                .catch((err) => console.warn('Service worker не зарегистрирован:', err));
+                .catch((err) => console.warn('Service worker not registered:', err));
         });
     }
 

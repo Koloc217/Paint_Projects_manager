@@ -1,4 +1,4 @@
-# секреты и локальные данные
+# secrets and local data
 .env
 config.json
 auth.json
@@ -10,7 +10,7 @@ static/backgrounds/wh40k_bg.jpg
 static/refs/
 backups/
 
-# служебное
+# generated / service files
 certs/
 __pycache__/
 *.pyc

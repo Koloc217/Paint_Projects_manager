@@ -1,12 +1,12 @@
-"""Прокси для Telegram — необязательная настройка.
+"""Proxy for Telegram: an optional setting.
 
-Откуда берётся адрес:
-1. Настройки → Telegram (config.json, ключ TG_PROXY = {"enabled": bool, "url": "..."}). Если блок сохранён
-   в интерфейсе, действует только он: выключен — бот ходит напрямую, включён — через указанный адрес.
-2. Пока в интерфейсе ничего не сохраняли — как раньше: PROXY_URL из .env (пусто — напрямую).
+Where the address comes from:
+1. Settings → Telegram (config.json, key TG_PROXY = {"enabled": bool, "url": "..."}). Once this block has been saved
+   in the UI, only it counts: off means the bot connects directly, on means through the given address.
+2. Until anything is saved in the UI: PROXY_URL from .env, as before (empty = direct).
 
-Адрес читается при каждом запросе, поэтому изменения применяются без перезапуска.
-Поддерживаются http://, https://, socks5://, socks5h:// (MTProto-прокси Telegram для ботов не подходит).
+The address is looked up for every request (from the cached config), so changes apply without a restart.
+Supported: http://, https://, socks5://, socks5h:// (a Telegram MTProto proxy does not work for bots).
 """
 import os
 from typing import Optional
@@ -33,7 +33,7 @@ def _cfg_block(cfg: dict):
 
 
 def get_url(cfg: dict = None) -> Optional[str]:
-    """Адрес прокси, через который сейчас ходить в Telegram, или None — напрямую."""
+    """The proxy address to reach Telegram through right now, or None for a direct connection."""
     try:
         block = _cfg_block(cfg) if cfg is not None else _cfg_block({"TG_PROXY": config_value("TG_PROXY")})
     except Exception:
@@ -46,19 +46,19 @@ def get_url(cfg: dict = None) -> Optional[str]:
 
 
 def transport(cfg: dict = None):
-    """httpx-транспорт для запросов к Telegram: через прокси или напрямую (None)."""
+    """httpx transport for requests to Telegram: through the proxy, or direct (None)."""
     url = get_url(cfg)
     return httpx.HTTPTransport(proxy=url) if url else None
 
 
 def validate(url: str) -> Optional[str]:
-    """None, если адрес подходит, иначе код ошибки: bad_scheme, bad_host, too_long."""
+    """None if the address is fine, otherwise an error code: bad_scheme, bad_host, too_long."""
     url = (url or "").strip()
     if len(url) > MAX_URL_LEN:
         return "too_long"
     try:
         parts = urlsplit(url)
-        _ = parts.port               # ValueError, если порт не число
+        _ = parts.port               # ValueError if the port is not a number
     except ValueError:
         return "bad_host"
     if parts.scheme.lower() not in SCHEMES:
@@ -69,7 +69,7 @@ def validate(url: str) -> Optional[str]:
 
 
 def mask(url: Optional[str]) -> str:
-    """Адрес без логина и пароля, для показа в интерфейсе и журнале: socks5://***@host:1080."""
+    """The address without login and password, for the UI and the log: socks5://***@host:1080."""
     if not url:
         return ""
     try:
@@ -84,13 +84,13 @@ def mask(url: Optional[str]) -> str:
 
 
 def describe(cfg: dict = None) -> str:
-    """Короткая строка для журнала: «напрямую» или «через прокси socks5://***@host:port»."""
+    """A short string for the log: "direct" or "via proxy socks5://***@host:port"."""
     url = get_url(cfg)
-    return f"через прокси {mask(url)}" if url else "напрямую"
+    return f"via proxy {mask(url)}" if url else "direct"
 
 
 def state(cfg: dict = None) -> dict:
-    """Состояние для интерфейса. Сам адрес (с паролем) в браузер не отдаётся, только маска."""
+    """State for the UI. The address itself (with the password) never goes to the browser, only the mask."""
     cfg = cfg if cfg is not None else load_config()
     block = _cfg_block(cfg)
     if block is None:
@@ -102,7 +102,7 @@ def state(cfg: dict = None) -> dict:
 
 
 def resolve_new_url(new_url: Optional[str], cfg: dict) -> Optional[str]:
-    """Адрес из формы: пустое поле означает «оставить текущий» (из настроек или из .env)."""
+    """The address from the form: an empty field means "keep the current one" (from the settings or .env)."""
     new_url = (new_url or "").strip()
     if new_url:
         return new_url
@@ -113,7 +113,7 @@ def resolve_new_url(new_url: Optional[str], cfg: dict) -> Optional[str]:
 
 
 def save(enabled: bool, new_url: Optional[str]) -> Optional[str]:
-    """Сохраняет настройку в config.json. Возвращает код ошибки или None."""
+    """Saves the setting to config.json. Returns an error code or None."""
     cfg = load_config()
     url = resolve_new_url(new_url, cfg)
     if enabled and not url:
@@ -128,14 +128,14 @@ def save(enabled: bool, new_url: Optional[str]) -> Optional[str]:
 
 
 def check(bot_token: Optional[str], url: Optional[str], timeout: float = 12.0) -> dict:
-    """Пробный запрос getMe через указанный прокси (или напрямую, если url пустой)."""
+    """A test getMe request through the given proxy (or directly if url is empty)."""
     if not bot_token:
         return {"ok": False, "error": "no_token"}
     tr_ = httpx.HTTPTransport(proxy=url) if url else None
     try:
         with httpx.Client(transport=tr_, timeout=httpx.Timeout(timeout, connect=min(timeout, 10.0))) as client:
             data = client.get(f"https://api.telegram.org/bot{bot_token}/getMe").json()
-    except Exception as e:                         # нет связи, прокси не отвечает, нет пакета socksio и т.п.
+    except Exception as e:                         # no connection, the proxy does not answer, no socksio package, etc.
         text = str(e) or e.__class__.__name__
         return {"ok": False, "error": "network", "detail": text.replace(bot_token, "***")[:200]}
     if not data.get("ok"):

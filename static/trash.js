@@ -1,4 +1,4 @@
-// ---------- Корзина проектов ----------
+// ---------- Project trash ----------
 let trashItems = [];
 let trashDays = 30;
 

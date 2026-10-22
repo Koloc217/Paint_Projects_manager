@@ -825,7 +825,7 @@ def purge_project(db: Session, proj: Project, config: dict = None) -> None:
         reward = (proj.token_reward or 0) if is_done(proj.status) else 0
         contribution = reward - (proj.token or 0)
         if contribution:
-            db.add(Adjustment(amount=contribution, reason=f"Удалён проект «{proj.name}»"))
+            db.add(Adjustment(amount=contribution, reason=f"Deleted project «{proj.name}»"))
     photo_name = proj.photo
     ref_files = []
     for r in db.query(Reference).filter(Reference.project_id == proj.id).all():

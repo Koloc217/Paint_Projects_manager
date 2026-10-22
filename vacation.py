@@ -1,7 +1,7 @@
-"""Отпуск: пауза уведомлений на N дней (не больше 30) со сдвигом всех сроков на те же N дней.
+"""Vacation: notifications paused for N days (30 at most) and all deadlines moved by the same N days.
 
-В config.json: "VACATION": {"start": "YYYY-MM-DD", "until": "YYYY-MM-DD", "days": N}.
-Отпуск действует, пока сегодня < until. Отмена возвращает уведомления, но сроки остаются сдвинутыми.
+In config.json: "VACATION": {"start": "YYYY-MM-DD", "until": "YYYY-MM-DD", "days": N}.
+The vacation is active while today < until. Cancelling brings notifications back; deadlines stay moved.
 """
 from datetime import date, datetime, timedelta
 
@@ -19,7 +19,7 @@ def _parse(value):
 
 
 def state(cfg: dict = None, today: date = None) -> dict:
-    """{"active": bool, "start", "until", "days"}; until — первый день после отпуска."""
+    """{"active": bool, "start", "until", "days"}; until is the first day after the vacation."""
     cfg = cfg if cfg is not None else load_config()
     today = today or date.today()
     v = cfg.get("VACATION") if isinstance(cfg.get("VACATION"), dict) else {}
@@ -38,8 +38,8 @@ def is_active(cfg: dict = None) -> bool:
 
 
 def start(db, days: int, now: datetime = None):
-    """Начинает отпуск: сдвигает сроки и «последнее движение» по незавершённым проектам на days дней.
-    Возвращает (None, {"projects": n, "tasks": m}) или (код_ошибки, None)."""
+    """Starts a vacation: moves deadlines and the "last progress" time of unfinished projects by days days.
+    Returns (None, {"projects": n, "tasks": m}) or (error_code, None)."""
     if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= MAX_DAYS:
         return "bad_days", None
     cfg = load_config()
@@ -55,7 +55,7 @@ def start(db, days: int, now: datetime = None):
         if p.estimate:
             p.estimate = p.estimate + delta
             moved_projects += 1
-        # Детектор застоя не должен сработать сразу после возвращения: отпуск не считается простоем
+        # The stagnation detector must not fire right after the return: a vacation is not idle time
         if p.updated_at:
             p.updated_at = p.updated_at + delta
     moved_tasks = 0
@@ -75,7 +75,7 @@ def start(db, days: int, now: datetime = None):
 
 
 def cancel(now: datetime = None) -> bool:
-    """Досрочно заканчивает отпуск: уведомления снова идут, сроки не возвращаются."""
+    """Ends a vacation early: notifications resume, deadlines are not moved back."""
     cfg = load_config()
     if not state(cfg)["active"]:
         return False

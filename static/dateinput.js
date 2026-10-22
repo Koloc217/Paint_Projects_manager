@@ -1,13 +1,13 @@
-/* Поля даты в формате из настроек (Настройки → Общие → формат даты).
+/* Date fields in the format from the settings (Settings → General → date format).
  *
- * Родное <input type="date"> браузер показывает в формате своего языка (в английском Chrome это 10/31/2026),
- * и на настройку приложения повлиять нельзя. Поэтому рядом с каждым таким полем ставится текстовое поле
- * в формате приложения (31.10.2026 для dmy, 10/31/2026 для mdy) с кнопкой календаря, а родное поле
- * становится невидимым хранилищем значения:
- * - остальной код как раньше читает и пишет `input.value` в ISO (2026-10-31), ничего менять не нужно;
- * - запись `input.value = '...'` из кода сразу обновляет видимое поле;
- * - кнопка календаря открывает системный выбор даты того же родного поля (showPicker);
- * - поля, добавленные позже (строки окна шаблона пайплайна), подхватываются автоматически.
+ * The browser shows a native <input type="date"> in the format of its own language (10/31/2026 in English
+ * Chrome), and the app setting cannot change that. So next to every such field a text field in the app format
+ * is placed (31.10.2026 for dmy, 10/31/2026 for mdy) with a calendar button, and the native field becomes an
+ * invisible store of the value:
+ * - the rest of the code reads and writes `input.value` in ISO (2026-10-31) as before, nothing to change;
+ * - writing `input.value = '...'` from code updates the visible field right away;
+ * - the calendar button opens the system date picker of the same native field (showPicker);
+ * - fields added later (rows of the pipeline template window) are picked up automatically.
  */
 (function () {
     const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
@@ -22,7 +22,7 @@
             opacity: 0; pointer-events: none; border: 0; padding: 0; margin: 0;
         }
         body .date-field > input.date-text.date-text { padding-right: 2rem !important; }
-        /* темы рисуют заклёпки и узоры фоном на .bg-slate-800 (это для карточек): в поле ввода они налезают на цифры */
+        /* themes draw rivets and patterns as backgrounds on .bg-slate-800 (meant for cards); in an input they cover the digits */
         body .date-field > input.date-text.date-text { background-image: none !important; }
         .date-field > .date-btn {
             position: absolute; top: 0; bottom: 0; right: 0; padding: 0 0.55rem;
@@ -39,7 +39,7 @@
         return isMdy() ? `${m[2]}/${m[3]}/${m[1]}` : `${m[3]}.${m[2]}.${m[1]}`;
     }
 
-    // Ровно 8 цифр (дд мм гггг или мм дд гггг) и реально существующая дата -> ISO, иначе null
+    // Exactly 8 digits (dd mm yyyy or mm dd yyyy) forming a real date -> ISO, otherwise null
     function textToIso(text) {
         const digits = String(text || '').replace(/\D/g, '');
         if (digits.length !== 8) return null;
@@ -50,7 +50,7 @@
         return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     }
 
-    // Разделители подставляются сами: 3110 -> 31.10, 31102026 -> 31.10.2026
+    // Separators are inserted automatically: 3110 -> 31.10, 31102026 -> 31.10.2026
     function mask(digits) {
         const sep = isMdy() ? '/' : '.';
         let out = digits.slice(0, 2);
@@ -71,7 +71,7 @@
         text.inputMode = 'numeric';
         text.autocomplete = 'off';
         text.maxLength = 10;
-        // Классы оформления копируем, служебные (tpl-date и т. п.) остаются только у родного поля
+        // Styling classes are copied; marker classes (tpl-date etc.) stay on the native field only
         text.className = native.className.split(/\s+/).filter(c => c && c !== '[color-scheme:dark]' && !c.startsWith('tpl-')).join(' ') + ' date-text';
         text.placeholder = isMdy() ? t('date.placeholder_mdy', 'mm/dd/yyyy') : t('date.placeholder_dmy', 'dd.mm.yyyy');
         if (!native.classList.contains('w-full')) text.style.width = '8.5rem';
@@ -84,7 +84,7 @@
         btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
 
         native.parentNode.insertBefore(wrap, native);
-        // Родное поле первым: querySelector('.класс') из остального кода находит его, а не видимую копию
+        // The native field goes first: querySelector('.class') in the rest of the code finds it, not the visible copy
         wrap.append(native, text, btn);
         native.classList.add('date-native');
         native.tabIndex = -1;
@@ -102,7 +102,7 @@
 
         text.addEventListener('input', (e) => {
             const digits = text.value.replace(/\D/g, '').slice(0, 8);
-            // Маску ставим только при вводе: иначе Backspace по разделителю ничего бы не стирал
+            // The mask is applied only while typing: otherwise Backspace over a separator would delete nothing
             if (!e.inputType || e.inputType.startsWith('insert')) {
                 const masked = mask(digits);
                 if (text.value !== masked) text.value = masked;
@@ -112,7 +112,7 @@
             if (iso) proto.set.call(native, iso);
         });
 
-        // Ушли с поля с неполной или несуществующей датой: возвращаем последнее верное значение
+        // Leaving the field with an incomplete or impossible date: restore the last valid value
         text.addEventListener('blur', () => {
             const digits = text.value.replace(/\D/g, '');
             if (!digits) { proto.set.call(native, ''); text.value = ''; return; }
@@ -125,7 +125,7 @@
         btn.addEventListener('click', () => {
             try {
                 if (typeof native.showPicker === 'function') { native.showPicker(); return; }
-            } catch (e) { /* старый браузер: ниже запасной вариант */ }
+            } catch (e) { /* old browser: fallback below */ }
             native.style.pointerEvents = 'auto';
             native.focus();
             native.click();

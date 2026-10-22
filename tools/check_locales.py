@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Проверка файла переводов locales.json (один файл, блоки по языкам: ru-RU, en-US, ...).
+"""Checks the translation file locales.json (one file, blocks per language: ru-RU, en-US, ...).
 
-  python tools/check_locales.py                  проверить файл и код
-  python tools/check_locales.py --fix            дописать недостающие ключи (значением станет текст ru-RU)
-                                                 и отсортировать файл
+  python tools/check_locales.py                  check the file and the code
+  python tools/check_locales.py --fix            add missing keys (the ru-RU text becomes the value)
+                                                 and sort the file
   python tools/check_locales.py --create de-DE --name Deutsch
-                                                 добавить язык: копия всех ключей ru-RU для перевода
+                                                 add a language: a copy of all ru-RU keys to translate
 
-Что проверяется:
-  • каждый ключ, который код использует через tr("...") / tv-значения, есть во ВСЕХ языках;
-  • во всех языках один и тот же набор ключей, одни и те же {подстановки};
-  • в файле нет ключей, которых нет в коде (лишние — предупреждение);
-  • в вызовах tr() стоят технические ключи (area.name), а не текст.
-Код возврата 1, если есть пропуски, расхождения подстановок или «текст вместо ключа».
+What is checked:
+  • every key the code uses through tr("...") / tv values exists in ALL languages;
+  • all languages have the same set of keys and the same {placeholders};
+  • the file has no keys the code does not use (extra keys are a warning);
+  • tr() calls use technical keys (area.name), not text.
+Exit code 1 if anything is missing, placeholders differ, or there is "text instead of a key".
 """
 import argparse
 import ast
@@ -47,7 +47,7 @@ def placeholders(text):
 
 
 def scan_code():
-    """-> (used, literals): used — ключи из вызовов tr(); literals — любые строки вида area.name в коде."""
+    """-> (used, literals): used are keys from tr() calls; literals are any area.name-like strings in the code."""
     used, literals = {}, set()
 
     def add(key, where):
@@ -73,7 +73,7 @@ def scan_code():
         src = read(rel)
         for m in HTML_TR.finditer(src):
             add(m.group(2), rel)
-    # значения из базы, которые показываются через tv()
+    # database values that are shown through tv()
     sys.path.insert(0, ROOT)
     try:
         from i18n import VALUE_KEYS

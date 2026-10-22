@@ -1,4 +1,4 @@
-// ---------- Вход: если сервер просит авторизацию, уходим на /login ----------
+// ---------- Login: if the server asks for authorization, go to /login ----------
 (function () {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async function (...args) {
@@ -25,7 +25,7 @@ let deleteKeepsBalance = true;
 let stageChartInstance = null;
 let velocityChartInstance = null;
 
-// ---------- 24-часовой выбор времени (два select вместо input[type=time]) ----------
+// ---------- 24-hour time picker (two selects instead of input[type=time]) ----------
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 function syncDayRow(key) {
@@ -62,7 +62,7 @@ function getTimeSelect(prefix) {
     return `${document.getElementById(prefix + 'H').value}:${document.getElementById(prefix + 'M').value}`;
 }
 
-// ---------- Фото проектов ----------
+// ---------- Project photos ----------
 const PHOTO_ICON = `<svg class="__SZ__" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>`;
 
 function projectPhotoInner(p, big = true) {
@@ -72,7 +72,7 @@ function projectPhotoInner(p, big = true) {
     return `<div class="relative w-full h-full flex items-center justify-center text-slate-500">${icon}<span class="absolute ${plus} font-bold leading-none">+</span></div>`;
 }
 
-// Фото проекта (обложка): сжимаем в браузере до 1400px по длинной стороне, JPEG
+// Project cover photo: resized in the browser to 1400px on the long side, JPEG
 function fileToJpegDataUrl(file, maxSide = 1400, quality = 0.88) {
     return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(file);
@@ -125,7 +125,7 @@ async function removeProjectPhoto(id) {
     loadData();
 }
 
-// ---------- Подтверждение в стиле интерфейса (вместо системного confirm) ----------
+// ---------- Confirmation dialog in the app style (instead of the system confirm) ----------
 let confirmResolver = null;
 
 function isConfirmOpen() {
@@ -155,24 +155,24 @@ function resolveConfirm(value) {
     if (resolve) resolve(value);
 }
 
-// ---------- Карточка проекта в отдельном окне ----------
+// ---------- Project card in a separate tab ----------
 function openCardTab(id) {
     if (!id) return;
     const url = `/?card=${encodeURIComponent(id)}`;
-    // без параметров окна браузер открывает обычную вкладку; одно и то же имя — повторный клик
-    // по тому же проекту переключается на уже открытую вкладку, а не плодит новые
+    // without window features the browser opens a normal tab; with the same name, another click on the
+    // same project switches to the already open tab instead of opening new ones
     const tab = window.open(url, `card_${id}`);
     if (!tab) showToast(tr('toast.popup_blocked'));
 }
 
 function closeStandaloneWindow() {
     window.close();
-    // если браузер не дал закрыть окно (оно открыто не из приложения) — вернёмся на дашборд
+    // if the browser refused to close the tab (it was not opened by the app), go back to the dashboard
     setTimeout(() => { location.href = '/'; }, 150);
 }
 
 async function initStandaloneCard(id) {
-    document.body.classList.add('card-standalone');      // широкая раскладка, см. static/card-tab.css
+    document.body.classList.add('card-standalone');      // wide layout, see static/card-tab.css
     document.querySelector('nav').classList.add('hidden');
     ['view-dashboard', 'view-allTasks', 'view-analytics'].forEach(v => document.getElementById(v).classList.add('hidden'));
     document.getElementById('pdOpenWindow').classList.add('hidden');
@@ -187,7 +187,7 @@ async function initStandaloneCard(id) {
     openProjectDetails(id);
 }
 
-// ---------- Клик по фото: нет фото -> выбор файла, есть -> раскрытие ----------
+// ---------- Photo click: no photo -> file picker, a photo -> full screen ----------
 function onProjectPhotoClick(id) {
     const p = currentProjects.find(x => x.ID === id);
     if (!p) return;
@@ -195,7 +195,7 @@ function onProjectPhotoClick(id) {
     else pickProjectPhoto(id);
 }
 
-// ---------- Просмотр на весь экран ----------
+// ---------- Full-screen viewer ----------
 let lbItems = [];
 let lbIndex = 0;
 
@@ -234,7 +234,7 @@ function closeLightbox() {
     lbItems = [];
 }
 
-// ---------- Референсы для покраса: оригиналы без сжатия, до 10 шт. ----------
+// ---------- Paint references: originals without recompression, up to 10 ----------
 const MAX_REFS = 10;
 const MAX_REF_MB = 25;
 
@@ -400,7 +400,7 @@ function switchTab(tab) {
 document.addEventListener('keydown', function(e) {
     if (isConfirmOpen()) {
         if (e.key === 'Escape') resolveConfirm(false);
-        return;   // Enter срабатывает на кнопке в фокусе (по умолчанию — «Отмена»)
+        return;   // Enter triggers the focused button ("Cancel" by default)
     }
     if (isLightboxOpen()) {
         if (e.key === 'Escape') closeLightbox();
@@ -427,8 +427,8 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Дата для интерфейса всегда с годом: задачи на следующие годы не должны выглядеть прошедшими.
-// Формат из настроек: dmy = 21.03.2027 (по умолчанию), mdy = 03/21/2027.
+// UI dates always include the year: tasks planned for next years must not look like past ones.
+// Format from the settings: dmy = 21.03.2027 (default), mdy = 03/21/2027.
 function formatDate(date) {
     const dd = String(date.getDate()).padStart(2, '0');
     const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -436,7 +436,7 @@ function formatDate(date) {
     return window.APP_DATE_FORMAT === 'mdy' ? `${mm}/${dd}/${yyyy}` : `${dd}.${mm}.${yyyy}`;
 }
 
-// 'YYYY-MM-DD' (так даты приходят с сервера) -> дата по локали; непонятную строку возвращает как есть
+// 'YYYY-MM-DD' (how the server sends dates) -> a date in the app format; anything else is returned as is
 function formatIsoDate(iso) {
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
     return m ? formatDate(new Date(+m[1], +m[2] - 1, +m[3])) : (iso || '');
@@ -533,8 +533,8 @@ function switchSettingsTab(name) {
     if (name === 'backup') loadStorage();
 }
 
-// ---------- Занятое место: приложение, база, фото, журналы ----------
-// ключи перечислены явно, чтобы tools/check_locales.py видел их в коде
+// ---------- Used space: app, database, photos, logs ----------
+// keys are listed explicitly so that tools/check_locales.py can see them in the code
 const STORAGE_LABELS = {
     app: 'storage.app', db: 'storage.db', photos: 'storage.photos', photos_covers: 'storage.photos_covers',
     photos_refs: 'storage.photos_refs', photos_progress: 'storage.photos_progress', logs: 'storage.logs',
@@ -586,7 +586,7 @@ async function loadStorage() {
     }
 }
 
-// ---------- Доступ: вход по паролю (по умолчанию выключен) ----------
+// ---------- Access: password login (off by default) ----------
 let authState = null;
 
 function renderAuthState(st) {
@@ -602,7 +602,7 @@ function renderAuthState(st) {
     const hint = document.getElementById('authDefaultHint');
     hint.textContent = st.must_change ? tr('auth.default_creds_hint', { user: st.username }) : '';
     hint.classList.toggle('hidden', !st.must_change);
-    // тип соединения: по http перехваченный digest можно переслать повторно (см. README, HTTPS)
+    // connection type: over http an intercepted digest can be replayed (see README, HTTPS)
     const secure = location.protocol === 'https:';
     const conn = document.getElementById('authConnHint');
     conn.textContent = secure ? tr('auth.conn_https') : tr('auth.conn_http');
@@ -613,7 +613,7 @@ async function refreshAuthStatus() {
     try {
         const res = await fetch('/api/auth/status');
         renderAuthState(await res.json());
-    } catch (e) { /* сеть недоступна — оставляем как есть */ }
+    } catch (e) { /* no network: leave as is */ }
 }
 
 async function authPost(url, body) {
@@ -626,7 +626,7 @@ async function authToggle() {
     if (!authState.enabled) {
         const r = await authPost('/api/auth/enable', { enabled: true });
         if (r.status !== 'ok') return showToast(r.message || tr('auth.err_bad_request'));
-        if (r.must_change) {                      // пароль по умолчанию: сначала смена на странице входа
+        if (r.must_change) {                      // default password: change it on the login page first
             showToast(tr('auth.toast_enabled_change'), 'success');
             setTimeout(() => { location.href = '/login'; }, 900);
             return;
@@ -667,7 +667,7 @@ async function authLogout() {
     location.href = '/login';
 }
 
-// ---------- Telegram: привязка бота к чату ----------
+// ---------- Telegram: linking the bot to a chat ----------
 let tgState = null;
 let tgPollTimer = null;
 
@@ -694,7 +694,7 @@ async function refreshTelegramState() {
         const wasUnbound = tgState && !tgState.bound;
         renderTelegramState(st);
         if (wasUnbound && st.bound) showToast(tr('toast.chat_linked'), 'success');
-    } catch (e) { /* сеть недоступна — повторим при следующем опросе */ }
+    } catch (e) { /* no network: retried on the next poll */ }
 }
 
 function startTelegramPolling() {
@@ -704,7 +704,7 @@ function startTelegramPolling() {
         const modalHidden = document.getElementById('settingsModal').classList.contains('hidden');
         const tabHidden = document.getElementById('cfgTab-telegram').classList.contains('hidden');
         if (modalHidden || tabHidden) { stopTelegramPolling(); return; }
-        refreshTelegramState();   // заметит привязку, сделанную из Telegram
+        refreshTelegramState();   // notices a link made from Telegram
     }, 3000);
 }
 
@@ -725,8 +725,8 @@ async function unlinkTelegram() {
     showToast(tr('toast.chat_unlinked'), 'success');
 }
 
-// ---------- Прокси для Telegram (необязательный) ----------
-// Пароль прокси в браузер не приходит: показывается маска адреса, пустое поле при сохранении — «оставить как есть».
+// ---------- Proxy for Telegram (optional) ----------
+// The proxy password never reaches the browser: a masked address is shown; an empty field on save means "keep as is".
 let tgProxyState = null;
 
 function syncProxyForm() {
@@ -747,7 +747,7 @@ function renderTelegramProxy(st) {
 }
 
 async function loadTelegramProxy() {
-    try { renderTelegramProxy(await (await fetch('/api/telegram/proxy')).json()); } catch (e) { /* без сети — оставляем как есть */ }
+    try { renderTelegramProxy(await (await fetch('/api/telegram/proxy')).json()); } catch (e) { /* no network: leave as is */ }
 }
 
 function proxyFormBody() {
@@ -799,7 +799,7 @@ function openSettingsModal(tab = 'general') {
         .map(l => `<option value="${esc(l.code)}">${esc(l.name)}</option>`).join('');
     document.getElementById('cfgLanguage').value = window.APP_LANG || 'ru-RU';
     document.getElementById('cfgDateFormat').value = window.APP_DATE_FORMAT === 'mdy' ? 'mdy' : 'dmy';
-    tplLoaded = false;          // шаблоны перечитываются при каждом открытии настроек
+    tplLoaded = false;          // templates are reloaded every time the settings open
     tplDirty = false;
     renderVacation(vacationState);
     switchSettingsTab(tab);
@@ -849,7 +849,7 @@ async function saveSettings() {
     const result = await res.json();
     if (result.status === 'error') return showToast(result.message || tr('settings.err_save'), 'error');
     closeModal('settingsModal');
-    if (body.language !== (window.APP_LANG || 'ru-RU') || body.date_format !== (window.APP_DATE_FORMAT || 'dmy')) { location.reload(); return; }   // новый язык — перерисовать всю страницу
+    if (body.language !== (window.APP_LANG || 'ru-RU') || body.date_format !== (window.APP_DATE_FORMAT || 'dmy')) { location.reload(); return; }   // new language: redraw the whole page
     showToast(tr('toast.settings_saved'), "success");
     loadData();
 }
@@ -867,10 +867,10 @@ function getPriorityColor(priority) {
     return 'text-amber-400 bg-amber-400/10 border-amber-400/20';
 }
 
-// ---------- Поиск по проектам ----------
-// Строка запроса — несколько слов через пробел, все должны встретиться (без учёта регистра и ё/е).
-// Ищет по названию, номеру, приоритету, статусу, стадии (и по русскому значению, и по переводу на язык интерфейса),
-// рецепту краски и названиям задач проекта.
+// ---------- Project search ----------
+// The query is several space-separated words; all of them must match (case-insensitive, ё equals е).
+// Searches the name, id, priority, status, stage (both the stored Russian value and its UI translation),
+// the paint recipe and the project's task names.
 const searchQuery = { active: '', hall: '' };
 const STATUS_TR = { 'В планах': 'status.planned', 'В работе': 'status.in_work', 'На паузе': 'status.on_hold', 'Закончен': 'status.finished' };
 const STAGE_TR = { 'Печать': 'stage.printing', 'Шлифовка': 'stage.sanding', 'Сборка': 'stage.assembly', 'Грунт': 'stage.priming', 'Покрас': 'stage.painting' };
@@ -1050,8 +1050,8 @@ function renderAllTasks() {
     container.innerHTML = hasTasks ? html : `<p class="text-slate-500 text-center py-4">${tr('task.no_active')}</p>`;
 }
 
-// Палитра графиков: читается из CSS-токенов активной темы (--chart-* в themes.css), поэтому новая тема
-// настраивает графики только своим CSS-блоком, без правок JS.
+// Chart palette: read from the CSS tokens of the active theme (--chart-* in themes.css), so a new theme
+// styles the charts with its own CSS block only, without JS changes.
 function chartTheme() {
     const css = getComputedStyle(document.body);
     const v = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
@@ -1176,7 +1176,7 @@ function renderAnalytics() {
     renderHall();
 }
 
-// Зал славы: список завершённых проектов с поиском (отдельно от графиков, чтобы набор текста их не перерисовывал)
+// Hall of Fame: finished projects with search (separate from the charts, so typing does not redraw them)
 function renderHall() {
     const doneProjs = currentProjects.filter(p => isDoneStatus(p.Status));
     const hallSearching = searchQuery.hall.trim() !== '';
@@ -1215,8 +1215,8 @@ function renderHall() {
     }).join('');
 }
 
-// Подвкладки компактной карточки. При открытии другого проекта — снова «Задачи»,
-// при перерисовке того же проекта (после сохранения) вкладка не меняется.
+// Sub-tabs of the compact card. Opening another project switches back to "Tasks";
+// redrawing the same project (after a save) keeps the current sub-tab.
 let cardTab = 'main';
 let cardTabProjectId = null;
 
@@ -1306,7 +1306,7 @@ async function savePaintNotes(silent = false) {
     if (!silent) showToast(tr('toast.recipe_saved'), "success");
 }
 
-// Шаблон пайплайна: шаг 1 — выбор модели, шаг 2 — сроки этапов (можно пропустить этап или распределить сроки равномерно).
+// Pipeline template: step 1 picks the model type, step 2 sets step deadlines (steps can be skipped or spread evenly).
 let templateKind = null;
 
 function showTemplateStep(step) {
@@ -1314,7 +1314,7 @@ function showTemplateStep(step) {
     document.getElementById('templateStepDates').classList.toggle('hidden', step !== 'dates');
 }
 
-// openTemplateModal — в static/templates.js (список шаблонов приходит из настроек)
+// openTemplateModal lives in static/templates.js (the template list comes from the settings)
 
 function backToTemplateKind() { showTemplateStep('kind'); }
 
@@ -1325,7 +1325,7 @@ function dateToIso(d) {
 async function chooseTemplate(kind) {
     const project = currentProjects.find(p => p.ID === currentOpenProjectId);
     if (!project) return;
-    // templateInfo загружен при открытии окна (openTemplateModal): шаблоны и этапы, которые уже есть в проекте
+    // templateInfo was loaded when the window opened (openTemplateModal): templates and the steps the project already has
     const info = templateInfo || {};
     const tpl = (info.templates || []).find(t => t.id === kind);
     if (!tpl) return showToast(tr('err.unknown_template'));
@@ -1354,7 +1354,7 @@ async function chooseTemplate(kind) {
     showTemplateStep('dates');
 }
 
-// Равномерно от сегодня до срока проекта по включённым этапам; срок в прошлом — всем срок проекта
+// Evenly from today to the project deadline over the enabled steps; a deadline in the past goes to every step
 function spreadTemplateDates() {
     const project = currentProjects.find(p => p.ID === currentOpenProjectId);
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec((project && project.Estimate) || '');
@@ -1440,7 +1440,7 @@ function openEditModal(id) {
     if(!p) return;
     document.getElementById('epId').value = p.ID; document.getElementById('epName').value = p.Name;
     document.getElementById('epPriority').value = p.Priority; document.getElementById('epEstimate').value = p.Estimate || '';
-    // Приоритет и дедлайн правятся только в DEV MODE; название — всегда.
+    // Priority and deadline are editable in DEV MODE only; the name always.
     document.getElementById('epDevFields').classList.toggle('hidden', !isDevMode);
     document.getElementById('epTitle').innerText = isDevMode ? tr('project.edit') : tr('project.rename');
     openModal('editProjectModal');
@@ -1546,21 +1546,21 @@ function closeModal(id) {
 
 fillTimeSelects();
 
-// Окно-карточка: /?card=<id> показывает только карточку проекта
+// Card tab: /?card=<id> shows only the project card
 const standaloneCardId = new URLSearchParams(location.search).get('card');
 if (standaloneCardId) initStandaloneCard(standaloneCardId);
 else loadData();
 
-// Несколько окон: при возврате в окно подтягиваем свежие данные
+// Several tabs: refresh the data when the window gets focus again
 let lastFocusRefresh = 0;
 window.addEventListener('focus', () => {
     const now = Date.now();
     if (now - lastFocusRefresh > 3000) { lastFocusRefresh = now; loadData(); }
 });
 
-// ---------- Переключатель скинов интерфейса ----------
-// Реестр тем. Новая тема = строка здесь + CSS-блок body.<id> в themes.css (см. THEMES_GUIDE.md).
-// id — имя класса на <body>; 'default' — стандартный вид без класса.
+// ---------- UI skin switcher ----------
+// Theme registry. A new theme = a row here + a body.<id> CSS block in themes.css (see THEMES_GUIDE.md).
+// id is the class name on <body>; 'default' is the standard look without a class.
 const THEMES = [
     { id: 'default', label: () => `💿 ${tr('theme.default')}` },
     { id: 'theme-cyberpunk', label: () => '⚡ Cyberpunk' },
@@ -1589,17 +1589,17 @@ function initThemeSwitcher() {
     select.value = THEMES.some(t => t.id === savedTheme) ? savedTheme : 'default';
     select.onchange = (e) => applyThemeSkin(e.target.value);
 
-    // Вставляем переключатель рядом с правым блоком кнопок в шапке
+    // Put the switcher next to the right-hand button group in the header
     const rightGroup = nav.lastElementChild || nav;
     rightGroup.prepend(select);
 }
 
 function applyThemeSkin(skin) {
-    if (!THEMES.some(t => t.id === skin)) skin = 'default';      // удалённая или неизвестная тема -> стандартная
+    if (!THEMES.some(t => t.id === skin)) skin = 'default';      // a removed or unknown theme -> the standard one
     document.body.classList.remove(...THEMES.map(t => t.id).filter(id => id !== 'default'));
     if (skin !== 'default') document.body.classList.add(skin);
-    try { localStorage.setItem('ph_skin', skin); } catch (e) { /* без localStorage тема просто не запомнится */ }
-    // графики уже нарисованы старыми цветами — перерисовываем под новую тему
+    try { localStorage.setItem('ph_skin', skin); } catch (e) { /* without localStorage the theme is just not remembered */ }
+    // the charts were drawn with the old colors: redraw them for the new theme
     if (stageChartInstance || velocityChartInstance) renderAnalytics();
 }
 

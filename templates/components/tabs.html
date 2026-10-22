@@ -15,13 +15,13 @@
         </div>
     </main>
 
-    <!-- ВКЛАДКА 2: ВСЕ ЗАДАЧИ -->
+    <!-- TAB 2: ALL TASKS -->
     <main id="view-allTasks" class="hidden max-w-[1000px] mx-auto p-4 md:p-6 space-y-4">
         <h2 class="text-lg font-medium text-slate-100">{{ tr('analytics.all_tasks_by_project') }}</h2>
         <div id="allTasksContainer" class="space-y-6"></div>
     </main>
 
-    <!-- ВКЛАДКА: КАЛЕНДАРЬ ДЕДЛАЙНОВ -->
+    <!-- TAB: DEADLINE CALENDAR -->
     <main id="view-calendar" class="hidden max-w-[1200px] mx-auto p-4 md:p-6 space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h2 id="calTitle" class="text-lg font-medium text-slate-100 capitalize"></h2>
@@ -38,7 +38,7 @@
         <div id="calDay" class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4"></div>
     </main>
 
-    <!-- ВКЛАДКА: ЛЕНТА ФОТО ПРОГРЕССА -->
+    <!-- TAB: PROGRESS PHOTO FEED -->
     <main id="view-feed" class="hidden max-w-[1200px] mx-auto p-4 md:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-lg font-medium text-slate-100">{{ tr('feed.title') }}</h2>
@@ -47,9 +47,9 @@
         <div id="feedList"></div>
     </main>
 
-    <!-- ВКЛАДКА 3: АНАЛИТИКА И ЗАЛ СЛАВЫ -->
+    <!-- TAB 3: ANALYTICS AND HALL OF FAME -->
     <main id="view-analytics" class="hidden max-w-[1500px] mx-auto p-4 md:p-6 space-y-8">
-        <!-- Верхние KPI карточки -->
+        <!-- KPI cards at the top -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 shadow-lg">
                 <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">{{ tr('stats.projects_completed') }}</div>
@@ -69,7 +69,7 @@
             </div>
         </div>
 
-        <!-- Графики -->
+        <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-5 shadow-xl">
                 <h3 class="text-base font-bold text-white mb-4">🎨 {{ tr('analytics.funnel') }}</h3>
@@ -85,7 +85,7 @@
             </div>
         </div>
 
-        <!-- Зал Славы (Архив) -->
+        <!-- Hall of Fame (archive) -->
         <div class="space-y-4">
             <div class="flex items-center justify-between gap-3 flex-wrap">
                 <h2 class="text-lg font-bold text-white flex items-center gap-2">
