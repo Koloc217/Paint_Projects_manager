@@ -26,7 +26,7 @@ from common import (
     is_done, load_config, save_config, compute_balance, DATE_FORMATS, detect_image_ext, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, new_pairing_code, unlink_chat, format_pairing_code, parse_iso_date, iso_date,
 )
-from bot import start_bot_polling
+from bot import start_bot_polling, COMMANDS as BOT_COMMANDS, FEATURES as BOT_FEATURES, PHOTO_HELP as BOT_PHOTO_HELP
 from scheduler import scheduler_loop, spawn_script
 import auth
 import pipeline
@@ -101,6 +101,8 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 # The translation table goes into the page as is (UTF-8) rather than as \uXXXX: the page is smaller;
 # <, > and & are still escaped, so the data cannot close the <script> tag.
 templates.env.globals["tr"] = tr          # in templates: {{ tr('common.save') }}
+# Bot help in Settings -> Telegram is built from the same registry as /help in bot.py, so the texts never diverge
+templates.env.globals["bot_help"] = {"commands": BOT_COMMANDS, "photos": BOT_PHOTO_HELP, "features": BOT_FEATURES}
 templates.env.policies["json.dumps_kwargs"] = {"ensure_ascii": False, "sort_keys": True}
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")

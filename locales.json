@@ -544,7 +544,9 @@
     "storage.unit_kb": "КБ",
     "storage.unit_mb": "МБ",
     "storage.unit_gb": "ГБ",
-    "storage.unit_tb": "ТБ"
+    "storage.unit_tb": "ТБ",
+    "tg.help_hint": "Команды, фото прогресса и уведомления. То же самое бот пришлёт по команде /help.",
+    "tg.help_title": "Что умеет бот"
   },
   "en-US": {
     "analytics.active_projects": "Active projects",
@@ -1091,6 +1093,8 @@
     "storage.unit_kb": "KB",
     "storage.unit_mb": "MB",
     "storage.unit_gb": "GB",
-    "storage.unit_tb": "TB"
+    "storage.unit_tb": "TB",
+    "tg.help_hint": "Commands, progress photos and notifications. The bot sends the same by the /help command.",
+    "tg.help_title": "What the bot can do"
   }
 }
