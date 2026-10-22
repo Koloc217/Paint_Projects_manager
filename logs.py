@@ -1,13 +1,14 @@
-"""Журналы приложения с ротацией, без внешних средств (logrotate, systemd): работает одинаково в Windows и Linux.
+"""Application logs with rotation and no external tools (logrotate, systemd): works the same on Windows and Linux.
 
-  logs/app.log       всё, что приложение печатает в консоль (бот, планировщик, ошибки); копия вывода пишется и в консоль
-  logs/notify.log    вывод скрипта уведомлений, logs/backup.log, вывод скрипта бэкапа
+  logs/app.log       everything the app prints to the console (bot, scheduler, errors); the console still gets a copy
+  logs/notify.log    output of the notification script; logs/backup.log, output of the backup script
 
-Файл больше MAX_BYTES сдвигается: app.log -> app.log.1 -> app.log.2 ... Старше KEEP копий удаляется.
+A file larger than MAX_BYTES is shifted: app.log -> app.log.1 -> app.log.2 ... Copies older than KEEP are removed.
 """
 import logging
 import os
 import sys
+import threading
 from logging.handlers import RotatingFileHandler
 
 from common import BASE_DIR
@@ -25,8 +26,8 @@ def log_path(name: str) -> str:
 
 
 def rotate_file(path: str, max_bytes: int = MAX_BYTES, keep: int = KEEP) -> bool:
-    """Сдвигает файл в path.1, path.1 в path.2 и так далее, если он больше max_bytes. Ошибки файловой системы
-    (например, файл занят в Windows) не считаются сбоем: ротация просто повторится при следующем запуске."""
+    """Shifts path to path.1, path.1 to path.2 and so on if the file is larger than max_bytes. File system errors
+    (for example, a file held open on Windows) are not failures: rotation is simply retried on the next run."""
     try:
         if os.path.getsize(path) <= max_bytes:
             return False
@@ -44,7 +45,11 @@ def rotate_file(path: str, max_bytes: int = MAX_BYTES, keep: int = KEEP) -> bool
 
 
 class _Tee:
-    """Поток, который пишет и в исходную консоль, и в журнал (построчно, с отметкой времени)."""
+    """A stream that writes both to the original console and to the log (line by line, with a timestamp).
+    print() is called from several threads (web handlers, bot workers), so the line buffer is guarded by a lock
+    shared by stdout and stderr, and records go through handler.handle(), which takes the handler's own lock."""
+
+    _lock = threading.Lock()
 
     def __init__(self, console, handler):
         self.console = console
@@ -57,11 +62,18 @@ class _Tee:
                 self.console.write(text)
         except Exception:
             pass
-        self.buffer += text
-        while "\n" in self.buffer:
-            line, self.buffer = self.buffer.split("\n", 1)
-            if line.strip():
-                self.handler.emit(logging.LogRecord("app", logging.INFO, "", 0, line, None, None))
+        with self._lock:
+            self.buffer += text
+            lines = []
+            while "\n" in self.buffer:
+                line, self.buffer = self.buffer.split("\n", 1)
+                if line.strip():
+                    lines.append(line)
+        for line in lines:
+            try:
+                self.handler.handle(logging.LogRecord("app", logging.INFO, "", 0, line, None, None))
+            except Exception:
+                pass
         return len(text)
 
     def flush(self):
@@ -79,14 +91,14 @@ class _Tee:
 
 
 def setup_app_log() -> None:
-    """Включает запись вывода приложения в logs/app.log с ротацией. Повторный вызов ничего не делает."""
+    """Starts copying the app output to logs/app.log with rotation. Repeated calls do nothing."""
     global _installed
     if _installed:
         return
     try:
         handler = RotatingFileHandler(log_path("app.log"), maxBytes=MAX_BYTES, backupCount=KEEP, encoding="utf-8", delay=True)
     except OSError as e:
-        print(f"[LOG] журнал в файл недоступен: {e!r}")
+        print(f"[LOG] cannot write the log file: {e!r}")
         return
     handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", "%Y-%m-%d %H:%M:%S"))
     sys.stdout = _Tee(sys.stdout, handler)

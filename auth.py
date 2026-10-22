@@ -253,7 +253,7 @@ def setup(app, templates) -> None:
         if wait:
             return _err(tr("auth.err_locked", minutes=wait), status=429)
         ok_user = hmac.compare_digest(body.username.strip().lower().encode(), state["username"].lower().encode())
-        ok_pass = verify_password(body.digest, state)          # всегда считаем, чтобы время не выдавало логин
+        ok_pass = await asyncio.to_thread(verify_password, body.digest, state)   # always computed, so timing does not reveal the user name
         if not (ok_user and ok_pass):
             _register_fail(ip)
             await asyncio.sleep(0.6)
@@ -284,7 +284,7 @@ def setup(app, templates) -> None:
             return _err(tr("auth.err_locked", minutes=wait), status=429)
         if not _is_hex64(body.new_digest):
             return _err(tr("auth.err_bad_request"))
-        if not verify_password(body.old_digest, state):
+        if not await asyncio.to_thread(verify_password, body.old_digest, state):
             _register_fail(ip)
             await asyncio.sleep(0.6)
             return _err(tr("auth.err_old"))
@@ -294,7 +294,7 @@ def setup(app, templates) -> None:
             return _err(tr("auth.err_default"))
         _fails.pop(ip, None)
         salt = secrets.token_hex(16)
-        state = {**state, "salt": salt, "hash": _scrypt(body.new_digest, salt),
+        state = {**state, "salt": salt, "hash": await asyncio.to_thread(_scrypt, body.new_digest, salt),
                  "must_change": False, "secret": secrets.token_hex(32)}     # новый secret: старые сессии недействительны
         _write(state)
         resp = JSONResponse({"status": "ok"})
@@ -313,7 +313,7 @@ def setup(app, templates) -> None:
             wait = locked_minutes(ip)
             if wait:
                 return _err(tr("auth.err_locked", minutes=wait), status=429)
-            if not verify_password(body.digest, state):
+            if not await asyncio.to_thread(verify_password, body.digest, state):
                 _register_fail(ip)
                 await asyncio.sleep(0.6)
                 return _err(tr("auth.err_old"))

@@ -3,6 +3,7 @@ import time
 import asyncio
 import json
 import re
+import threading
 import traceback
 import uuid
 import httpx
@@ -11,8 +12,10 @@ from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, ensure_schema
 import progress
 from common import (
-    BASE_DIR, esc, load_config, compute_balance, fmt_date, live_projects, live_tasks,
+    BASE_DIR, esc, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
+    is_done as status_done, STAGES, STATUS_IN_WORK, STATUS_ON_HOLD, STATUS_PLANNED, STATUS_FINISHED,
+    TASK_NOT_STARTED, TASK_IN_PROGRESS,
 )
 from i18n import tr, tv
 import tgproxy
@@ -31,7 +34,7 @@ _ignored_logged = {}           # чат -> когда последний раз 
 
 
 def is_owner(chat_id) -> bool:
-    owner = load_config().get("TG_CHAT_ID")
+    owner = config_value("TG_CHAT_ID")
     return owner not in (None, "", 0) and chat_id is not None and str(owner) == str(chat_id)
 
 
@@ -91,25 +94,68 @@ def menu_commands() -> list:
     """Список для setMyCommands (меню «/» в Telegram): описание без служебных пояснений, до 256 символов."""
     return [{"command": name, "description": tr(key)[:256]} for name, key in COMMANDS]
 
-# ==================== СЕТЕВОЙ СЛОЙ (напрямую или через прокси, см. tgproxy.py) ====================
+# ==================== NETWORK LAYER (direct or through a proxy, see tgproxy.py) ====================
+# One HTTP client is kept and reused, so requests share open connections: without it every call (including the
+# long poll every few seconds) paid a new TCP + TLS (+ SOCKS) handshake. The client is rebuilt when the proxy
+# setting changes and at every planned session restart (start_bot_polling), so a stuck connection cannot live long.
+
+_client_lock = threading.Lock()
+_client = None
+_client_proxy = None
+
+
+def _http_client() -> httpx.Client:
+    global _client, _client_proxy
+    url = tgproxy.get_url()              # the proxy is optional: Settings → Telegram or PROXY_URL in .env
+    with _client_lock:
+        if _client is None or url != _client_proxy:
+            old = _client
+            transport = httpx.HTTPTransport(proxy=url) if url else None
+            _client = httpx.Client(transport=transport, timeout=httpx.Timeout(20.0, connect=10.0))
+            _client_proxy = url
+            if old is not None:
+                _close_quietly(old)
+        return _client
+
+
+def _close_quietly(client) -> None:
+    try:
+        client.close()
+    except Exception:
+        pass
+
+
+def reset_http_client() -> None:
+    """Drops the shared client: the next request opens fresh connections."""
+    global _client
+    with _client_lock:
+        old, _client = _client, None
+    if old is not None:
+        _close_quietly(old)
+
+
+def safe_error(e) -> str:
+    """repr() of an exception without the bot token (httpx puts the request URL into some messages)."""
+    text = repr(e)
+    return text.replace(BOT_TOKEN, "***") if BOT_TOKEN else text
+
 
 def _sync_tg_request(method: str, endpoint: str, payload: dict = None, params: dict = None, timeout_sec: float = 20.0):
-    """Синхронный запрос через HTTPTransport (как в notify.py); с прокси и без него"""
-    transport = tgproxy.transport()      # прокси необязателен: Настройки → Telegram или PROXY_URL в .env
+    """Blocking request to the Bot API (run in a worker thread by tg_request)."""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}"
     timeout = httpx.Timeout(timeout_sec, connect=10.0)
-    with httpx.Client(transport=transport, timeout=timeout) as client:
-        if method == "GET":
-            resp = client.get(url, params=params)
-        else:
-            resp = client.post(url, json=payload)
-        return resp.json()
+    client = _http_client()
+    if method == "GET":
+        resp = client.get(url, params=params, timeout=timeout)
+    else:
+        resp = client.post(url, json=payload, timeout=timeout)
+    return resp.json()
 
 async def tg_request(method: str, endpoint: str, payload: dict = None, params: dict = None, timeout_sec: float = 20.0):
-    """Неблокирующая обертка с ЖЕСТКИМ контролем зависаний"""
+    """Non-blocking wrapper with a HARD limit against hangs."""
     try:
-        # Даем потоку на 5 секунд больше, чем таймаут сокета. 
-        # Если прокси зависнет намертво, asyncio принудительно убьет ожидание.
+        # The thread gets 5 seconds more than the socket timeout.
+        # If the proxy hangs for good, asyncio stops waiting anyway.
         return await asyncio.wait_for(
             asyncio.to_thread(_sync_tg_request, method, endpoint, payload, params, timeout_sec),
             timeout=timeout_sec + 5.0
@@ -126,7 +172,7 @@ async def send_message(chat_id: int, text: str, reply_markup: dict = None):
         if not res.get("ok"):
             print(f"[BOT ERROR] Telegram отклонил sendMessage: {res.get('description')}")
     except Exception as e:
-        print(f"[BOT ERROR] Ошибка send_message: {repr(e)}")
+        print(f"[BOT ERROR] Ошибка send_message: {safe_error(e)}")
 
 async def edit_message_text(chat_id: int, message_id: int, text: str, reply_markup: dict = None):
     payload = {
@@ -142,7 +188,7 @@ async def edit_message_text(chat_id: int, message_id: int, text: str, reply_mark
         if not res.get("ok") and "not modified" not in str(res.get("description", "")):
             print(f"[BOT ERROR] Telegram отклонил editMessageText: {res.get('description')}")
     except Exception as e:
-        print(f"[BOT ERROR] Ошибка edit_message_text: {repr(e)}")
+        print(f"[BOT ERROR] Ошибка edit_message_text: {safe_error(e)}")
 
 async def answer_callback(callback_id: str, text: str = "", show_alert: bool = False):
     payload = {"callback_query_id": callback_id, "text": text, "show_alert": show_alert}
@@ -184,14 +230,13 @@ def format_deadline(dt, is_done: bool = False) -> str:
 
 def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True):
     def task_sort_key(t):
-        is_done = str(t.status).lower().strip() in ['закончен', 'завершено', 'completed']
         d = to_date(t.deadline)
-        return (1 if is_done else 0, 1 if d is None else 0, d or date(2099, 1, 1))
+        return (1 if status_done(t.status) else 0, 1 if d is None else 0, d or date(2099, 1, 1))
 
     tasks.sort(key=task_sort_key)
 
     stage_str = getattr(proj, 'stage', '—') or '—'
-    proj_is_done = str(proj.status).lower().strip() in ['закончен', 'завершено', 'completed']
+    proj_is_done = status_done(proj.status)
     est_str = format_deadline(proj.estimate, proj_is_done) if proj.estimate else tr("bot.not_set")
     header_icon = f"🔥 <b>{tr('bot.in_focus')}:" if is_focus else f"🎯 <b>{tr('common.project')}:"
 
@@ -208,16 +253,16 @@ def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True)
         lines.append(f"<i>{tr('bot.no_tasks')}</i>")
     else:
         for t in tasks:
-            st_lower = str(t.status).lower().strip()
-            is_done = st_lower in ['закончен', 'завершено', 'completed']
-            icon = "✅" if is_done else ("🔄" if st_lower == "в процессе" else "⏸️")
+            is_done = status_done(t.status)
+            in_progress = str(t.status).strip() == TASK_IN_PROGRESS
+            icon = "✅" if is_done else ("🔄" if in_progress else "⏸️")
             post_mark = postpone_mark(getattr(t, 'postponed', 0))
             lines.append(f"{icon} {esc(t.task_name)}{post_mark} <i>({format_deadline(t.deadline, is_done)})</i>")
 
             if not is_done:
                 short_name = t.task_name[:18] + ".." if len(t.task_name) > 18 else t.task_name
                 row = []
-                if st_lower != "в процессе":
+                if not in_progress:
                     row.append({"text": f"🔄 {tr('bot.btn_start_work')}: {short_name}", "callback_data": f"t_prog:{t.id}:{proj.id}"})
                 row.append({"text": f"✅ {tr('bot.btn_done')}: {short_name}", "callback_data": f"t_done:{t.id}:{proj.id}"})
                 keyboard.append(row)
@@ -266,7 +311,7 @@ def build_current_focus_view(specific_proj_id: str = None):
         
         tokens, _ = compute_balance(db, config)
 
-        active_projects = [p for p in all_projects if str(p.status).lower().strip() not in ['закончен', 'завершено', 'completed']]
+        active_projects = [p for p in all_projects if not status_done(p.status)]
         if not active_projects:
             return f"🎉 {tr('bot.all_closed')}", None
 
@@ -277,7 +322,7 @@ def build_current_focus_view(specific_proj_id: str = None):
         else:
             prio_rank = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
             active_projects.sort(key=lambda p: (
-                0 if p.status == "В работе" else 1,
+                0 if p.status == STATUS_IN_WORK else 1,
                 prio_rank.get(p.priority, 2),
                 to_date(p.estimate) or date(2099, 1, 1)
             ))
@@ -296,7 +341,7 @@ def build_current_focus_view(specific_proj_id: str = None):
         # Словарь активных проектов, исключая текущий фокус и те, что "На паузе"
         other_active_projs = {
             p.id: p for p in active_projects 
-            if p.id != proj.id and str(p.status).lower().strip() != 'на паузе'
+            if p.id != proj.id and str(p.status).strip() != STATUS_ON_HOLD
         }
         
         for t in all_tasks:
@@ -304,8 +349,7 @@ def build_current_focus_view(specific_proj_id: str = None):
                 continue
                 
             # Пропускаем уже закрытые задачи
-            st_lower = str(t.status).lower().strip()
-            if st_lower in ['закончен', 'завершено', 'completed']:
+            if status_done(t.status):
                 continue
                 
             d = to_date(t.deadline)
@@ -340,7 +384,7 @@ def build_stage_menu_view(proj_id: str):
             return tr("err.project_not_found"), None
         stage_str = getattr(proj, 'stage', '—') or '—'
         text = f"🎨 <b>{tr('bot.choose_stage')} «{esc(proj.name)}»</b>\n{tr('bot.current_stage')}: <b>{esc(tv(stage_str))}</b>"
-        stages = ["—", "Печать", "Шлифовка", "Сборка", "Грунт", "Покрас"]
+        stages = STAGES
         btns = [{"text": (f"• {tv(st)} •" if st == stage_str else tv(st)), "callback_data": f"p_stage:{proj.id}:{st}"} for st in stages]
         keyboard = [btns[:3], btns[3:], [{"text": f"⬅️ {tr('bot.back_to_project')}", "callback_data": f"open_p:{proj.id}"}]]
         return text, {"inline_keyboard": keyboard}
@@ -351,7 +395,7 @@ def build_all_projects_view():
     db = SessionLocal()
     try:
         projects = live_projects(db).all()
-        active = [p for p in projects if str(p.status).lower().strip() not in ['закончен', 'завершено', 'completed']]
+        active = [p for p in projects if not status_done(p.status)]
         if not active:
             return tr("project.no_active"), None
         lines = [f"📋 <b>{tr('project.active_list')}:</b>\n"]
@@ -410,7 +454,7 @@ _photo_groups = {}                         # media_group_id -> {"token": ..., "p
 def _count_photos(project_id: str) -> int:
     db = SessionLocal()
     try:
-        return len(progress.list_photos(db, project_id))
+        return progress.count_photos(db, project_id)
     except Exception:
         return 0
     finally:
@@ -418,16 +462,17 @@ def _count_photos(project_id: str) -> int:
 
 
 def _sync_tg_download(file_id: str) -> bytes:
-    """Скачивает файл по file_id (getFile + загрузка), с тем же прокси, что и остальной бот."""
-    transport = tgproxy.transport()      # прокси необязателен: Настройки → Telegram или PROXY_URL в .env
-    with httpx.Client(transport=transport, timeout=httpx.Timeout(40.0, connect=10.0)) as client:
-        info = client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile", json={"file_id": file_id}).json()
-        path = (info.get("result") or {}).get("file_path")
-        if not info.get("ok") or not path:
-            raise RuntimeError(f"getFile: {info.get('description')}")
-        resp = client.get(f"https://api.telegram.org/file/bot{BOT_TOKEN}/{path}")
-        resp.raise_for_status()
-        return resp.content
+    """Downloads a file by file_id (getFile + download) through the same connection as the rest of the bot."""
+    client = _http_client()
+    timeout = httpx.Timeout(40.0, connect=10.0)
+    info = client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile", json={"file_id": file_id}, timeout=timeout).json()
+    path = (info.get("result") or {}).get("file_path")
+    if not info.get("ok") or not path:
+        raise RuntimeError(f"getFile: {info.get('description')}")
+    resp = client.get(f"https://api.telegram.org/file/bot{BOT_TOKEN}/{path}", timeout=timeout)
+    if resp.status_code != 200:
+        raise RuntimeError(f"file download: HTTP {resp.status_code}")     # no URL in the text: it holds the token
+    return resp.content
 
 
 async def download_file(file_id: str) -> bytes:
@@ -435,10 +480,9 @@ async def download_file(file_id: str) -> bytes:
 
 
 def _sync_tg_upload(endpoint: str, data: dict, files: dict):
-    """Запрос с файлом (multipart): sendPhoto и editMessageMedia."""
-    transport = tgproxy.transport()      # прокси необязателен: Настройки → Telegram или PROXY_URL в .env
-    with httpx.Client(transport=transport, timeout=httpx.Timeout(60.0, connect=10.0)) as client:
-        return client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}", data=data, files=files).json()
+    """A request with a file (multipart): sendPhoto and editMessageMedia."""
+    return _http_client().post(f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}", data=data, files=files,
+                               timeout=httpx.Timeout(60.0, connect=10.0)).json()
 
 
 async def tg_upload(endpoint: str, data: dict, files: dict):
@@ -466,8 +510,7 @@ def _prune_pending():
 
 
 def _active_projects(db):
-    return [p for p in live_projects(db).all()
-            if str(p.status).lower().strip() not in ['закончен', 'завершено', 'completed']]
+    return [p for p in live_projects(db).all() if not status_done(p.status)]
 
 
 async def save_telegram_photos(project_id: str, file_ids: list, note: str):
@@ -486,7 +529,7 @@ async def save_telegram_photos(project_id: str, file_ids: list, note: str):
             except progress.ProgressError as e:
                 error = tr(e.key, **e.params)
             except Exception as e:
-                print(f"[BOT ERROR] Не удалось получить фото: {repr(e)}")
+                print(f"[BOT ERROR] Не удалось получить фото: {safe_error(e)}")
                 error = tr("bot.photo_download_failed")
         return saved, proj.name, getattr(proj, "stage", "—") or "—", error
     finally:
@@ -626,7 +669,7 @@ async def send_photo_view(chat_id: int, scope: str, index: int = 0) -> bool:
             print(f"[BOT ERROR] Telegram отклонил sendPhoto: {res.get('description')}")
             await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
     except Exception as e:
-        print(f"[BOT ERROR] Ошибка sendPhoto: {repr(e)}")
+        print(f"[BOT ERROR] Ошибка sendPhoto: {safe_error(e)}")
         await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
     return True
 
@@ -647,7 +690,7 @@ async def edit_photo_view(chat_id: int, message_id: int, scope: str, index: int)
         if not res.get("ok") and "not modified" not in str(res.get("description", "")):
             print(f"[BOT ERROR] Telegram отклонил editMessageMedia: {res.get('description')}")
     except Exception as e:
-        print(f"[BOT ERROR] Ошибка editMessageMedia: {repr(e)}")
+        print(f"[BOT ERROR] Ошибка editMessageMedia: {safe_error(e)}")
 
 
 async def handle_photo_callback(cb: dict, data: str) -> bool:
@@ -737,7 +780,7 @@ def parse_user_date(text: str):
     if not m:
         return None
     a, b, y = int(m.group(1)), int(m.group(2)), m.group(3)
-    day, month = (b, a) if load_config().get("DATE_FORMAT") == "mdy" else (a, b)
+    day, month = (b, a) if config_value("DATE_FORMAT") == "mdy" else (a, b)
     today = date.today()
     year = (int(y) + 2000 if y and len(y) == 2 else int(y)) if y else today.year
     try:
@@ -775,7 +818,7 @@ def _date_choice_view(project_id: str, name: str):
     db = SessionLocal()
     try:
         proj = db.query(Project).filter(Project.id == project_id, Project.deleted_at.is_(None)).first()
-        planned = bool(proj) and str(proj.status).strip() == "В планах"
+        planned = bool(proj) and str(proj.status).strip() == STATUS_PLANNED
         estimate = to_date(proj.estimate) if proj and proj.estimate else None
     finally:
         db.close()
@@ -857,7 +900,7 @@ async def create_task_from_draft(chat_id: int, message_id, deadline):
             await _reply(chat_id, message_id, tr("err.project_not_found"))
             return
         task = Task(project_id=proj.id, task_name=d["name"], deadline=datetime.combine(deadline, datetime.min.time()) if deadline else None,
-                    status="Не начато", postponed=0)
+                    status=TASK_NOT_STARTED, postponed=0)
         db.add(task)
         proj.updated_at = datetime.now()
         db.commit()
@@ -955,7 +998,7 @@ async def handle_task_callback(cb: dict, data: str) -> bool:
             db = SessionLocal()
             try:
                 proj = db.query(Project).filter(Project.id == d["project"]).first()
-                planned = bool(proj) and str(proj.status).strip() == "В планах"
+                planned = bool(proj) and str(proj.status).strip() == STATUS_PLANNED
             finally:
                 db.close()
             if not planned:                      # срок обязателен: правило как в веб-интерфейсе
@@ -981,7 +1024,7 @@ async def handle_callback(cb: dict):
             if await handle_task_callback(cb, data):
                 return
         except Exception as e:
-            print(f"[CALLBACK ERROR]: {repr(e)}")
+            print(f"[CALLBACK ERROR]: {safe_error(e)}")
             traceback.print_exc()
             return
 
@@ -990,64 +1033,62 @@ async def handle_callback(cb: dict):
             if await handle_photo_callback(cb, data):
                 return
         except Exception as e:
-            print(f"[CALLBACK ERROR]: {repr(e)}")
+            print(f"[CALLBACK ERROR]: {safe_error(e)}")
             traceback.print_exc()
             return
 
     db = SessionLocal()
     try:
-        if data.startswith("t_done:"):
+        if data.startswith("t_done:") or data.startswith("n_done:"):
+            # t_done comes from a project card, n_done straight from a push notification
             parts = data.split(":")
-            task_id, proj_id = parts[1], (parts[2] if len(parts) > 2 else None)
-            task = db.query(Task).filter(Task.id == task_id).first()
-            if task:
-                task.status = "Закончен"
+            from_push = parts[0] == "n_done"
+            task = db.query(Task).filter(Task.id == parts[1]).first()
+            if not task:
+                await answer_callback(cb_id, tr("bot.task_not_found"))
+                return
+            if not status_done(task.status):           # a second press must not move the completion date
+                task.status = STATUS_FINISHED
                 task.completed_at = now
-                proj = db.query(Project).filter(Project.id == task.project_id).first()
-                if proj: proj.updated_at = now
+                _touch_project(db, task.project_id, now)
                 db.commit()
+            if from_push:
+                await answer_callback(cb_id, f"✅ {tr('bot.task_closed_named', name=task.task_name)}", show_alert=True)
+            else:
                 await answer_callback(cb_id, f"✅ {tr('bot.task_closed')}")
-            text, markup = build_current_focus_view(proj_id)
+            card_project = task.project_id if from_push else (parts[2] if len(parts) > 2 else None)
+            text, markup = await asyncio.to_thread(build_current_focus_view, card_project)
             await edit_message_text(chat_id, message_id, text, markup)
 
-        elif data.startswith("n_done:"):
-            # Закрытие задачи прямо из пуш-уведомления
-            task_id = data.split(":", 1)[1]
-            task = db.query(Task).filter(Task.id == task_id).first()
-            if task:
-                task.status = "Закончен"
-                task.completed_at = now
-                proj = db.query(Project).filter(Project.id == task.project_id).first()
-                if proj: proj.updated_at = now
-                db.commit()
-                await answer_callback(cb_id, f"✅ {tr('bot.task_closed_named', name=task.task_name)}", show_alert=True)
-                text, markup = build_current_focus_view(task.project_id)
-                await edit_message_text(chat_id, message_id, text, markup)
-
         elif data.startswith("t_postpone:"):
-            # Перенос дедлайна на +2 дня из пуша. Первый раз — молча, повторные — с ехидным комментарием
-            # (только текст, токены не списываются).
+            # Moves the deadline by +2 days from a push. The first time silently, repeated ones with a snarky
+            # comment (text only, no token penalty).
             task_id = data.split(":", 1)[1]
             task = db.query(Task).filter(Task.id == task_id).first()
             if not task:
                 await answer_callback(cb_id, tr("bot.task_not_found"))
+                return
+            if status_done(task.status):
+                await answer_callback(cb_id, f"✅ {tr('bot.task_closed')}")
+                return
+            if not load_config().get("NOTIFY", {}).get("allow_postpone", True):
+                await answer_callback(cb_id, tr("bot.postpone_disabled"), show_alert=True)
                 return
             base_date = to_date(task.deadline) or now.date()
             if base_date < now.date():
                 base_date = now.date()
             new_deadline = base_date + timedelta(days=2)
             task.deadline = datetime.combine(new_deadline, datetime.min.time())
-            count = int(getattr(task, 'postponed', 0) or 0) + 1
+            count = int(task.postponed or 0) + 1
             task.postponed = count
-            proj = db.query(Project).filter(Project.id == task.project_id).first()
-            if proj: proj.updated_at = now
+            _touch_project(db, task.project_id, now)
             db.commit()
             reply = f"⏳ {tr('bot.postponed', date=fmt_date(new_deadline))}"
             snark = postpone_snark(count)
             if snark:
                 reply += f"\n\n{snark}"
             await answer_callback(cb_id, reply, show_alert=True)
-            text, markup = build_current_focus_view(task.project_id)
+            text, markup = await asyncio.to_thread(build_current_focus_view, task.project_id)
             await edit_message_text(chat_id, message_id, text, markup)
 
         elif data.startswith("t_prog:"):
@@ -1055,46 +1096,61 @@ async def handle_callback(cb: dict):
             task_id, proj_id = parts[1], (parts[2] if len(parts) > 2 else None)
             task = db.query(Task).filter(Task.id == task_id).first()
             if task:
-                task.status = "В процессе"
-                proj = db.query(Project).filter(Project.id == task.project_id).first()
-                if proj: proj.updated_at = now
+                task.status = TASK_IN_PROGRESS
+                task.completed_at = None
+                _touch_project(db, task.project_id, now)
                 db.commit()
                 await answer_callback(cb_id, f"🔄 {tr('bot.task_in_progress')}")
-            text, markup = build_current_focus_view(proj_id)
+            else:
+                await answer_callback(cb_id, tr("bot.task_not_found"))
+            text, markup = await asyncio.to_thread(build_current_focus_view, proj_id)
             await edit_message_text(chat_id, message_id, text, markup)
 
         elif data.startswith("stage_menu:"):
             proj_id = data.split(":", 1)[1]
             await answer_callback(cb_id)
-            text, markup = build_stage_menu_view(proj_id)
+            text, markup = await asyncio.to_thread(build_stage_menu_view, proj_id)
             await edit_message_text(chat_id, message_id, text, markup)
 
         elif data.startswith("p_stage:"):
             _, proj_id, new_stage = data.split(":", 2)
             proj = db.query(Project).filter(Project.id == proj_id).first()
-            if proj:
+            if proj and new_stage in STAGES:
                 proj.stage = new_stage
                 proj.updated_at = now
                 db.commit()
                 await answer_callback(cb_id, f"🎨 {tr('project.stage')}: {tv(new_stage)}")
-            text, markup = build_current_focus_view(proj_id)
+            else:
+                await answer_callback(cb_id)
+            text, markup = await asyncio.to_thread(build_current_focus_view, proj_id)
             await edit_message_text(chat_id, message_id, text, markup)
 
         elif data == "show_all_proj":
             await answer_callback(cb_id)
-            text, markup = build_all_projects_view()
+            text, markup = await asyncio.to_thread(build_all_projects_view)
             await edit_message_text(chat_id, message_id, text, markup)
 
         elif data.startswith("open_p:"):
             proj_id = data.split(":", 1)[1]
             await answer_callback(cb_id)
-            text, markup = build_current_focus_view(proj_id)
+            text, markup = await asyncio.to_thread(build_current_focus_view, proj_id)
             await edit_message_text(chat_id, message_id, text, markup)
+
+        else:
+            await answer_callback(cb_id)                # unknown or outdated button: stop the spinner
     except Exception as e:
-        print(f"[CALLBACK ERROR]: {repr(e)}")
+        print(f"[CALLBACK ERROR]: {safe_error(e)}")
         traceback.print_exc()
     finally:
         db.close()
+
+
+def _touch_project(db, project_id: str, now: datetime) -> None:
+    """Marks progress on a project (resets the stagnation detector)."""
+    proj = db.query(Project).filter(Project.id == project_id).first()
+    if proj:
+        proj.updated_at = now
+
 
 async def handle_foreign_message(chat: dict, text: str):
     """Сообщение не от владельца. Привязанный бот молчит; непривязанный принимает только «/start КОД»."""
@@ -1159,7 +1215,7 @@ async def process_update(item: dict):
     if text.startswith("/start"):
         await send_message(chat_id, welcome_text())
     elif text.startswith("/current_task"):
-        view_text, markup = build_current_focus_view()
+        view_text, markup = await asyncio.to_thread(build_current_focus_view)
         await send_message(chat_id, view_text, markup)
     elif text.startswith("/help"):
         await send_message(chat_id, help_text())
@@ -1167,71 +1223,90 @@ async def process_update(item: dict):
         rest = text.split(maxsplit=1)[1].strip() if len(text.split(maxsplit=1)) > 1 else ""
         await start_task_constructor(chat_id, None, rest[:MAX_TASK_NAME] if rest else None)
     elif text.startswith("/projects"):
-        view_text, markup = build_all_projects_view()
+        view_text, markup = await asyncio.to_thread(build_all_projects_view)
         await send_message(chat_id, view_text, markup)
     elif text.startswith("/photo"):
         if not await send_photo_view(chat_id, "*", 0):
             await send_message(chat_id, tr("bot.photo_none"))
     elif text.startswith("/stats"):
-        await send_message(chat_id, build_current_month_stats())
+        await send_message(chat_id, await asyncio.to_thread(build_current_month_stats))
     elif text.startswith("/test_notify"):
         await cmd_test_notify(chat_id)
+
+
+SESSION_MAX_SEC = 3 * 3600            # planned reconnect: a fresh connection every 3 hours
+PRE_PUSH_RECONNECT_SEC = 600          # ... and about 10 minutes before scheduled notifications
+NETWORK_RETRY_SEC = 3                 # pause after a network error, so a dead proxy does not spin the CPU
 
 
 async def start_bot_polling():
     ensure_schema()
     if not BOT_TOKEN:
-        print("⚠️ TELEGRAM_BOT_TOKEN не задан в .env!")
+        print("⚠️ TELEGRAM_BOT_TOKEN is not set in .env!")
         return
     code = ensure_pairing_code()
     if code:
-        print(f"🔗 Бот не привязан к чату. Отправьте ему в личные сообщения: /start {format_pairing_code(code)} "
-              f"(код также виден в приложении: Настройки → Telegram)")
+        print(f"🔗 The bot is not linked to a chat. Send it in a private chat: /start {format_pairing_code(code)} "
+              f"(the code is also shown in the app: Settings → Telegram)")
 
-    while True:  # ВНЕШНИЙ ЦИКЛ: Принудительное пересоздание сессии
+    # The offset survives session restarts: getUpdates confirms the previous batch only through the next offset,
+    # so starting again from 0 would deliver the last processed updates twice (a "+2d" press applied twice).
+    offset = 0
+    while True:  # OUTER LOOP: a new session (fresh connections) every few hours
+        reset_http_client()
         try:
             await tg_request("POST", "deleteWebhook", payload={"drop_pending_updates": False}, timeout_sec=15.0)
-            print(f"✅ [{datetime.now().strftime('%H:%M:%S')}] Telegram-бот начал новую сессию ({tgproxy.describe()})")
+            print(f"✅ [{datetime.now().strftime('%H:%M:%S')}] Telegram bot started a new session ({tgproxy.describe()})")
             try:
                 await tg_request("POST", "setMyCommands", payload={"commands": menu_commands()}, timeout_sec=15.0)
             except Exception as e:
-                print(f"⚠️ Не удалось обновить меню команд: {repr(e)}")
+                print(f"⚠️ Could not update the command menu: {safe_error(e)}")
+        except asyncio.CancelledError:
+            return
         except Exception as e:
-            print(f"⚠️ Ошибка подключения к Telegram при старте ({tgproxy.describe()}): {repr(e)}")
+            print(f"⚠️ Could not connect to Telegram at session start ({tgproxy.describe()}): {safe_error(e)}")
 
-        offset = 0
         session_start = datetime.now()
 
-        while True:  # ВНУТРЕННИЙ ЦИКЛ: Обычный поллинг
+        while True:  # INNER LOOP: regular long polling
             now = datetime.now()
-            
-            # 1. Принудительный рестарт каждые 3 часа (10800 секунд)
-            if (now - session_start).total_seconds() > 10800:
-                print(f"🔄 [{now.strftime('%H:%M:%S')}] Плановый реконнект (прошло 3 часа)...")
+            age = (now - session_start).total_seconds()
+
+            # 1. Planned reconnect every 3 hours
+            if age > SESSION_MAX_SEC:
+                print(f"🔄 [{now.strftime('%H:%M:%S')}] Planned reconnect (3 hours passed)...")
                 break
-            
-            # 2. Свежая сессия за ~10 минут до запуска уведомлений по расписанию
+
+            # 2. A fresh session about 10 minutes before scheduled notifications
             to_next = seconds_to_next_run()
-            if to_next is not None and 0 < to_next <= 600 and (now - session_start).total_seconds() > 660:
-                print(f"🔄 [{now.strftime('%H:%M:%S')}] Плановый реконнект перед пушами по расписанию...")
+            if to_next is not None and 0 < to_next <= PRE_PUSH_RECONNECT_SEC and age > PRE_PUSH_RECONNECT_SEC + 60:
+                print(f"🔄 [{now.strftime('%H:%M:%S')}] Planned reconnect before scheduled notifications...")
                 break
 
             try:
                 data = await tg_request("GET", "getUpdates", params={"offset": offset, "timeout": 10}, timeout_sec=20.0)
-
-                if not data.get("ok"):
-                    await asyncio.sleep(3)
-                    continue
-
-                for item in data.get("result", []):
-                    offset = item["update_id"] + 1
-
-                    await process_update(item)
-
             except asyncio.CancelledError:
-                return  # Корректно завершаем при остановке системной службы
-            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError):
+                return  # clean stop when the service shuts down
+            except httpx.ReadTimeout:
+                continue
+            except (httpx.TransportError, ValueError):     # no connection, proxy refused, broken reply
+                await asyncio.sleep(NETWORK_RETRY_SEC)
                 continue
             except Exception as e:
-                print(f"[BOT POLLING ERROR]: {repr(e)}")
+                print(f"[BOT POLLING ERROR]: {safe_error(e)}")
                 await asyncio.sleep(5)
+                continue
+
+            if not data.get("ok"):
+                await asyncio.sleep(NETWORK_RETRY_SEC)
+                continue
+
+            for item in data.get("result", []):
+                offset = item["update_id"] + 1
+                try:
+                    await process_update(item)
+                except asyncio.CancelledError:
+                    return
+                except Exception as e:                    # one bad update must not stop the rest of the batch
+                    print(f"[BOT UPDATE ERROR]: {safe_error(e)}")
+                    traceback.print_exc()

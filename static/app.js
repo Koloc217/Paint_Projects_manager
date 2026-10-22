@@ -315,7 +315,26 @@ async function removeProjectRef(projectId, refId) {
     loadData();
 }
 
-// Экранирование пользовательского текста перед вставкой в innerHTML
+// Every spelling of "finished" the server may store (see DONE_STATUSES in common.py)
+const DONE_STATUSES = ['закончен', 'завершено', 'завершен', 'completed'];
+function isDoneStatus(status) {
+    return DONE_STATUSES.includes(String(status ?? '').toLowerCase().trim());
+}
+
+// Tasks grouped by project id, rebuilt once per data load (renders used to filter the whole task list per project)
+let tasksByProject = new Map();
+function rebuildTaskIndex() {
+    tasksByProject = new Map();
+    currentTasks.forEach(t => {
+        const list = tasksByProject.get(t['Project ID']);
+        if (list) list.push(t); else tasksByProject.set(t['Project ID'], [t]);
+    });
+}
+function projectTasks(projectId) {
+    return tasksByProject.get(projectId) || [];
+}
+
+// Escapes user text before it goes into innerHTML
 function esc(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -323,6 +342,25 @@ function esc(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+// POST/DELETE with a JSON body; always resolves to the parsed answer or {status: 'error'}
+async function postJson(url, body, method = 'POST') {
+    try {
+        const res = await fetch(url, {
+            method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body),
+        });
+        return await res.json();
+    } catch (e) {
+        return { status: 'error', message: tr('err.save_failed') };
+    }
+}
+
+function sendAction(body) {
+    return postJson('/api/action', body).then(r => {
+        if (r.status === 'error') showToast(r.message || tr('err.save_failed'), 'error');
+        loadData();
+    });
 }
 
 function showToast(message, type = 'error') {
@@ -425,8 +463,8 @@ function getDeadlineHTML(dateStr, isSmall = false, isDone = false) {
 
 function sortTasks(tasksList) {
     tasksList.sort((a, b) => {
-        const aDone = ['завершен', 'completed', 'закончен'].includes(String(a.Status).toLowerCase());
-        const bDone = ['завершен', 'completed', 'закончен'].includes(String(b.Status).toLowerCase());
+        const aDone = isDoneStatus(a.Status);
+        const bDone = isDoneStatus(b.Status);
         if (aDone && !bDone) return 1;
         if (!aDone && bDone) return -1;
         if (!a.Deadline && !b.Deadline) return 0;
@@ -437,12 +475,19 @@ function sortTasks(tasksList) {
     return tasksList;
 }
 
+// Several loads can overlap (window focus + an action); only the newest response is applied,
+// otherwise an older answer arriving late would overwrite fresher data.
+let loadSeq = 0;
 async function loadData() {
+    const seq = ++loadSeq;
     try {
         const res = await fetch('/api/data');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        currentProjects = data.projects;
-        currentTasks = data.tasks;
+        if (seq !== loadSeq) return;
+        currentProjects = data.projects || [];
+        currentTasks = data.tasks || [];
+        rebuildTaskIndex();
         isDevMode = data.dev_mode;
         projectCost = data.project_cost ?? 10;
         earnedTokensTotal = data.earned_tokens ?? 0;
@@ -467,7 +512,7 @@ async function loadData() {
         }
         updateProjectSelect();
         if (currentOpenProjectId) openProjectDetails(currentOpenProjectId);
-    } catch (err) { console.error("Ошибка загрузки:", err); }
+    } catch (err) { console.error('Data load failed:', err); }
 }
 
 function switchSettingsTab(name) {
@@ -838,7 +883,7 @@ function projectMatches(p, query) {
     const parts = [p.Name, p.ID, p.Priority, p.Status, p.Stage, p.PaintNotes];
     if (STATUS_TR[p.Status]) parts.push(tr(STATUS_TR[p.Status]));
     if (STAGE_TR[p.Stage]) parts.push(tr(STAGE_TR[p.Stage]));
-    currentTasks.forEach(t => { if (t['Project ID'] === p.ID) parts.push(t.Task); });
+    projectTasks(p.ID).forEach(t => parts.push(t.Task));
     const hay = normSearch(parts.filter(x => x != null && x !== '').join(' \n '));
     return words.every(w => hay.includes(w));
 }
@@ -850,7 +895,7 @@ function onProjectSearch(which, value) {
 
 function renderProjects() {
     const container = document.getElementById('projectsContainer');
-    const allActive = currentProjects.filter(p => !['завершен', 'completed', 'закончен'].includes(String(p.Status).toLowerCase()));
+    const allActive = currentProjects.filter(p => !isDoneStatus(p.Status));
     const activeProjects = allActive.filter(p => projectMatches(p, searchQuery.active));
     const searching = searchQuery.active.trim() !== '';
     document.getElementById('projectCount').innerText = searching ? `${activeProjects.length} / ${allActive.length}` : allActive.length;
@@ -860,8 +905,8 @@ function renderProjects() {
     }
 
     container.innerHTML = activeProjects.map(p => {
-        const pTasks = currentTasks.filter(t => t['Project ID'] === p.ID);
-        const doneCount = pTasks.filter(t => ['завершен', 'completed', 'закончен'].includes(String(t.Status).toLowerCase())).length;
+        const pTasks = projectTasks(p.ID);
+        const doneCount = pTasks.filter(t => isDoneStatus(t.Status)).length;
         const activeCount = pTasks.length - doneCount;
         const hasPaintNotes = p.PaintNotes && p.PaintNotes.trim().length > 0;
 
@@ -925,7 +970,7 @@ function renderProjects() {
 
 function renderTasks() {
     const container = document.getElementById('tasksContainer');
-    let activeTasks = currentTasks.filter(t => !['завершен', 'completed', 'закончен'].includes(String(t.Status).toLowerCase()));
+    let activeTasks = currentTasks.filter(t => !isDoneStatus(t.Status));
     activeTasks.sort((a, b) => {
         if (!a.Deadline && !b.Deadline) return 0;
         if (!a.Deadline) return 1;
@@ -935,7 +980,7 @@ function renderTasks() {
     
     container.innerHTML = activeTasks.slice(0, 5).map(t => {
         const proj = currentProjects.find(p => p.ID === t['Project ID']);
-        const isTaskDone = ['завершен', 'completed', 'закончен'].includes(String(t.Status).toLowerCase());
+        const isTaskDone = isDoneStatus(t.Status);
         return `
         <div class="p-3 hover:bg-slate-750 transition-colors relative group">
             <div class="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -958,7 +1003,7 @@ function renderTasks() {
 
 function renderAllTasks() {
     const container = document.getElementById('allTasksContainer');
-    const activeProjects = currentProjects.filter(p => !['завершен', 'completed', 'закончен'].includes(String(p.Status).toLowerCase()));
+    const activeProjects = currentProjects.filter(p => !isDoneStatus(p.Status));
     if (activeProjects.length === 0) {
         container.innerHTML = `<p class="text-slate-500 text-center py-4">${tr('project.no_active')}</p>`;
         return;
@@ -967,7 +1012,7 @@ function renderAllTasks() {
     let html = '';
     let hasTasks = false;
     activeProjects.forEach(proj => {
-        let pTasks = currentTasks.filter(t => t['Project ID'] === proj.ID);
+        let pTasks = projectTasks(proj.ID).slice();
         if (pTasks.length === 0) return;
         hasTasks = true;
         pTasks = sortTasks(pTasks);
@@ -981,7 +1026,7 @@ function renderAllTasks() {
             <div class="p-3 space-y-2">`;
 
         html += pTasks.map(t => {
-            const isDone = ['завершен', 'completed', 'закончен'].includes(String(t.Status).toLowerCase());
+            const isDone = isDoneStatus(t.Status);
             const op = isDone ? 'opacity-40 line-through' : '';
             return `
             <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 group">
@@ -1025,9 +1070,9 @@ function chartTheme() {
 }
 
 function renderAnalytics() {
-    const doneProjs = currentProjects.filter(p => ['завершен', 'completed', 'закончен'].includes(String(p.Status).toLowerCase()));
-    const activeProjs = currentProjects.filter(p => !['завершен', 'completed', 'закончен'].includes(String(p.Status).toLowerCase()));
-    const doneTasks = currentTasks.filter(t => ['завершен', 'completed', 'закончен'].includes(String(t.Status).toLowerCase()));
+    const doneProjs = currentProjects.filter(p => isDoneStatus(p.Status));
+    const activeProjs = currentProjects.filter(p => !isDoneStatus(p.Status));
+    const doneTasks = currentTasks.filter(t => isDoneStatus(t.Status));
     const rate = currentTasks.length > 0 ? Math.round((doneTasks.length / currentTasks.length) * 100) : 0;
 
     document.getElementById('statDoneProjects').innerText = doneProjs.length;
@@ -1133,7 +1178,7 @@ function renderAnalytics() {
 
 // Зал славы: список завершённых проектов с поиском (отдельно от графиков, чтобы набор текста их не перерисовывал)
 function renderHall() {
-    const doneProjs = currentProjects.filter(p => ['завершен', 'completed', 'закончен'].includes(String(p.Status).toLowerCase()));
+    const doneProjs = currentProjects.filter(p => isDoneStatus(p.Status));
     const hallSearching = searchQuery.hall.trim() !== '';
     const hallProjs = doneProjs.filter(p => projectMatches(p, searchQuery.hall));
     document.getElementById('archiveCount').innerText = hallSearching ? `${hallProjs.length} / ${doneProjs.length}` : doneProjs.length;
@@ -1144,7 +1189,7 @@ function renderHall() {
     }
 
     hallContainer.innerHTML = hallProjs.map(p => {
-        const pTasks = currentTasks.filter(t => t['Project ID'] === p.ID);
+        const pTasks = projectTasks(p.ID);
         const notesHtml = p.PaintNotes && p.PaintNotes.trim()
             ? `<div class="mt-3 p-2.5 bg-slate-900/90 border border-amber-500/20 rounded-lg text-xs text-slate-300 font-mono whitespace-pre-wrap"><span class="text-amber-400 font-bold block mb-1">🎨 ${tr('recipe.title')}:</span>${esc(p.PaintNotes)}</div>`
             : `<div class="mt-3 text-xs text-slate-500 italic">${tr('recipe.empty')}</div>`;
@@ -1197,7 +1242,15 @@ function openProjectDetails(projectId) {
     const project = currentProjects.find(p => p.ID === projectId);
     if (!project) return;
     document.getElementById('pdTitle').innerText = project.Name;
-    document.getElementById('pdPaintNotes').value = project.PaintNotes || '';
+    // A background refresh (window focus, another action) must not wipe notes the user is typing right now
+    const notesEl = document.getElementById('pdPaintNotes');
+    const sameProject = notesEl.dataset.projectId === projectId;
+    const editing = sameProject && (document.activeElement === notesEl || notesEl.value !== (notesEl.dataset.saved ?? ''));
+    if (!editing) {
+        notesEl.value = project.PaintNotes || '';
+        notesEl.dataset.saved = notesEl.value;
+        notesEl.dataset.projectId = projectId;
+    }
     document.getElementById('pdPhoto').innerHTML = projectPhotoInner(project, false);
     document.getElementById('pdPhotoActions').classList.toggle('hidden', !project.Photo);
     renderProjectRefs(project);
@@ -1206,7 +1259,7 @@ function openProjectDetails(projectId) {
     document.getElementById('pdMediaCount').innerText = mediaCount ? String(mediaCount) : '';
     switchCardTab(cardTab);
 
-    let pTasks = currentTasks.filter(t => t['Project ID'] === projectId);
+    let pTasks = projectTasks(projectId).slice();
     const container = document.getElementById('pdTasks');
     
     if (pTasks.length === 0) {
@@ -1214,7 +1267,7 @@ function openProjectDetails(projectId) {
     } else {
         pTasks = sortTasks(pTasks);
         container.innerHTML = pTasks.map(t => {
-            const isDone = ['завершен', 'completed', 'закончен'].includes(String(t.Status).toLowerCase());
+            const isDone = isDoneStatus(t.Status);
             const op = isDone ? 'opacity-40 line-through' : '';
             return `
             <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 group mb-2">
@@ -1239,16 +1292,16 @@ function openProjectDetails(projectId) {
 
 async function savePaintNotes(silent = false) {
     if (!currentOpenProjectId) return;
-    const notes = document.getElementById('pdPaintNotes').value;
-    const proj = currentProjects.find(p => p.ID === currentOpenProjectId);
-    if (proj && proj.PaintNotes === notes && silent) return;
-    if (proj) proj.PaintNotes = notes;
+    const notesEl = document.getElementById('pdPaintNotes');
+    const notes = notesEl.value;
+    const projectId = currentOpenProjectId;
+    const proj = currentProjects.find(p => p.ID === projectId);
+    if (proj && proj.PaintNotes === notes && silent) { notesEl.dataset.saved = notes; return; }
 
-    await fetch(`/api/projects/${currentOpenProjectId}/notes`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ paint_notes: notes })
-    });
+    const result = await postJson(`/api/projects/${projectId}/notes`, { paint_notes: notes });
+    if (result.status === 'error') return showToast(result.message || tr('err.save_failed'), 'error');
+    if (proj) proj.PaintNotes = notes;
+    if (notesEl.dataset.projectId === projectId) notesEl.dataset.saved = notes;
     renderProjects();
     if (!silent) showToast(tr('toast.recipe_saved'), "success");
 }
@@ -1337,19 +1390,19 @@ async function applyTemplateToProject() {
 function updateProjectStatus(id, status) {
     const p = currentProjects.find(x => x.ID === id);
     if (p) p.Status = status;
-    if (['закончен', 'завершено', 'completed'].includes(String(status).toLowerCase())) {
+    if (isDoneStatus(status)) {
         currentTasks.forEach(t => { if(t['Project ID'] === id) t.Status = 'Закончен'; });
         showToast(tr('toast.project_to_hall'), "success");
     }
     renderProjects(); renderTasks(); renderAllTasks();
-    fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'update_project_status', id: id, status: status }) }).then(() => loadData());
+    sendAction({ action: 'update_project_status', id: id, status: status });
 }
 
 function updateProjectStage(id, stage) {
     const p = currentProjects.find(x => x.ID === id);
     if(p) p.Stage = stage;
     renderProjects();
-    fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'update_project_stage', id: id, stage: stage }) });
+    sendAction({ action: 'update_project_stage', id: id, stage: stage });
 }
 
 function updateTaskStatus(id, status) {
@@ -1357,12 +1410,12 @@ function updateTaskStatus(id, status) {
     if(t) t.Status = status;
     renderProjects(); renderTasks(); renderAllTasks();
     if (currentOpenProjectId) openProjectDetails(currentOpenProjectId);
-    fetch('/api/action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'update_task_status', id: id, status: status }) }).then(() => loadData());
+    sendAction({ action: 'update_task_status', id: id, status: status });
 }
 
 function updateProjectSelect() {
     const select = document.getElementById('tProjectId');
-    const activeProjects = currentProjects.filter(p => !['завершен', 'completed', 'закончен'].includes(String(p.Status).toLowerCase()));
+    const activeProjects = currentProjects.filter(p => !isDoneStatus(p.Status));
     select.innerHTML = activeProjects.map(p => `<option value="${p.ID}">${esc(p.Name)}</option>`).join('');
 }
 
@@ -1424,9 +1477,10 @@ function openEditTaskModal(id) {
 
 async function saveTaskEdit() {
     const id = document.getElementById('etId').value;
-    const body = { task_name: document.getElementById('etName').value, deadline: document.getElementById('etDeadline').value || null };
+    const body = { task_name: document.getElementById('etName').value.trim(), deadline: document.getElementById('etDeadline').value || null };
     if(!body.task_name) return showToast(tr('task.err_empty'));
-    await fetch(`/api/tasks/${id}/edit`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+    const result = await postJson(`/api/tasks/${id}/edit`, body);
+    if (result.status === 'error') return showToast(result.message || tr('err.save_failed'), 'error');
     closeModal('editTaskModal');
     showToast(tr('toast.task_updated'), "success");
     loadData();
@@ -1434,7 +1488,7 @@ async function saveTaskEdit() {
 
 async function createTask() {
     const projectId = document.getElementById('tProjectId').value;
-    const taskName = document.getElementById('tName').value;
+    const taskName = document.getElementById('tName').value.trim();
     let deadline = document.getElementById('tDeadline').value;
     if(!taskName) return showToast(tr('task.err_empty'));
     const proj = currentProjects.find(p => p.ID === projectId);
@@ -1442,8 +1496,10 @@ async function createTask() {
         if (proj && proj.Status !== 'В планах') return showToast(tr('project.err_deadline_required'));
         if (proj && proj.Estimate) deadline = proj.Estimate;
     }
+    if (!projectId) return showToast(tr('err.project_not_found'));
     const body = { project_id: projectId, task_name: taskName, deadline: deadline || null };
-    await fetch('/api/tasks', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+    const result = await postJson('/api/tasks', body);
+    if (result.status === 'error') return showToast(result.message || tr('err.save_failed'), 'error');
     closeModal('taskModal');
     showToast(tr('toast.task_added'), "success");
     loadData();
@@ -1478,7 +1534,10 @@ function openModal(id) { document.getElementById(id).classList.remove('hidden');
 function closeModal(id) { 
     if (id === 'projectDetailsModal' && typeof standaloneCardId !== 'undefined' && standaloneCardId) { closeStandaloneWindow(); return; }
     document.getElementById(id).classList.add('hidden'); 
-    if (id === 'projectDetailsModal') { currentOpenProjectId = null; cardTabProjectId = null; }
+    if (id === 'projectDetailsModal') {
+        currentOpenProjectId = null; cardTabProjectId = null;
+        delete document.getElementById('pdPaintNotes').dataset.projectId;     // reopening shows the stored notes
+    }
     if (id === 'taskModal') { document.getElementById('tName').value = ''; document.getElementById('tDeadline').value = ''; }
     if (id === 'editTaskModal') { document.getElementById('etName').value = ''; document.getElementById('etDeadline').value = ''; }
     if (id === 'projectModal') { document.getElementById('pName').value = ''; document.getElementById('pEstimate').value = ''; document.getElementById('pToken').value = ''; }

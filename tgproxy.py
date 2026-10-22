@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 import httpx
 from dotenv import load_dotenv
 
-from common import BASE_DIR, load_config, save_config
+from common import BASE_DIR, config_value, load_config, save_config
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
@@ -35,10 +35,9 @@ def _cfg_block(cfg: dict):
 def get_url(cfg: dict = None) -> Optional[str]:
     """Адрес прокси, через который сейчас ходить в Telegram, или None — напрямую."""
     try:
-        cfg = cfg if cfg is not None else load_config()
+        block = _cfg_block(cfg) if cfg is not None else _cfg_block({"TG_PROXY": config_value("TG_PROXY")})
     except Exception:
-        cfg = {}
-    block = _cfg_block(cfg)
+        block = None
     if block is None:
         return _env_url()
     if not block.get("enabled"):
