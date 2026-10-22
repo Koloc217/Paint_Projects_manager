@@ -177,6 +177,7 @@ locales.json                                         all texts of the UI, the bo
 templates/                                           page, login, components (nav, tabs, modals, toasts, pwa_head)
 static/app.js, i18n.js, auth.js, dateinput.js        UI logic, translations, password hashing, date fields
 static/calendar.js, progress.js, templates.js, trash.js   calendar, progress photos, templates and vacation, trash
+static/dropzone.js, dropzone.css                        drag and drop of images (cover, references, progress)
 static/themes.css, mobile.css, card-tab.css          themes, phone layout, card in a separate tab
 static/sw.js, manifest.webmanifest, pwa.js, icons/, offline.html   PWA: service worker, manifest, install, icons, offline page
 static/backgrounds/                                  theme background images

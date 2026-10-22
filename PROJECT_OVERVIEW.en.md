@@ -61,6 +61,7 @@ and starting a new project costs tokens. The goal is to finish what you start in
 | `static/trash.js`, `static/calendar.js` | Trash window; deadline calendar |
 | `static/templates.js` | Template editor in the settings, template choice in the card, vacation |
 | `static/progress.js` | Progress photos: the block in the project card and the "Feed" tab |
+| `static/dropzone.js`, `static/dropzone.css` | Drag and drop of images onto the cover, references and progress |
 | `static/themes.css` | UI themes (eight themes, listed in the `THEMES` registry in `static/app.js`) and chart tokens |
 | `static/mobile.css` | Phone layout (narrower than 640 px): bottom tab bar, two-row header, full-screen modals |
 | `static/card-tab.css` | Project card in a separate tab (`/?card=`): full-width page, photo column |
@@ -169,6 +170,7 @@ references, counters of closed and open tasks) and the deadline: "Due soon!" whe
 the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, and delete (with a confirmation dialog).
 
 - **Clicking the photo:** with no photo, a file picker opens; with a photo, it opens full screen.
+- **Drag and drop:** an image can be dragged onto the project photo (replaces the cover), onto the references block or the progress block (several files at once). While a file is dragged over the window, all zones are highlighted.
 - **Clicking the name or the badges** opens the project card.
 
 ### Open project card

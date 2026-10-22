@@ -442,7 +442,7 @@
             <div id="pdHeader" class="relative flex flex-wrap sm:flex-nowrap justify-between items-start gap-y-3 mb-4 border-b border-slate-700 pb-3">
                 <div class="flex items-center gap-3 min-w-0 flex-1 pr-10 sm:pr-3">
                     <div class="flex flex-col items-center gap-1 shrink-0">
-                        <div id="pdPhoto" onclick="onProjectPhotoClick(currentOpenProjectId)" title="{{ tr('photo.title') }}" class="w-16 h-16 rounded-xl border border-slate-600 bg-slate-900 overflow-hidden cursor-pointer hover:border-indigo-400 transition-colors"></div>
+                        <div id="pdPhoto" onclick="onProjectPhotoClick(currentOpenProjectId)" data-drop="photo" title="{{ tr('photo.title') }}&#10;{{ tr('drop.photo_hint') }}" class="w-16 h-16 rounded-xl border border-slate-600 bg-slate-900 overflow-hidden cursor-pointer hover:border-indigo-400 transition-colors"></div>
                         <div id="pdPhotoActions" class="hidden flex gap-2">
                             <button onclick="pickProjectPhoto(currentOpenProjectId)" class="text-[10px] text-slate-500 hover:text-indigo-300">{{ tr('common.change_lc') }}</button>
                             <button onclick="removeProjectPhoto(currentOpenProjectId)" class="text-[10px] text-slate-500 hover:text-red-400">{{ tr('common.remove_lc') }}</button>
@@ -485,8 +485,8 @@
 
             <!-- Photos: references and progress. In the separate tab (/?card=) this is the right column, see static/card-tab.css -->
             <div id="pdMedia">
-            <!-- Paint references (originals, up to 10) -->
-            <div class="mb-4 bg-slate-900/90 border border-sky-500/20 rounded-xl p-3">
+            <!-- Paint references (originals, up to 10); files can be dragged onto the block -->
+            <div data-drop="refs" class="mb-4 bg-slate-900/90 border border-sky-500/20 rounded-xl p-3">
                 <div class="flex justify-between items-center mb-2">
                     <span class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
                         🖼 {{ tr('ref.title') }} <span id="pdRefsCount" class="text-slate-400 normal-case font-medium tracking-normal">0/10</span>
@@ -499,7 +499,7 @@
                 <div class="text-[10px] text-slate-500 mt-2">{{ tr('ref.hint') }}</div>
             </div>
 
-            <div class="mb-4 bg-slate-900/90 border border-fuchsia-500/20 rounded-xl p-3">
+            <div data-drop="progress" class="mb-4 bg-slate-900/90 border border-fuchsia-500/20 rounded-xl p-3">
                 <div class="flex justify-between items-center gap-2 mb-2">
                     <span class="text-xs font-bold uppercase tracking-wider text-fuchsia-400 flex items-center gap-1.5">
                         📷 {{ tr('progress.title') }} <span id="pdProgressCount" class="text-slate-400 normal-case font-medium tracking-normal"></span>

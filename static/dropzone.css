@@ -1,0 +1,44 @@
+/* ==========================================================================
+   Drag and drop zones (static/dropzone.js): project photo, paint references, progress.
+   body.drop-active: files are being dragged over the window, every zone is outlined;
+   .drop-over: the zone under the pointer, with a "release to upload" label.
+   ========================================================================== */
+[data-drop] {
+    --drop-color: #818cf8;
+    --drop-bg: rgba(99, 102, 241, 0.18);
+    position: relative;
+}
+
+body.drop-active [data-drop] {
+    box-shadow: inset 0 0 0 2px var(--drop-color) !important;
+    transition: box-shadow 0.12s, background-color 0.12s;
+}
+
+body.drop-active [data-drop].drop-over::after {
+    content: attr(data-drop-label);
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--drop-bg);
+    border: 2px dashed var(--drop-color);
+    border-radius: inherit;
+    backdrop-filter: blur(1px);
+    pointer-events: none;
+}
+
+/* the small cover zones show only an arrow, a bigger one */
+body.drop-active [data-drop="photo"].drop-over::after {
+    font-size: 1.6rem;
+}
+
+/* themes */
+body.theme-cyberpunk [data-drop] { --drop-color: #00ff9d; --drop-bg: rgba(0, 255, 157, 0.14); }
+body.theme-warhammer [data-drop] { --drop-color: #d4b26f; --drop-bg: rgba(60, 40, 15, 0.7); }

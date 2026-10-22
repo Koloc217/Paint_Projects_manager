@@ -269,10 +269,15 @@ function openProjectRefs(projectId, index) {
     openLightbox(p.Refs.map(r => ({ url: r.Url })), index);
 }
 
+// How many more references the project can take (also used by drag and drop, static/dropzone.js)
+function refsFree(id) {
+    const p = currentProjects.find(x => x.ID === id);
+    return MAX_REFS - ((p && p.Refs) ? p.Refs.length : 0);
+}
+
 function pickProjectRefs(id) {
     if (!id) return;
-    const p = currentProjects.find(x => x.ID === id);
-    const free = MAX_REFS - ((p && p.Refs) ? p.Refs.length : 0);
+    const free = refsFree(id);
     if (free <= 0) return showToast(tr('ref.limit', { n: MAX_REFS }));
     const input = document.createElement('input');
     input.type = 'file';
@@ -920,7 +925,7 @@ function renderProjects() {
             </button>
 
             <div class="flex gap-3 sm:gap-4 flex-grow">
-                <div onclick="event.stopPropagation(); onProjectPhotoClick('${p.ID}')" title="${p.Photo ? tr('photo.open') : tr('photo.add')}" class="w-20 h-20 sm:w-32 sm:h-32 shrink-0 rounded-xl border border-slate-600/60 bg-slate-900/60 overflow-hidden cursor-pointer hover:border-indigo-400 transition-colors">
+                <div onclick="event.stopPropagation(); onProjectPhotoClick('${p.ID}')" data-drop="photo" data-pid="${esc(p.ID)}" title="${p.Photo ? tr('photo.open') : tr('photo.add')}${'\n' + tr('drop.photo_hint')}" class="w-20 h-20 sm:w-32 sm:h-32 shrink-0 rounded-xl border border-slate-600/60 bg-slate-900/60 overflow-hidden cursor-pointer hover:border-indigo-400 transition-colors">
                     ${projectPhotoInner(p)}
                 </div>
 
