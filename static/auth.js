@@ -1,10 +1,10 @@
-/* Хэширование пароля в браузере перед отправкой на сервер (см. auth.py).
+/* Password hashing in the browser before it is sent to the server (see auth.py).
  *
- *   phDigest('admin', 'пароль')  ->  SHA-256('project-hub:admin:пароль') в hex
+ *   phDigest('admin', 'password')  ->  SHA-256('project-hub:admin:password') in hex
  *
- * Пароль по сети уходит не открытым текстом. Это не заменяет HTTPS: без него digest при перехвате
- * можно переслать повторно. Собственная реализация SHA-256 нужна, потому что crypto.subtle
- * недоступен на обычном http:// по IP-адресу (не «защищённый контекст»).
+ * The password never travels in plain text. This does not replace HTTPS: without it an intercepted digest
+ * can be replayed. A custom SHA-256 implementation is needed because crypto.subtle is not available
+ * on plain http:// by IP address (not a "secure context").
  */
 (function () {
     const K = new Uint32Array([

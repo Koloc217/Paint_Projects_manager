@@ -1,14 +1,14 @@
-/* Service worker Project Hub (отдаётся по адресу /sw.js, чтобы действовать на весь сайт).
+/* Project Hub service worker (served at /sw.js so that it controls the whole site).
  *
- * Правила простые, данные всегда свежие:
- * - /api/*, /photos/*, /login и любые запросы кроме GET идут только в сеть, ничего не кэшируется;
- * - страницы: сначала сеть; если сервер недоступен, показывается офлайн-заглушка;
- * - /static/*: сначала сеть (после обновления приложения сразу новые файлы), без сети — копия из кэша;
- * - внешние библиотеки и шрифты (Tailwind, Chart.js, Google Fonts): из кэша, параллельно обновляются.
+ * Simple rules, data is always fresh:
+ * - /api/*, /photos/*, /login and every non-GET request go to the network only, nothing is cached;
+ * - pages: network first; if the server is unreachable, an offline page is shown;
+ * - /static/*: network first (new files right after an app update), the cached copy when offline;
+ * - external libraries and fonts (Tailwind, Chart.js, Google Fonts): from the cache, refreshed in the background.
  *
- * После правок этого файла увеличьте VERSION: старые кэши удалятся при активации.
+ * After editing this file, increase VERSION: old caches are deleted on activation.
  */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const STATIC_CACHE = `ph-static-${VERSION}`;
 const CDN_CACHE = `ph-cdn-${VERSION}`;
 const OFFLINE_URL = '/static/offline.html';
@@ -79,5 +79,5 @@ self.addEventListener('fetch', (event) => {
     if (url.pathname.startsWith('/static/')) {
         event.respondWith(networkFirst(request));
     }
-    // /api/*, /photos/* и остальное — обычный запрос в сеть
+    // /api/*, /photos/* and everything else: a normal network request
 });

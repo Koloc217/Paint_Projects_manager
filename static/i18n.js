@@ -1,14 +1,14 @@
-/* Локализация интерфейса (клиентская часть).
+/* Interface localization (client side).
  *
- * Тексты лежат в одном файле locales.json (блоки по языкам: "ru-RU", "en-US"...). Сервер выбирает
- * блок текущего языка, закрывает пропуски языком по умолчанию и кладёт готовый словарь в страницу
- * как window.APP_I18N. Статическая разметка переводится на сервере ({{ tr(KEY) }} в шаблонах),
- * здесь — только тексты, которые рисует JavaScript.
+ * Texts live in one file, locales.json (blocks per language: "ru-RU", "en-US"...). The server picks the block
+ * of the current language, fills gaps from the default language and puts the ready dictionary into the page
+ * as window.APP_I18N. Static markup is translated on the server ({{ tr(KEY) }} in templates);
+ * here only the texts drawn by JavaScript.
  *
  *   tr('common.save')                        -> 'Сохранить' / 'Save'
- *   tr('ref.limit', {n: 10})                 -> 'Лимит: максимум 10 референсов на проект'
+ *   tr('ref.limit', {n: 10})                 -> 'Limit: at most 10 references per project'
  *
- * Ключ технический (area.name); нет ключа в словаре — виден сам ключ.
+ * Keys are technical (area.name); a key missing from the dictionary is shown as is.
  */
 (function () {
     const dict = window.APP_I18N || {};

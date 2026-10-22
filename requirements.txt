@@ -2,6 +2,6 @@
 fastapi
 uvicorn
 sqlalchemy
-jinja2            # шаблоны страницы (Jinja2Templates)
-httpx[socks]      # Telegram через SOCKS5-прокси (extra "socks" нужен, если задан PROXY_URL)
+jinja2            # page templates (Jinja2Templates)
+httpx[socks]      # Telegram through a SOCKS5 proxy (the "socks" extra is needed when a proxy is set)
 python-dotenv

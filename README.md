@@ -1,11 +1,13 @@
 # RPi5 Project Hub
 
+**Русский** · [English](README.en.md)
+
 Локальный трекер хобби-проектов (3D-печать и покраска миниатюр) для Raspberry Pi 5.
 Веб-интерфейс, Telegram-бот, уведомления по расписанию и система «токенов»: новый проект стоит токены,
 завершённый приносит награду. Идея в том, чтобы не бросать начатое и не копить нераскрашенные модели.
 
 > Статус: личный проект «для себя». Работает на одном пользователе, данные хранятся локально.
-> Подробное описание логики и API: [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md).
+> Подробное описание логики и API: [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) ([English](PROJECT_OVERVIEW.en.md)).
 
 ## Что умеет
 
@@ -37,8 +39,8 @@
 - Расписание по дням недели настраивается в интерфейсе.
 
 **Оформление и язык**
-- Восемь тем: стандартная, Cyberpunk, Warhammer 40k, SCP Dossier, Workbench, Synthwave, JRPG (FFVII), Model Manual, Hardware PCB.
-  Графики подхватывают цвета темы. Как добавить свою: [THEMES_GUIDE.md](THEMES_GUIDE.md).
+- Стандартная тема и восемь дополнительных: Cyberpunk, Warhammer 40k, SCP Dossier, Workbench, Synthwave, JRPG (FFVII),
+  Model Manual, Hardware PCB. Графики подхватывают цвета темы. Как добавить свою: [THEMES_GUIDE.md](THEMES_GUIDE.md).
 - Язык интерфейса, бота и уведомлений: русский и английский. Все тексты лежат в одном файле `locales.json`.
 - Формат дат с годом на выбор: `21.03.2027` или `03/21/2027`.
 - Телефонная вёрстка (вкладки внизу экрана) и установка на главный экран как приложение (PWA), см. раздел «Телефон».
@@ -160,19 +162,23 @@ Chrome) браузер включает только на `https` с серти�
 | Секреты (токен бота, прокси, адрес бэкапа), HTTPS и порт | `.env` (шаблон: `.env.example`) |
 | Язык, формат даты, цена проекта, расписание, уведомления | Настройки в интерфейсе, хранится в `config.json` |
 | Пароль | Настройки → Доступ; сброс из консоли: `python auth.py reset` |
-| Фоновые картинки тем | `static/backgrounds/*_bg.jpg`: `wh40k_bg.jpg`, `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` (необязательно, без них тема рисует фон сама) |
+| Фоновые картинки тем | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` лежат в репозитории, `wh40k_bg.jpg` нужно положить самому (без картинки тема рисует фон сама), см. [static/backgrounds/README.md](static/backgrounds/README.md) |
 
 ## Структура
 
 ```
 app.py, bot.py, notify.py, scheduler.py, backup.py   сервер, бот, уведомления, расписание, бэкап
-auth.py, tls.py, common.py, database.py, i18n.py     вход, HTTPS, общие функции, модели БД, переводы
-locales.json                                         все тексты интерфейса, бота и уведомлений
-templates/                                           страница, вход, компоненты (nav, tabs, modals, toasts)
-static/                                              app.js, i18n.js, auth.js, themes.css, mobile.css (телефон), card-tab.css (карточка во вкладке)
-static/sw.js, manifest.webmanifest, pwa.js, icons/   PWA: service worker, манифест, установка, иконки
-tools/                                               check_locales.py, check_theme.py
+auth.py, tls.py, common.py, database.py, i18n.py     вход, HTTPS, общие функции и конфиг, модели БД, переводы
+pipeline.py, vacation.py, tgproxy.py, storage.py     шаблоны пайплайна, отпуск, прокси для Telegram, занятое место
 progress.py, logs.py                                 фото прогресса (веб и бот), журналы с ротацией
+locales.json                                         все тексты интерфейса, бота и уведомлений
+templates/                                           страница, вход, компоненты (nav, tabs, modals, toasts, pwa_head)
+static/app.js, i18n.js, auth.js, dateinput.js        логика интерфейса, переводы, хэш пароля, поля даты
+static/calendar.js, progress.js, templates.js, trash.js   календарь, фото прогресса, шаблоны и отпуск, корзина
+static/themes.css, mobile.css, card-tab.css          темы, телефонная вёрстка, карточка во вкладке
+static/sw.js, manifest.webmanifest, pwa.js, icons/, offline.html   PWA: service worker, манифест, установка, иконки, заглушка
+static/backgrounds/                                  фоновые картинки тем
+tools/                                               check_locales.py, check_theme.py, deploy.sh, clean.sh
 logs/                                                app.log, notify.log, backup.log (создаётся сам)
 PLANS.md                                             отложенные идеи и решения
 ```

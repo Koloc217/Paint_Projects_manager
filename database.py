@@ -13,16 +13,16 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread
 
 @event.listens_for(engine, "connect")
 def _sqlite_pragmas(dbapi_connection, _record):
-    """Режим WAL: читатели не блокируют запись и наоборот (веб, бот и скрипты notify/backup работают с одной базой).
-    busy_timeout — подождать до 5 с, если база занята, вместо ошибки "database is locked".
-    Режим WAL хранится в самом файле базы: старая база переключается при первом подключении."""
+    """WAL mode: readers do not block the writer and vice versa (the web app, the bot and the notify/backup
+    scripts share one database). busy_timeout waits up to 5 s for a busy database instead of failing with
+    "database is locked". WAL is stored in the database file itself, so an old database switches on first connect."""
     cur = dbapi_connection.cursor()
     try:
         cur.execute("PRAGMA busy_timeout=5000")
         cur.execute("PRAGMA journal_mode=WAL")
         cur.execute("PRAGMA synchronous=NORMAL")
-    except Exception as e:      # например, файловая система без поддержки WAL: работаем в обычном режиме
-        print(f"[DB] не удалось включить WAL: {e!r}")
+    except Exception as e:      # e.g. a file system without WAL support: keep the default journal mode
+        print(f"[DB] could not enable WAL: {e!r}")
     finally:
         cur.close()
 
@@ -30,11 +30,14 @@ def _sqlite_pragmas(dbapi_connection, _record):
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+
 def gen_proj_id():
     return f"PRJ-{uuid.uuid4().hex[:6].upper()}"
 
+
 def gen_task_id():
     return f"TSK-{uuid.uuid4().hex[:6].upper()}"
+
 
 class Project(Base):
     __tablename__ = "projects"
@@ -46,55 +49,59 @@ class Project(Base):
     estimate = Column(DateTime, nullable=True)
     token = Column(Float, default=0.0)
     token_reward = Column(Float, default=0.0)
-    paint_notes = Column(Text, default="")  # Блокнот для красок и рецептов
-    photo = Column(String, default="")      # Имя файла фото проекта в папке photos/
+    paint_notes = Column(Text, default="")  # paint mixing notes and recipes
+    photo = Column(String, default="")      # file name of the project cover photo in photos/
     updated_at = Column(DateTime, default=datetime.now)
     completed_at = Column(DateTime, nullable=True)
-    deleted_at = Column(DateTime, nullable=True)   # не пусто — проект в корзине
+    deleted_at = Column(DateTime, nullable=True)   # set = the project is in the trash
+
 
 class Task(Base):
     __tablename__ = "tasks"
     id = Column(String, primary_key=True, default=gen_task_id)
-    project_id = Column(String, nullable=False)
+    project_id = Column(String, nullable=False, index=True)
     task_name = Column(String, nullable=False)
     deadline = Column(DateTime, nullable=True)
     status = Column(String, default="Не начато")
     postponed = Column(Integer, default=0)
     completed_at = Column(DateTime, nullable=True)
 
+
 class Reference(Base):
-    """Референсы для покраса: оригиналы картинок (без сжатия) + мини-превью."""
+    """Paint references: original images (not recompressed) plus small previews."""
     __tablename__ = "project_refs"
     id = Column(Integer, primary_key=True, autoincrement=True)
     project_id = Column(String, nullable=False, index=True)
-    filename = Column(String, nullable=False)   # оригинал в photos/refs/
-    thumb = Column(String, default="")          # превью (JPEG) в photos/refs/
+    filename = Column(String, nullable=False)   # original in photos/refs/
+    thumb = Column(String, default="")          # preview (JPEG) in photos/refs/
     created_at = Column(DateTime, default=datetime.now)
 
+
 class ProgressPhoto(Base):
-    """Фото прогресса (WIP): с датой и стадией проекта на момент загрузки. Файлы лежат в photos/progress/."""
+    """Progress (WIP) photo with the date and the project stage at upload time. Files live in photos/progress/."""
     __tablename__ = "progress_photos"
     id = Column(Integer, primary_key=True, autoincrement=True)
     project_id = Column(String, nullable=False, index=True)
     filename = Column(String, nullable=False)
-    thumb = Column(String, default="")          # превью (JPEG); пусто — используется сам файл
-    stage = Column(String, default="—")         # стадия проекта в момент загрузки (хранится канонически, по-русски)
-    note = Column(Text, default="")             # подпись; из Telegram — подпись к фото
+    thumb = Column(String, default="")          # preview (JPEG); empty = the file itself is used
+    stage = Column(String, default="—")         # project stage at upload time (canonical Russian value)
+    note = Column(Text, default="")             # caption; from Telegram, the photo caption
     source = Column(String, default="web")      # web | telegram
     created_at = Column(DateTime, default=datetime.now)
 
+
 class Adjustment(Base):
-    """Корректировки баланса токенов (например, при удалении проекта)."""
+    """Token balance adjustments (for example, when a project is deleted)."""
     __tablename__ = "adjustments"
     id = Column(Integer, primary_key=True, autoincrement=True)
     amount = Column(Float, default=0.0)
     reason = Column(String, default="")
     created_at = Column(DateTime, default=datetime.now)
 
+
 def ensure_schema():
-    """Безопасная авто-миграция существующей БД SQLite без потери данных"""
+    """Safe automatic migration of an existing SQLite database, without data loss."""
     Base.metadata.create_all(bind=engine)
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with engine.connect() as conn:
         proj_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(projects)")).fetchall()]
         if "stage" not in proj_cols:
@@ -105,7 +112,8 @@ def ensure_schema():
             conn.execute(text("ALTER TABLE projects ADD COLUMN photo VARCHAR DEFAULT ''"))
         if "updated_at" not in proj_cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN updated_at DATETIME"))
-            conn.execute(text(f"UPDATE projects SET updated_at = '{now_str}' WHERE updated_at IS NULL"))
+            conn.execute(text("UPDATE projects SET updated_at = :now WHERE updated_at IS NULL"),
+                         {"now": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
         if "completed_at" not in proj_cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN completed_at DATETIME"))
         if "deleted_at" not in proj_cols:
@@ -116,4 +124,9 @@ def ensure_schema():
             conn.execute(text("ALTER TABLE tasks ADD COLUMN postponed INTEGER DEFAULT 0"))
         if "completed_at" not in task_cols:
             conn.execute(text("ALTER TABLE tasks ADD COLUMN completed_at DATETIME"))
+
+        # Indexes for the lookups done on every page load and bot update. create_all() does not add
+        # indexes to tables that already exist, so older databases get them here.
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tasks_project_id ON tasks (project_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_projects_deleted_at ON projects (deleted_at)"))
         conn.commit()

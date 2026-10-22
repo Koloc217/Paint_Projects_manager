@@ -1,9 +1,9 @@
-"""Шаблоны пайплайна: хранятся в config.json (PIPELINE_TEMPLATES) и редактируются в настройках.
+"""Pipeline templates: stored in config.json (PIPELINE_TEMPLATES) and edited in the settings.
 
-Шаблон: {"id": "print", "name": "...", "steps": ["...", ...]}.
-Название и этапы — либо ключ перевода из locales.json (так записаны встроенные шаблоны, и они
-переводятся при смене языка), либо обычный текст (то, что пользователь ввёл сам).
-Если в конфиге шаблонов нет, действуют два встроенных: «3D-печать» и «Сборная модель».
+A template: {"id": "print", "name": "...", "steps": ["...", ...]}.
+The name and the steps are either a translation key from locales.json (that is how the built-in templates are
+written, so they follow a language change) or plain text (whatever the user typed).
+If the config has no templates, the two built-in ones apply: "3D print" and "Kit model".
 """
 import re
 import secrets
@@ -37,12 +37,12 @@ DEFAULT_TEMPLATES = [
 
 
 def is_key(raw: str) -> bool:
-    """Строка — ключ перевода (есть в locales.json), а не текст пользователя."""
+    """The string is a translation key (present in locales.json), not user text."""
     return isinstance(raw, str) and translate(raw, DEFAULT_LANG) != raw
 
 
 def text(raw: str) -> str:
-    """Текст на языке интерфейса: ключ переводится, обычный текст возвращается как есть."""
+    """Text in the interface language: a key is translated, plain text is returned as is."""
     return tr(raw) if is_key(raw) else raw
 
 
@@ -51,7 +51,7 @@ def _copy(templates):
 
 
 def _clean(raw_list):
-    """Проверяет список шаблонов. Возвращает (шаблоны, None) или (None, текст_ошибки)."""
+    """Validates a list of templates. Returns (templates, None) or (None, error_text)."""
     if not isinstance(raw_list, list) or not raw_list:
         return None, tr("err.templates_empty")
     if len(raw_list) > MAX_TEMPLATES:
@@ -81,7 +81,7 @@ def _clean(raw_list):
 
 
 def get_templates(cfg: dict) -> list:
-    """Шаблоны из конфига в исходном виде (ключи не переведены); при ошибке в конфиге — встроенные."""
+    """Templates from the config as stored (keys not translated); the built-in ones if the config is invalid."""
     raw = cfg.get("PIPELINE_TEMPLATES")
     if raw is None:
         return _copy(DEFAULT_TEMPLATES)
@@ -94,8 +94,8 @@ def find(cfg: dict, template_id: str):
 
 
 def for_client(cfg: dict) -> list:
-    """Шаблоны для интерфейса: тексты на текущем языке и исходные значения (чтобы ключи не терялись
-    при сохранении нетронутых строк)."""
+    """Templates for the UI: texts in the current language plus the stored values (so keys are not lost
+    when untouched rows are saved back)."""
     return [{
         "id": t["id"],
         "name": text(t["name"]),
@@ -114,8 +114,8 @@ def defaults_for_client() -> list:
 
 
 def save(cfg: dict, raw_list) -> str:
-    """Записывает шаблоны в cfg (без сохранения файла). Возвращает текст ошибки или None.
-    Если список совпадает со встроенным, ключ из конфига убирается: шаблоны снова «по умолчанию»."""
+    """Writes the templates into cfg (without saving the file). Returns an error text or None.
+    If the list equals the built-in one, the key is removed from the config: the templates are "default" again."""
     clean, err = _clean(raw_list)
     if err:
         return err
@@ -127,7 +127,7 @@ def save(cfg: dict, raw_list) -> str:
 
 
 def step_variants(raw: str) -> list:
-    """Все написания этапа: для ключа — перевод на каждом языке, для текста — он сам."""
+    """Every spelling of a step: for a key, its translation in every language; for text, the text itself."""
     if is_key(raw):
         return [translate(raw, lang["code"]) for lang in available_languages()]
     return [raw]

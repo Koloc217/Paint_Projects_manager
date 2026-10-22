@@ -1,8 +1,8 @@
-"""Сколько места занимает приложение: код, база, фото, журналы.
+"""How much space the app takes: code, database, photos, logs.
 
-Считается обходом папок (os.scandir), без du и других внешних команд, поэтому одинаково работает в Windows и Linux.
-Размер — длина файлов в байтах (как в свойствах файла), а не место, выделенное на диске.
-Симлинки не открываются: учитывается только то, что реально лежит в папке приложения.
+Computed by walking folders (os.scandir), without du or other external commands, so it works the same on Windows
+and Linux. The size is the file length in bytes (as in file properties), not the space allocated on disk.
+Symlinks are not followed: only what really lies in the app folder is counted.
 """
 import os
 
@@ -10,19 +10,19 @@ from common import BASE_DIR
 
 PHOTOS_DIR = os.path.join(BASE_DIR, "photos")
 LOGS_DIR = os.path.join(BASE_DIR, "logs")
-BACKUPS_DIR = os.path.join(BASE_DIR, "backups")      # копии базы, которые делает tools/deploy.sh
+BACKUPS_DIR = os.path.join(BASE_DIR, "backups")      # database copies made by tools/deploy.sh
 
-# Верхний уровень папки приложения, который считается отдельно, а не как «файлы приложения»
+# Top-level folders of the app that are counted separately, not as "app files"
 DATA_DIRS = {"photos", "logs", "backups", ".git", ".venv", "venv"}
 
 
 def _is_db_file(name: str) -> bool:
-    # tracker.db и служебные файлы SQLite рядом с ней (-wal, -shm, -journal)
+    # tracker.db and the SQLite side files next to it (-wal, -shm, -journal)
     return name == "tracker.db" or name.startswith("tracker.db-")
 
 
 def _is_log_file(name: str) -> bool:
-    # старые журналы в корне (notify.log, backup.log и их ротации) до переезда в logs/
+    # old logs in the root folder (notify.log, backup.log and their rotations) from before the move to logs/
     return name.endswith(".log") or ".log." in name
 
 
@@ -34,7 +34,7 @@ def _file_size(entry) -> int:
 
 
 def dir_size(path: str):
-    """(байты, число файлов) в папке со всеми подпапками. Нет папки — (0, 0); недоступное пропускается."""
+    """(bytes, number of files) in a folder with all subfolders. No folder: (0, 0); unreadable parts are skipped."""
     total, count = 0, 0
     stack = [path]
     while stack:
@@ -63,7 +63,7 @@ def _item(key: str, size: int, files: int, children=None) -> dict:
 
 
 def usage() -> dict:
-    """Разбивка занятого места по категориям. Категории, которых нет (копий базы, .git), не выводятся."""
+    """Used space by category. Categories that do not exist (database copies, .git) are left out."""
     app_bytes = app_files = 0
     db_bytes = db_files = 0
     loose_log_bytes = loose_log_files = 0
@@ -98,7 +98,7 @@ def usage() -> dict:
         except OSError:
             continue
 
-    # фото: обложки лежат прямо в photos/, референсы в photos/refs, фото прогресса в photos/progress
+    # photos: covers lie directly in photos/, references in photos/refs, progress photos in photos/progress
     refs = dir_size(os.path.join(PHOTOS_DIR, "refs"))
     progress = dir_size(os.path.join(PHOTOS_DIR, "progress"))
     photos_all = dir_size(PHOTOS_DIR)
@@ -134,7 +134,7 @@ def usage() -> dict:
 
 
 if __name__ == "__main__":
-    # быстрая проверка из консоли: python storage.py
+    # quick check from the console: python storage.py
     data = usage()
     for it in data["items"]:
         print(f"{it['key']:<16} {it['bytes']:>14,} B  {it['files']:>6} files")

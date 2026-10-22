@@ -1,12 +1,14 @@
 # Фоновые картинки тем
 
-Сюда кладутся фоны тем (в git не входят, у каждого свои):
+**Русский** · [English](README.en.md)
 
-| Файл | Тема |
-|---|---|
-| `wh40k_bg.jpg` | Warhammer 40k |
-| `workbench_bg.jpg` | Workbench |
-| `synthwave_bg.jpg` | Synthwave |
-| `pcb_bg.jpg` | Hardware PCB |
+Сюда кладутся фоны тем:
+
+| Файл | Тема | В репозитории |
+|---|---|---|
+| `wh40k_bg.jpg` | Warhammer 40k | нет, положите свой (файл в `.gitignore`) |
+| `workbench_bg.jpg` | Workbench | да, можно заменить своим |
+| `synthwave_bg.jpg` | Synthwave | да, можно заменить своим |
+| `pcb_bg.jpg` | Hardware PCB | да, можно заменить своим |
 
 Файла нет — тема рисует свой фон сама (градиент, сетку или узор).

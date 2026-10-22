@@ -16,7 +16,7 @@
             </div>
 
             <div class="min-h-[21rem] text-sm">
-                <!-- Основные -->
+                <!-- General -->
                 <div id="cfgTab-general" class="space-y-4">
                     <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
                         <div>
@@ -61,7 +61,7 @@
                         </select>
                     </div>
 
-                    <!-- PWA: установка на экран телефона (логика в static/pwa.js) -->
+                    <!-- PWA: install on a phone home screen (logic in static/pwa.js) -->
                     <div id="pwaBox" class="p-3 bg-slate-900 rounded-xl border border-slate-700">
                         <div class="flex items-center justify-between gap-3">
                             <div class="min-w-0">
@@ -74,9 +74,9 @@
                     </div>
                 </div>
 
-                <!-- Уведомления -->
+                <!-- Notifications -->
                 <div id="cfgTab-notifications" class="hidden space-y-4">
-                    <!-- Отпуск: пауза пушей и сдвиг всех сроков. Действует сразу, без кнопки «Сохранить» -->
+                    <!-- Vacation: pauses pushes and moves all deadlines. Applies at once, without the "Save" button -->
                     <div id="cfgVacation" class="p-3 bg-slate-900 rounded-xl border border-teal-500/30 space-y-2">
                         <div>
                             <div class="font-semibold text-white">{{ tr('vacation.title') }}</div>
@@ -141,7 +141,7 @@
                     </div>
                 </div>
 
-                <!-- Расписание -->
+                <!-- Schedule -->
                 <div id="cfgTab-schedule" class="hidden space-y-4">
                     <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-2">
                         <label class="flex items-center justify-between cursor-pointer">
@@ -238,8 +238,8 @@
                     </div>
                 </div>
 
-                <!-- Бэкап -->
-                <!-- Шаблоны пайплайна: редактор, static/templates.js. Сохраняются общей кнопкой «Сохранить» -->
+                <!-- Backup -->
+                <!-- Pipeline templates: the editor is in static/templates.js. Saved with the common "Save" button -->
                 <div id="cfgTab-templates" class="hidden space-y-4">
                     <p class="text-xs text-slate-400">{{ tr('settings.templates.hint') }}</p>
                     <div id="tplEditor" class="space-y-3"></div>
@@ -268,7 +268,7 @@
                         </div>
                     </div>
 
-                    <!-- Занятое место (логика в static/app.js: loadStorage) -->
+                    <!-- Used space (logic in static/app.js: loadStorage) -->
                     <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-2">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
@@ -312,7 +312,7 @@
                         </div>
                     </div>
 
-                    <!-- Прокси для Telegram: необязательный, действует сразу (кнопка «Применить»), см. tgproxy.py -->
+                    <!-- Proxy for Telegram: optional, applies at once (the "Apply" button), see tgproxy.py -->
                     <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-3">
                         <label class="flex items-center justify-between cursor-pointer">
                             <div>
@@ -334,7 +334,7 @@
                         </div>
                     </div>
                 </div>
-                <!-- Доступ (вход по паролю) -->
+                <!-- Access (password login) -->
                 <div id="cfgTab-security" class="hidden space-y-4">
                     <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-3">
                         <div class="flex items-start justify-between">
@@ -375,7 +375,7 @@
         </div>
     </div>
 
-    <!-- Модалка: Новый проект -->
+    <!-- Modal: new project -->
     <div id="projectModal" onclick="if(event.target === this) closeModal('projectModal')" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
             <div class="flex justify-between items-center mb-4">
@@ -398,7 +398,7 @@
         </div>
     </div>
 
-    <!-- Модалка: Редактировать проект -->
+    <!-- Modal: edit project -->
     <div id="editProjectModal" onclick="if(event.target === this) closeModal('editProjectModal')" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[75]">
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
             <h3 id="epTitle" class="text-lg font-bold text-white mb-4">{{ tr('project.edit') }}</h3>
@@ -420,7 +420,7 @@
         </div>
     </div>
 
-    <!-- Модалка: Редактировать задачу -->
+    <!-- Modal: edit task -->
     <div id="editTaskModal" onclick="if(event.target === this) closeModal('editTaskModal')" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
             <h3 class="text-lg font-bold text-white mb-4">{{ tr('task.edit') }}</h3>
@@ -436,7 +436,7 @@
         </div>
     </div>
 
-    <!-- Модалка: Детали проекта (Блокнот для красок + Задачи) -->
+    <!-- Modal: project details (paint notebook + tasks) -->
     <div id="projectDetailsModal" onclick="if(event.target === this) closeModal('projectDetailsModal')" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div id="pdPanel" class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-2xl w-full shadow-2xl flex flex-col max-h-[88vh] overflow-y-auto">
             <div id="pdHeader" class="relative flex flex-wrap sm:flex-nowrap justify-between items-start gap-y-3 mb-4 border-b border-slate-700 pb-3">
@@ -463,14 +463,14 @@
                 </div>
             </div>
 
-            <!-- Подвкладки компактной карточки: «Задачи» (рецепт и задачи) и «Фото» (референсы и прогресс).
-                 В отдельной вкладке (/?card=) их нет, там всё на одной странице: см. static/card-tab.css -->
+            <!-- Sub-tabs of the compact card: "Tasks" (recipe and tasks) and "Photos" (references and progress).
+                 The separate tab (/?card=) has none, everything is on one page there: see static/card-tab.css -->
             <div id="pdSubtabs" class="flex gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700 mb-4 self-start">
                 <button type="button" id="pdSubBtn-main" onclick="switchCardTab('main')" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors">{{ tr('card.tab_tasks') }}</button>
                 <button type="button" id="pdSubBtn-media" onclick="switchCardTab('media')" class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors">{{ tr('card.tab_photos') }} <span id="pdMediaCount" class="text-slate-500 text-xs"></span></button>
             </div>
 
-            <!-- Блокнот для красок (Paint Mixer Notepad) -->
+            <!-- Paint notebook (Paint Mixer Notepad) -->
             <div id="pdNotesBox" class="mb-4 bg-slate-900/90 border border-amber-500/20 rounded-xl p-3">
                 <div class="flex justify-between items-center mb-2">
                     <span class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
@@ -483,9 +483,9 @@
                 <textarea id="pdPaintNotes" onblur="savePaintNotes(true)" rows="3" placeholder="{{ tr('recipe.placeholder') }}..." class="w-full bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-amber-500/50 resize-y font-mono"></textarea>
             </div>
 
-            <!-- Фото: референсы и прогресс. В отдельной вкладке (/?card=) это правая колонка, см. static/card-tab.css -->
+            <!-- Photos: references and progress. In the separate tab (/?card=) this is the right column, see static/card-tab.css -->
             <div id="pdMedia">
-            <!-- Референсы для покраса (оригиналы, до 10 шт.) -->
+            <!-- Paint references (originals, up to 10) -->
             <div class="mb-4 bg-slate-900/90 border border-sky-500/20 rounded-xl p-3">
                 <div class="flex justify-between items-center mb-2">
                     <span class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
@@ -518,7 +518,7 @@
         </div>
     </div>
 
-    <!-- Модалка: Новая задача -->
+    <!-- Modal: new task -->
     <div id="taskModal" onclick="if(event.target === this) closeModal('taskModal')" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-[60]">
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
             <h3 class="text-lg font-bold text-white mb-4">{{ tr('task.new') }}</h3>
@@ -534,7 +534,7 @@
         </div>
     </div>
 
-    <!-- Корзина проектов -->
+    <!-- Project trash -->
     <div id="trashModal" onclick="if(event.target === this) closeModal('trashModal')" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-xl w-full shadow-2xl max-h-[85vh] flex flex-col">
             <div class="flex items-center justify-between gap-3">
@@ -547,7 +547,7 @@
         </div>
     </div>
 
-    <!-- Просмотр картинок на весь экран -->
+    <!-- Full-screen image viewer -->
     <div id="lightbox" onclick="closeLightbox()" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-[90]">
         <button onclick="event.stopPropagation(); closeLightbox()" class="absolute top-3 right-5 text-white/70 hover:text-white text-4xl leading-none" title="{{ tr('common.close_esc') }}">&times;</button>
         <button id="lbPrev" onclick="event.stopPropagation(); lightboxStep(-1)" class="hidden absolute left-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white text-5xl leading-none px-3 py-4" title="{{ tr('common.back') }}">&#8249;</button>
@@ -557,10 +557,10 @@
         <a id="lbOpen" onclick="event.stopPropagation()" target="_blank" rel="noopener" class="absolute bottom-3 right-5 text-xs text-sky-300 hover:text-sky-200">{{ tr('photo.open_original') }} ↗</a>
     </div>
 
-    <!-- Выбор шаблона пайплайна: список из настроек (по умолчанию 3D-печать и сборная модель) -->
+    <!-- Pipeline template choice: the list comes from the settings (3D print and kit model by default) -->
     <div id="templateModal" onclick="if(event.target === this) closeModal('templateModal')" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-md w-full shadow-2xl">
-            <!-- Шаг 1: какая модель -->
+            <!-- Step 1: which kind of model -->
             <div id="templateStepKind">
                 <h3 class="text-lg font-bold text-white">{{ tr('project.pipeline_template') }}</h3>
                 <p class="text-sm text-slate-400 mt-1">{{ tr('template.choose') }}</p>
@@ -570,7 +570,7 @@
                 </div>
             </div>
 
-            <!-- Шаг 2: сроки этапов -->
+            <!-- Step 2: step deadlines -->
             <div id="templateStepDates" class="hidden">
                 <h3 class="text-lg font-bold text-white">{{ tr('template.dates_title') }}</h3>
                 <p id="templateProjectDeadline" class="text-sm text-slate-400 mt-1"></p>
@@ -585,7 +585,7 @@
         </div>
     </div>
 
-    <!-- Подтверждение действия (вместо системного confirm) -->
+    <!-- Action confirmation (instead of the system confirm) -->
     <div id="confirmModal" onclick="if(event.target === this) resolveConfirm(false)" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[95]">
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
             <div class="flex items-start gap-3">

@@ -1,8 +1,8 @@
-"""Встроенный планировщик (замена cron) и запуск скриптов через subprocess.
+"""Built-in scheduler (replaces cron) and running scripts as subprocesses.
 
-Расписание берётся из config.json (секция SCHEDULE) и настраивается в UI.
-Скрипты запускаются тем же интерпретатором, что и приложение (sys.executable),
-поэтому путь к venv нигде не прописан.
+The schedule comes from config.json (the SCHEDULE section) and is edited in the UI.
+Scripts run with the same interpreter as the app (sys.executable),
+so the venv path is not hard-coded anywhere.
 """
 import os
 import sys
@@ -18,8 +18,8 @@ from common import BASE_DIR, DAY_KEYS, load_config, normalize_schedule
 JOB_TIMEOUT_SEC = 180
 TICK_SEC = 20
 STATE_FILE = os.path.join(BASE_DIR, "scheduler_state.json")
-HEARTBEAT_SEC = 300          # как часто отмечаем «приложение работает» (для поиска пропущенных запусков)
-CATCHUP_DELAY_SEC = 15       # после старта подождать, пока поднимутся веб и бот
+HEARTBEAT_SEC = 300          # how often "the app is running" is recorded (to find missed runs)
+CATCHUP_DELAY_SEC = 15       # after start-up, wait until the web app and the bot are up
 STAMP_FMT = "%Y-%m-%d %H:%M"
 ALIVE_FMT = "%Y-%m-%d %H:%M:%S"
 
@@ -36,8 +36,8 @@ class Job:
     days: frozenset
     time: str  # "HH:MM"
     args: tuple = ()
-    # Догон после простоя: сколько часов после времени запуска он ещё имеет смысл (0 — не догонять)
-    # и только ли в тот же календарный день (для вечерней сводки: ночью она уже не нужна).
+    # Catch-up after downtime: for how many hours after the planned time a run still makes sense (0 = never)
+    # and whether only on the same calendar day (the evening digest is useless at night).
     catchup_hours: float = 0
     catchup_same_day: bool = False
 
@@ -46,7 +46,7 @@ def build_jobs(cfg: dict) -> list:
     s = normalize_schedule(cfg.get("SCHEDULE"))
     jobs = []
     if s["notify_enabled"]:
-        # по одному запуску на каждый включённый день недели, со своим временем
+        # one run for every enabled weekday, each with its own time
         for weekday, key in enumerate(DAY_KEYS):
             day = s["notify_days"][key]
             if day["enabled"]:
@@ -58,7 +58,7 @@ def build_jobs(cfg: dict) -> list:
 
 
 def due_jobs(cfg: dict, now: datetime, last_fired: dict) -> list:
-    """Какие задачи пора запустить в эту минуту (каждая — не чаще раза в минуту)."""
+    """Jobs to start in this minute (each one at most once per minute)."""
     stamp = now.strftime("%Y-%m-%d %H:%M")
     hhmm = now.strftime("%H:%M")
     due = []
@@ -78,11 +78,11 @@ def _parse_time(value):
 
 
 def missed_jobs(cfg: dict, now: datetime, last_alive, last_fired: dict) -> list:
-    """Запуски, которые пришлись на время, когда приложение не работало.
+    """Runs that fell on a time when the app was not running.
 
-    last_alive — когда приложение в последний раз отмечалось живым (None — первый запуск: догонять нечего).
-    Берётся последний пропущенный запуск каждой задачи (не все подряд), если он ещё не устарел
-    (catchup_hours, catchup_same_day) и не был выполнен. Возвращает список (задача, плановое время).
+    last_alive: when the app last recorded itself as alive (None = first start, nothing to catch up).
+    Only the latest missed run of each job is taken (not all of them), if it is not too old yet
+    (catchup_hours, catchup_same_day) and has not been done. Returns a list of (job, planned time).
     """
     if last_alive is None:
         return []
@@ -111,7 +111,7 @@ def missed_jobs(cfg: dict, now: datetime, last_alive, last_fired: dict) -> list:
 
 
 def load_state() -> dict:
-    """{'alive': datetime | None, 'fired': {id задачи: 'ГГГГ-ММ-ДД ЧЧ:ММ'}}; битый или пустой файл — как первый запуск."""
+    """{'alive': datetime | None, 'fired': {job id: 'YYYY-MM-DD HH:MM'}}; a broken or empty file counts as a first start."""
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             raw = json.load(f)
@@ -123,7 +123,7 @@ def load_state() -> dict:
 
 
 def save_state(alive: datetime, fired: dict) -> None:
-    """Атомарная запись, как у config.json."""
+    """Atomic write, like config.json."""
     fd, tmp_path = tempfile.mkstemp(dir=BASE_DIR, prefix=".sched.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -136,7 +136,7 @@ def save_state(alive: datetime, fired: dict) -> None:
 
 
 def seconds_to_next_run(cfg=None, now=None):
-    """Секунд до ближайшего запуска по расписанию (None, если расписание пустое)."""
+    """Seconds until the nearest scheduled run (None if the schedule is empty)."""
     cfg = cfg or load_config()
     now = now or datetime.now()
     best = None
@@ -161,7 +161,7 @@ def seconds_to_next_run(cfg=None, now=None):
 
 
 async def run_script(script: str, args=(), timeout: float = JOB_TIMEOUT_SEC):
-    """Запускает скрипт из папки проекта отдельным процессом, вывод — в logs/<имя>.log (с ротацией)."""
+    """Runs a script from the project folder as a separate process; output goes to logs/<name>.log (rotated)."""
     script_path = os.path.join(BASE_DIR, script)
     log_path = logs.log_path(os.path.splitext(script)[0] + ".log")
     logs.rotate_file(log_path)
@@ -180,14 +180,14 @@ async def run_script(script: str, args=(), timeout: float = JOB_TIMEOUT_SEC):
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
-            log.write(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] ⏱ {script}: превышен таймаут {int(timeout)} c, процесс убит\n".encode("utf-8"))
+            log.write(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] ⏱ {script}: timed out after {int(timeout)} s, process killed\n".encode("utf-8"))
         else:
-            log.write(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] ■ {script}: код выхода {proc.returncode}\n".encode("utf-8"))
+            log.write(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] ■ {script}: exit code {proc.returncode}\n".encode("utf-8"))
     return proc.returncode
 
 
 def spawn_script(script: str, args=()):
-    """Запустить скрипт в фоне (не блокируя event loop); вызывать из async-кода."""
+    """Starts a script in the background (without blocking the event loop); call it from async code."""
     task = asyncio.create_task(_safe_run(script, args))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
@@ -203,7 +203,7 @@ async def _safe_run(script: str, args=()):
 
 async def _run_job(job: Job):
     if job.id in _running_jobs:
-        print(f"[SCHEDULER] {job.id} ещё выполняется — пропуск")
+        print(f"[SCHEDULER] {job.id} is still running, skipped")
         return
     _running_jobs.add(job.id)
     try:
@@ -222,22 +222,22 @@ def _save_state_safe(alive: datetime, fired: dict) -> None:
     try:
         save_state(alive, fired)
     except OSError as e:
-        print(f"[SCHEDULER] не удалось сохранить состояние: {e!r}")
+        print(f"[SCHEDULER] could not save the state: {e!r}")
 
 
 async def scheduler_loop():
-    print("⏰ Планировщик запущен (расписание — в настройках приложения)")
+    print("⏰ Scheduler started (the schedule is in the app settings)")
     state = load_state()
     last_fired = state["fired"]
     last_alive = state["alive"]
     last_saved = datetime.now()
 
-    # Догон: запуски, которые пришлись на время, когда приложение было выключено
+    # Catch-up: runs that fell on a time when the app was off
     await asyncio.sleep(CATCHUP_DELAY_SEC)
     try:
         now = datetime.now()
         for job, run_at in missed_jobs(load_config(), now, last_alive, last_fired):
-            print(f"[SCHEDULER] догон {job.id} ({job.script}): плановое время {run_at:%Y-%m-%d %H:%M}, приложение не работало")
+            print(f"[SCHEDULER] catch-up {job.id} ({job.script}): planned for {run_at:%Y-%m-%d %H:%M}, the app was not running")
             last_fired[job.id] = run_at.strftime(STAMP_FMT)
             _start_job(job)
         _save_state_safe(now, last_fired)
@@ -245,14 +245,14 @@ async def scheduler_loop():
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        print(f"[SCHEDULER ERROR] догон: {e!r}")
+        print(f"[SCHEDULER ERROR] catch-up: {e!r}")
 
     while True:
         try:
             now = datetime.now()
             fired_now = False
             for job in due_jobs(load_config(), now, last_fired):
-                print(f"[SCHEDULER] запуск {job.id} ({job.script}) в {job.time}")
+                print(f"[SCHEDULER] starting {job.id} ({job.script}) at {job.time}")
                 _start_job(job)
                 fired_now = True
             if fired_now or (now - last_saved).total_seconds() >= HEARTBEAT_SEC:

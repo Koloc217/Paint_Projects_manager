@@ -59,7 +59,7 @@
             try {
                 const skin = localStorage.getItem('ph_skin');
                 if (skin && skin !== 'default') document.body.classList.add(skin);
-            } catch (e) { /* без localStorage страница работает так же */ }
+            } catch (e) { /* the page works the same without localStorage */ }
 
             const form = document.getElementById('authForm');
             const errBox = document.getElementById('authError');

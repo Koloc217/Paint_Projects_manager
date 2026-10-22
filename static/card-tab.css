@@ -1,29 +1,29 @@
 /* ==========================================================================
-   Карточка проекта в отдельной вкладке: /?card=<id>
-   app.js (initStandaloneCard) вешает на <body> класс card-standalone.
-   Окно-модалка становится обычной страницей во всю ширину; на широком экране
-   слева рецепт и задачи, справа колонка с фото (референсы и прогресс) крупными превью.
-   В обычной модалке на дашборде ничего не меняется.
+   Project card in a separate tab: /?card=<id>
+   app.js (initStandaloneCard) puts the card-standalone class on <body>.
+   The modal becomes a normal full-width page; on a wide screen the recipe and tasks
+   are on the left and a column of photos (references and progress) with large previews on the right.
+   The regular modal on the dashboard does not change.
    ========================================================================== */
 
-/* Не всплывающее окно, а страница: без затемнения, прокрутка всей страницей */
+/* A page, not a pop-up: no backdrop, the whole page scrolls */
 body.card-standalone #projectDetailsModal:not(.hidden) {
     position: static;
     display: block;
     background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    padding: 1.5rem 1rem !important;    /* !important: mobile.css задаёт отступы модалкам на телефоне */
+    padding: 1.5rem 1rem !important;    /* !important: mobile.css sets modal paddings on phones */
 }
 
 body.card-standalone #pdPanel {
     max-width: 1500px;
-    max-height: none !important;        /* !important: mobile.css ограничивает высоту модалок экраном */
+    max-height: none !important;        /* !important: mobile.css limits modal height to the screen */
     overflow: visible !important;
     margin: 0 auto;
 }
 
-/* Обложка в шапке крупнее */
+/* A larger cover in the header */
 
 
 body.card-standalone #pdPhoto {
@@ -31,13 +31,13 @@ body.card-standalone #pdPhoto {
     height: 6rem;
 }
 
-/* Референсы: крупная сетка вместо 4–5 мелких колонок */
+/* References: a large grid instead of 4-5 small columns */
 body.card-standalone #pdRefs {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 0.75rem;
 }
 
-/* Прогресс: сетка с переносом вместо горизонтальной ленты */
+/* Progress: a wrapping grid instead of a horizontal strip */
 body.card-standalone #pdProgress {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -51,7 +51,7 @@ body.card-standalone #pdProgress > div > div:not(:first-child) {
     font-size: 11px;
 }
 
-/* Телефон: меньше отступы, превью по три в ряд, чтобы задачи были недалеко */
+/* Phone: smaller paddings, three previews per row, so the tasks stay close */
 @media (max-width: 640px) {
     body.card-standalone #projectDetailsModal:not(.hidden) { padding: 8px !important; }
     body.card-standalone #pdRefs,
@@ -61,7 +61,7 @@ body.card-standalone #pdProgress > div > div:not(:first-child) {
     }
 }
 
-/* Две колонки на широком экране: слева рецепт и задачи, справа фото */
+/* Two columns on a wide screen: recipe and tasks on the left, photos on the right */
 @media (min-width: 1024px) {
     body.card-standalone #pdPanel {
         display: grid;
@@ -84,7 +84,7 @@ body.card-standalone #pdProgress > div > div:not(:first-child) {
     }
 }
 
-/* Кнопка удаления на превью: на сенсорных экранах нет hover, показываем всегда */
+/* The delete button on previews: touch screens have no hover, so it is always shown */
 @media (hover: none) {
     body.card-standalone #pdRefs button,
     body.card-standalone #pdProgress button {
@@ -93,9 +93,9 @@ body.card-standalone #pdProgress > div > div:not(:first-child) {
 }
 
 /* ==========================================================================
-   Компактная карточка (модалка на дашборде): подвкладки «Задачи» и «Фото».
-   app.js (switchCardTab) ставит на #pdPanel класс pd-tab-media, когда открыта вкладка «Фото».
-   В отдельной вкладке (/?card=) подвкладок нет: рецепт, задачи и фото видны сразу.
+   Compact card (the modal on the dashboard): "Tasks" and "Photos" sub-tabs.
+   app.js (switchCardTab) puts the pd-tab-media class on #pdPanel while the "Photos" sub-tab is open.
+   The separate tab (/?card=) has no sub-tabs: recipe, tasks and photos are all visible.
    ========================================================================== */
 body:not(.card-standalone) #pdPanel:not(.pd-tab-media) #pdMedia,
 body:not(.card-standalone) #pdPanel.pd-tab-media #pdNotesBox,

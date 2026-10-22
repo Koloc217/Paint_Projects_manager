@@ -1,21 +1,22 @@
-"""Необязательная защита входом (по умолчанию ВЫКЛЮЧЕНА).
+"""Optional password login (OFF by default).
 
-Личный вариант: один пользователь. Состояние лежит в auth.json (рядом с config.json, в /api/config не попадает):
+Personal variant: one user. The state lives in auth.json (next to config.json, never exposed by /api/config):
 
     {"enabled": false, "username": "admin", "salt": "...", "hash": "...", "must_change": true, "secret": "..."}
 
-Как это работает
-  • Пароль по сети уходит не открытым текстом: браузер отправляет digest = SHA-256("project-hub:<логин>:<пароль>"),
-    сервер хранит scrypt(digest, salt). Это закрывает случайный подсмотр и повторное использование пароля на
-    других сайтах. Но без HTTPS digest при перехвате можно переслать повторно — полноценную защиту даст HTTPS.
-  • Вход выдаёт подписанную cookie (HttpOnly, SameSite=Lax; Secure — если запрос по https). Подпись привязана
-    к хэшу пароля: смена пароля выбрасывает все прежние сессии.
-  • Пароль по умолчанию admin / 123456 помечен must_change: пока его не сменят, всё, кроме смены пароля и
-    выхода, закрыто.
-  • Перебор: 5 неудачных попыток с одного адреса за 5 минут — блокировка на остаток окна, плюс пауза на каждой ошибке.
-  • Бот Telegram, уведомления и планировщик работают мимо веба и вход не затрагивает.
+How it works
+  • The password never travels in plain text: the browser sends digest = SHA-256("project-hub:<login>:<password>"),
+    the server stores scrypt(digest, salt). This protects against casual sniffing and password reuse on other
+    sites. Without HTTPS an intercepted digest can still be replayed: full protection needs HTTPS.
+  • Login issues a signed cookie (HttpOnly, SameSite=Lax; Secure when the request came over https). The signature
+    is tied to the password hash: changing the password drops all earlier sessions.
+  • The default password admin / 123456 is marked must_change: until it is changed, everything except changing
+    the password and logging out is closed.
+  • Brute force: 5 failed attempts from one address within 5 minutes lock it for the rest of the window, plus a
+    pause on every failure.
+  • The Telegram bot, notifications and the scheduler do not go through the web app; login does not affect them.
 
-Забыли пароль:  python auth.py reset   (сбросит на admin / 123456 и выключит вход)
+Forgot the password:  python auth.py reset   (resets to admin / 123456 and turns login off)
 """
 import os
 import sys
@@ -38,22 +39,22 @@ AUTH_FILE = os.path.join(BASE_DIR, "auth.json")
 COOKIE_NAME = "ph_session"
 SESSION_TTL_SEC = 14 * 24 * 3600
 DEFAULT_USER = "admin"
-DEFAULT_PASSWORD = "123456"          # только для первого входа; потом обязательно меняется
-MIN_PASSWORD_LEN = 8                 # проверяется в браузере (на сервер приходит только digest)
+DEFAULT_PASSWORD = "123456"          # for the first login only; it must be changed afterwards
+MIN_PASSWORD_LEN = 8                 # checked in the browser (the server only receives the digest)
 
 MAX_FAILS = 5
 FAIL_WINDOW_SEC = 300
 PUBLIC_PREFIXES = ("/static/",)
-PUBLIC_PATHS = ("/login", "/api/auth/login", "/sw.js", "/manifest.webmanifest")   # PWA: без входа, иначе установка не работает
-# пока пароль по умолчанию не сменён, доступно только это
+PUBLIC_PATHS = ("/login", "/api/auth/login", "/sw.js", "/manifest.webmanifest")   # PWA: without login, otherwise installing fails
+# while the default password is not changed, only these are available
 MUST_CHANGE_PATHS = ("/login", "/api/auth/login", "/api/auth/change", "/api/auth/logout", "/api/auth/status")
 
-_fails = {}            # ip -> [время неудачных попыток]
+_fails = {}            # ip -> [times of failed attempts]
 _state_cache = {"mtime": None, "data": None}
 
 
 def make_digest(username: str, password: str) -> str:
-    """То же самое считает браузер (static/auth.js): SHA-256 от 'project-hub:<логин>:<пароль>'."""
+    """The browser computes the same (static/auth.js): SHA-256 of 'project-hub:<login>:<password>'."""
     return hashlib.sha256(f"project-hub:{str(username).lower()}:{password}".encode("utf-8")).hexdigest()
 
 
@@ -126,7 +127,7 @@ def _is_hex64(value: str) -> bool:
     return len(value) == 64 and all(c in "0123456789abcdef" for c in value)
 
 
-# ---------------------------------------------------------------- сессии
+# ---------------------------------------------------------------- sessions
 def _sign(state: dict, expires: int) -> str:
     msg = f"{state['username']}|{expires}|{state['hash'][:16]}".encode("utf-8")
     return hmac.new(bytes.fromhex(state["secret"]), msg, hashlib.sha256).hexdigest()
@@ -160,7 +161,7 @@ def set_session_cookie(response, request: Request, state=None) -> None:
                         samesite="lax", secure=_is_https(request), path="/")
 
 
-# ---------------------------------------------------------------- защита от перебора
+# ---------------------------------------------------------------- brute-force protection
 def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "?"
 
@@ -176,7 +177,7 @@ def _recent_fails(ip: str) -> list:
 
 
 def locked_minutes(ip: str) -> int:
-    """0, если можно пробовать; иначе сколько минут ждать."""
+    """0 if another attempt is allowed; otherwise how many minutes to wait."""
     fails = _recent_fails(ip)
     if len(fails) >= MAX_FAILS:
         return max(1, int((FAIL_WINDOW_SEC - (time.time() - fails[0])) // 60) + 1)
@@ -187,7 +188,7 @@ def _register_fail(ip: str) -> None:
     _fails.setdefault(ip, []).append(time.time())
 
 
-# ---------------------------------------------------------------- подключение к приложению
+# ---------------------------------------------------------------- wiring into the app
 class LoginBody(BaseModel):
     username: str = ""
     digest: str = ""
@@ -208,7 +209,7 @@ def _err(message, status=200, **extra):
 
 
 def setup(app, templates) -> None:
-    """Регистрирует проверку входа и маршруты /login, /api/auth/*."""
+    """Registers the login check and the /login, /api/auth/* routes."""
 
     @app.middleware("http")
     async def auth_guard(request: Request, call_next):
@@ -253,7 +254,7 @@ def setup(app, templates) -> None:
         if wait:
             return _err(tr("auth.err_locked", minutes=wait), status=429)
         ok_user = hmac.compare_digest(body.username.strip().lower().encode(), state["username"].lower().encode())
-        ok_pass = verify_password(body.digest, state)          # всегда считаем, чтобы время не выдавало логин
+        ok_pass = await asyncio.to_thread(verify_password, body.digest, state)   # always computed, so timing does not reveal the user name
         if not (ok_user and ok_pass):
             _register_fail(ip)
             await asyncio.sleep(0.6)
@@ -284,7 +285,7 @@ def setup(app, templates) -> None:
             return _err(tr("auth.err_locked", minutes=wait), status=429)
         if not _is_hex64(body.new_digest):
             return _err(tr("auth.err_bad_request"))
-        if not verify_password(body.old_digest, state):
+        if not await asyncio.to_thread(verify_password, body.old_digest, state):
             _register_fail(ip)
             await asyncio.sleep(0.6)
             return _err(tr("auth.err_old"))
@@ -294,8 +295,8 @@ def setup(app, templates) -> None:
             return _err(tr("auth.err_default"))
         _fails.pop(ip, None)
         salt = secrets.token_hex(16)
-        state = {**state, "salt": salt, "hash": _scrypt(body.new_digest, salt),
-                 "must_change": False, "secret": secrets.token_hex(32)}     # новый secret: старые сессии недействительны
+        state = {**state, "salt": salt, "hash": await asyncio.to_thread(_scrypt, body.new_digest, salt),
+                 "must_change": False, "secret": secrets.token_hex(32)}     # a new secret: old sessions become invalid
         _write(state)
         resp = JSONResponse({"status": "ok"})
         if state.get("enabled"):
@@ -308,12 +309,12 @@ def setup(app, templates) -> None:
         if body.enabled == bool(state.get("enabled")):
             return {"status": "ok", "enabled": body.enabled, "must_change": bool(state.get("must_change"))}
         if not body.enabled:
-            # выключить можно только вошедшему (middleware) и с текущим паролем
+            # only a logged-in user (middleware) with the current password may turn it off
             ip = _client_ip(request)
             wait = locked_minutes(ip)
             if wait:
                 return _err(tr("auth.err_locked", minutes=wait), status=429)
-            if not verify_password(body.digest, state):
+            if not await asyncio.to_thread(verify_password, body.digest, state):
                 _register_fail(ip)
                 await asyncio.sleep(0.6)
                 return _err(tr("auth.err_old"))
@@ -322,7 +323,7 @@ def setup(app, templates) -> None:
         _write(state)
         resp = JSONResponse({"status": "ok", "enabled": body.enabled, "must_change": bool(state.get("must_change"))})
         if body.enabled:
-            set_session_cookie(resp, request, state)      # включивший остаётся внутри, пока не сменит пароль
+            set_session_cookie(resp, request, state)      # whoever turned it on stays logged in until the password is changed
         else:
             resp.delete_cookie(COOKIE_NAME, path="/")
         return resp
@@ -332,10 +333,10 @@ if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
     if cmd == "reset":
         _write(_default_state())
-        print(f"Сброшено: вход выключен, пользователь {DEFAULT_USER}, пароль {DEFAULT_PASSWORD} (при включении потребуют сменить).")
+        print(f"Reset: login is off, user {DEFAULT_USER}, password {DEFAULT_PASSWORD} (a change is required when login is turned on).")
     elif cmd == "status":
         st = load_state()
-        print(f"Вход: {'включён' if st['enabled'] else 'выключен'}; пользователь: {st['username']}; "
-              f"{'пароль по умолчанию, нужна смена' if st['must_change'] else 'пароль изменён'}")
+        print(f"Login: {'on' if st['enabled'] else 'off'}; user: {st['username']}; "
+              f"{'default password, must be changed' if st['must_change'] else 'password changed'}")
     else:
-        print("Использование: python auth.py [status|reset]")
+        print("Usage: python auth.py [status|reset]")

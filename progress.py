@@ -69,41 +69,69 @@ def add_photo(db: Session, project_id: str, raw: bytes, thumb_raw: bytes = None,
     return row
 
 
-def exists(row: ProgressPhoto) -> bool:
-    return os.path.exists(os.path.join(PROGRESS_DIR, os.path.basename(row.filename)))
+def _present_files() -> set:
+    """Names of the files in photos/progress/: one directory read instead of a stat call per photo."""
+    try:
+        return set(os.listdir(PROGRESS_DIR))
+    except OSError:
+        return set()
+
+
+def exists(row: ProgressPhoto, present: set = None) -> bool:
+    name = os.path.basename(row.filename)
+    return name in present if present is not None else os.path.exists(os.path.join(PROGRESS_DIR, name))
 
 
 def url(name: str) -> str:
     return f"/photos/progress/{os.path.basename(name)}"
 
 
-def thumb_url(row: ProgressPhoto) -> str:
-    if row.thumb and os.path.exists(os.path.join(PROGRESS_DIR, os.path.basename(row.thumb))):
-        return url(row.thumb)
+def thumb_url(row: ProgressPhoto, present: set = None) -> str:
+    if row.thumb:
+        name = os.path.basename(row.thumb)
+        if (name in present) if present is not None else os.path.exists(os.path.join(PROGRESS_DIR, name)):
+            return url(row.thumb)
     return url(row.filename)
 
 
-def serialize(row: ProgressPhoto) -> dict:
+def serialize(row: ProgressPhoto, present: set = None) -> dict:
     return {
-        "ID": row.id, "ProjectID": row.project_id, "Url": url(row.filename), "Thumb": thumb_url(row),
+        "ID": row.id, "ProjectID": row.project_id, "Url": url(row.filename), "Thumb": thumb_url(row, present),
         "Stage": row.stage or "—", "Note": row.note or "", "Source": row.source or "web",
         "At": row.created_at.strftime("%Y-%m-%d %H:%M") if row.created_at else "",
     }
 
 
-def list_photos(db: Session, project_id: str = None, limit: int = None) -> list:
-    """Photos whose files still exist, newest first."""
+def _query(db: Session, project_id: str = None):
     q = db.query(ProgressPhoto).filter(
         ProgressPhoto.project_id.in_(db.query(Project.id).filter(Project.deleted_at.is_(None))))
     if project_id:
         q = q.filter(ProgressPhoto.project_id == project_id)
-    q = q.order_by(ProgressPhoto.created_at.desc(), ProgressPhoto.id.desc())
+    return q.order_by(ProgressPhoto.created_at.desc(), ProgressPhoto.id.desc())
+
+
+def list_photos(db: Session, project_id: str = None, limit: int = None, present: set = None) -> list:
+    """Photos whose files still exist, newest first."""
+    present = present if present is not None else _present_files()
     out = []
-    for row in q:
-        if exists(row):
+    for row in _query(db, project_id):
+        if exists(row, present):
             out.append(row)
             if limit and len(out) >= limit:
                 break
+    return out
+
+
+def count_photos(db: Session, project_id: str) -> int:
+    return len(list_photos(db, project_id))
+
+
+def serialize_all(db: Session) -> dict:
+    """{project_id: [photo, ...]} from oldest to newest (the order of the timeline in the project card)."""
+    present = _present_files()
+    out = {}
+    for row in reversed(list_photos(db, present=present)):
+        out.setdefault(row.project_id, []).append(serialize(row, present))
     return out
 
 
