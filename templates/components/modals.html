@@ -485,11 +485,11 @@
 
             <!-- Photos: references and progress. In the separate tab (/?card=) this is the right column, see static/card-tab.css -->
             <div id="pdMedia">
-            <!-- Paint references (originals, up to 10); files can be dragged onto the block -->
+            <!-- Paint references (originals, up to 20); files can be dragged onto the block -->
             <div data-drop="refs" class="mb-4 bg-slate-900/90 border border-sky-500/20 rounded-xl p-3">
                 <div class="flex justify-between items-center mb-2">
                     <span class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                        🖼 {{ tr('ref.title') }} <span id="pdRefsCount" class="text-slate-400 normal-case font-medium tracking-normal">0/10</span>
+                        🖼 {{ tr('ref.title') }} <span id="pdRefsCount" class="text-slate-400 normal-case font-medium tracking-normal">0/20</span>
                     </span>
                     <button id="pdRefsAdd" onclick="pickProjectRefs(currentOpenProjectId)" class="text-[11px] px-2.5 py-0.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 rounded-md transition-colors">
                         + {{ tr('common.add') }}

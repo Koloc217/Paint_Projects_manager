@@ -234,8 +234,8 @@ function closeLightbox() {
     lbItems = [];
 }
 
-// ---------- Paint references: originals without recompression, up to 10 ----------
-const MAX_REFS = 10;
+// ---------- Paint references: originals without recompression, up to 20 ----------
+const MAX_REFS = 20;
 const MAX_REF_MB = 25;
 
 function fileToDataUrl(file) {

@@ -180,7 +180,7 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
   "Photos" — references and progress (the number of images next to the name). The open sub-tab is kept while the card
   is open; opening another project switches back to "Tasks". The separate tab (`/?card=`) has no sub-tabs.
 - **Paint notebook:** saved automatically when the field loses focus, and with the button.
-- **Paint references:** up to 10 images (JPEG, PNG, WebP, GIF up to 25 MB). Originals are stored unchanged; the browser
+- **Paint references:** up to 20 images (JPEG, PNG, WebP, GIF up to 25 MB). Originals are stored unchanged; the browser
   makes small previews for the grid. Full-screen viewer with arrows.
 - **Progress:** a timeline of the project's photos (oldest on the left, newest on the right). Every photo keeps the date
   and the stage the project had at upload time, plus an optional caption. Up to 10 files at once; the browser resizes
