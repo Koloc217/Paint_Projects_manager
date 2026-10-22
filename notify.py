@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, ensure_schema
 from common import BASE_DIR, esc, load_config, compute_balance, live_projects, live_tasks
 from i18n import tr, tv
+import tgproxy
 import vacation
 
 try:
@@ -22,15 +23,14 @@ MIN_GAP_SEC = 600
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-PROXY_URL = os.getenv("PROXY_URL")
-transport = httpx.HTTPTransport(proxy=PROXY_URL) if PROXY_URL else None
 
 def send_tg_message(chat_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
     if reply_markup:
         payload["reply_markup"] = reply_markup
-    with httpx.Client(transport=transport, timeout=20.0) as client:
+    # Прокси необязателен: Настройки → Telegram или PROXY_URL в .env (см. tgproxy.py)
+    with httpx.Client(transport=tgproxy.transport(), timeout=20.0) as client:
         resp = client.post(url, json=payload)
         if resp.status_code != 200:
             print(f"[NOTIFY ERROR] Telegram вернул {resp.status_code}: {resp.text[:300]}")

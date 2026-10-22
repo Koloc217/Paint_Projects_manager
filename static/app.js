@@ -482,7 +482,7 @@ function switchSettingsTab(name) {
         btn.classList.toggle('hover:text-white', !on);
         btn.classList.toggle('hover:bg-slate-800', !on);
     });
-    if (name === 'telegram') startTelegramPolling(); else stopTelegramPolling();
+    if (name === 'telegram') { startTelegramPolling(); loadTelegramProxy(); } else stopTelegramPolling();
     if (name === 'security') refreshAuthStatus();
     if (name === 'templates' && !tplLoaded) tplLoad();
 }
@@ -624,6 +624,66 @@ async function unlinkTelegram() {
     const res = await fetch('/api/telegram/unlink', { method: 'POST' });
     renderTelegramState(await res.json());
     showToast(tr('toast.chat_unlinked'), 'success');
+}
+
+// ---------- Прокси для Telegram (необязательный) ----------
+// Пароль прокси в браузер не приходит: показывается маска адреса, пустое поле при сохранении — «оставить как есть».
+let tgProxyState = null;
+
+function syncProxyForm() {
+    const on = document.getElementById('tgProxyEnabled').checked;
+    document.getElementById('tgProxyFields').classList.toggle('opacity-50', !on);
+    document.getElementById('tgProxyUrl').disabled = !on;
+}
+
+function renderTelegramProxy(st) {
+    tgProxyState = st;
+    document.getElementById('tgProxyEnabled').checked = !!st.enabled;
+    document.getElementById('tgProxyUrl').value = '';
+    let current = st.has_url ? tr('tg.proxy_current', { url: st.display }) : tr('tg.proxy_none');
+    if (st.source === 'env' && st.has_url) current += ' ' + tr('tg.proxy_from_env');
+    document.getElementById('tgProxyCurrent').textContent = current;
+    document.getElementById('tgProxyResult').classList.add('hidden');
+    syncProxyForm();
+}
+
+async function loadTelegramProxy() {
+    try { renderTelegramProxy(await (await fetch('/api/telegram/proxy')).json()); } catch (e) { /* без сети — оставляем как есть */ }
+}
+
+function proxyFormBody() {
+    return { enabled: document.getElementById('tgProxyEnabled').checked, url: document.getElementById('tgProxyUrl').value.trim() };
+}
+
+function showProxyResult(ok, message) {
+    const box = document.getElementById('tgProxyResult');
+    box.textContent = message;
+    box.className = 'text-xs rounded-lg px-2.5 py-2 break-words border ' +
+        (ok ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30' : 'text-red-300 bg-red-500/10 border-red-500/30');
+}
+
+async function checkTelegramProxy() {
+    const btn = document.getElementById('tgProxyCheckBtn');
+    btn.disabled = true;
+    btn.textContent = tr('tg.proxy_checking');
+    try {
+        const res = await fetch('/api/telegram/proxy/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(proxyFormBody()) });
+        const data = await res.json();
+        showProxyResult(!!data.ok, data.message || '');
+    } catch (e) {
+        showProxyResult(false, tr('settings.err_save'));
+    } finally {
+        btn.disabled = false;
+        btn.textContent = tr('tg.proxy_check');
+    }
+}
+
+async function saveTelegramProxy() {
+    const res = await fetch('/api/telegram/proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(proxyFormBody()) });
+    const data = await res.json().catch(() => ({ status: 'error' }));
+    if (data.status !== 'ok') return showToast(data.message || tr('settings.err_save'), 'error');
+    renderTelegramProxy(data);
+    showToast(data.enabled ? tr('tg.proxy_saved_on') : tr('tg.proxy_saved_off'), 'success');
 }
 
 async function newTelegramCode() {
