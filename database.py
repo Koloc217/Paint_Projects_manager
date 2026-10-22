@@ -74,6 +74,7 @@ class Reference(Base):
     project_id = Column(String, nullable=False, index=True)
     filename = Column(String, nullable=False)   # original in photos/refs/
     thumb = Column(String, default="")          # preview (JPEG) in photos/refs/
+    position = Column(Integer, default=0)       # order in the card (drag to reorder); ties fall back to id
     created_at = Column(DateTime, default=datetime.now)
 
 
@@ -124,6 +125,11 @@ def ensure_schema():
             conn.execute(text("ALTER TABLE tasks ADD COLUMN postponed INTEGER DEFAULT 0"))
         if "completed_at" not in task_cols:
             conn.execute(text("ALTER TABLE tasks ADD COLUMN completed_at DATETIME"))
+
+        ref_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(project_refs)")).fetchall()]
+        if "position" not in ref_cols:
+            conn.execute(text("ALTER TABLE project_refs ADD COLUMN position INTEGER DEFAULT 0"))
+            conn.execute(text("UPDATE project_refs SET position = id"))     # keep the old upload order
 
         # Indexes for the lookups done on every page load and bot update. create_all() does not add
         # indexes to tables that already exist, so older databases get them here.

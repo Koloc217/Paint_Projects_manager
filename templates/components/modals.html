@@ -617,6 +617,22 @@
         </div>
     </div>
 
+    <!-- Question with a choice of buttons and an optional text field (askDialog in app.js):
+         where to put a pasted image, editing a progress photo caption -->
+    <div id="askModal" onclick="if(event.target === this) resolveAsk(null)" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[95]">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
+            <div class="flex items-start gap-3">
+                <img id="askPreview" alt="" class="hidden w-14 h-14 shrink-0 rounded-lg object-cover border border-slate-600">
+                <div class="min-w-0">
+                    <h3 id="askTitle" class="text-lg font-bold text-white"></h3>
+                    <p id="askMessage" class="text-sm text-slate-400 mt-1 whitespace-pre-line break-words"></p>
+                </div>
+            </div>
+            <input id="askInput" type="text" autocomplete="off" class="hidden w-full mt-4 bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+            <div id="askButtons" class="flex flex-wrap justify-end gap-2 mt-6"></div>
+        </div>
+    </div>
+
     <!-- Action confirmation (instead of the system confirm) -->
     <div id="confirmModal" onclick="if(event.target === this) resolveConfirm(false)" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-[95]">
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl">

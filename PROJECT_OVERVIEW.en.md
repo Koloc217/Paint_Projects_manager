@@ -101,7 +101,7 @@ indexes on `tasks.project_id` and `projects.deleted_at` in older databases (`CRE
 `В процессе` (In progress), `Закончен` (Done)), `postponed` (how many times the deadline was moved from the bot),
 `completed_at`.
 
-**`project_refs`** — paint references: `project_id`, `filename` (original), `thumb` (preview), `created_at`.
+**`project_refs`** — paint references: `project_id`, `filename` (original), `thumb` (preview), `position` (order in the card), `created_at`.
 
 **`progress_photos`** — progress (WIP) photos: `project_id`, `filename`, `thumb`, `stage` (the project stage at upload
 time), `note` (caption), `source` (`web` or `telegram`), `created_at`. Files live in `photos/progress/`.
@@ -171,6 +171,7 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
 
 - **Clicking the photo:** with no photo, a file picker opens; with a photo, it opens full screen.
 - **Drag and drop:** an image can be dragged onto the project photo (replaces the cover), onto the references block or the progress block (several files at once). While a file is dragged over the window, all zones are highlighted.
+- **Paste (Ctrl+V):** the image goes to the block under the pointer (cover, references, progress; on the dashboard, the cover of the card under the pointer). With no block under the pointer and a card open, the app asks where to put it. Pasting text works as usual.
 - **Clicking the name or the badges** opens the project card.
 
 ### Open project card
@@ -181,9 +182,10 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
   is open; opening another project switches back to "Tasks". The separate tab (`/?card=`) has no sub-tabs.
 - **Paint notebook:** saved automatically when the field loses focus, and with the button.
 - **Paint references:** up to 20 images (JPEG, PNG, WebP, GIF up to 25 MB). Originals are stored unchanged; the browser
-  makes small previews for the grid. Full-screen viewer with arrows.
+  makes small previews for the grid. Full-screen viewer with arrows. The order is changed by dragging the tiles (on a
+  computer); it is saved and used by the viewer.
 - **Progress:** a timeline of the project's photos (oldest on the left, newest on the right). Every photo keeps the date
-  and the stage the project had at upload time, plus an optional caption. Up to 10 files at once; the browser resizes
+  and the stage the project had at upload time, plus an optional caption (shown under the shot, edited with ✎ or by clicking it). Up to 10 files at once; the browser resizes
   photos to 1600 px (JPEG); the cross on a photo deletes it. A TG mark means the photo came from Telegram.
 - **Tasks:** status (dropdown), edit, delete.
 - **Pipeline template:** the button opens a two-step window. Step 1 picks a template (the list comes from the settings,
@@ -526,6 +528,7 @@ Responses look like `{"status": "ok"}` or `{"status": "error", "message": "..."}
 | `POST /api/projects/{id}/edit`, `/rename` | edit (DEV MODE); rename (always) |
 | `POST`, `DELETE /api/projects/{id}/photo` | upload and remove the photo |
 | `POST /api/projects/{id}/refs`, `DELETE …/refs/{ref_id}` | add and remove a reference |
+| `POST /api/projects/{id}/refs/order` | new reference order (`ids`: the full list in order) |
 | `DELETE /api/projects/{id}` | move a project to the trash |
 | `POST /api/projects/{id}/restore`, `DELETE /api/trash/{id}`, `DELETE /api/trash` | restore from the trash, erase for good, empty the trash |
 | `POST /api/projects/{id}/progress`, `PATCH`, `DELETE …/progress/{photo_id}` | add a progress photo (`image`, `thumb`, `note`), edit the caption, delete |

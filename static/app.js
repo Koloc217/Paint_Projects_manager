@@ -155,6 +155,69 @@ function resolveConfirm(value) {
     if (resolve) resolve(value);
 }
 
+// ---------- A question with buttons and an optional text field (instead of the system prompt) ----------
+// askDialog({ title, message, preview, input: {value, placeholder, maxLength}, buttons: [{value, label, primary}] })
+// resolves to the chosen button value (with input: {value, text}) or null when cancelled.
+let askResolver = null;
+let askHasInput = false;
+
+function isAskOpen() {
+    const el = document.getElementById('askModal');
+    return !!el && !el.classList.contains('hidden');
+}
+
+function askDialog({ title = '', message = '', preview = '', input = null, buttons = [] } = {}) {
+    if (askResolver) { askResolver(null); askResolver = null; }
+    return new Promise(resolve => {
+        askResolver = resolve;
+        askHasInput = !!input;
+        document.getElementById('askTitle').textContent = title;
+        document.getElementById('askMessage').textContent = message;
+        const img = document.getElementById('askPreview');
+        img.classList.toggle('hidden', !preview);
+        if (preview) img.src = preview; else img.removeAttribute('src');
+        const field = document.getElementById('askInput');
+        field.classList.toggle('hidden', !input);
+        field.value = input ? (input.value || '') : '';
+        field.placeholder = input ? (input.placeholder || '') : '';
+        field.maxLength = input && input.maxLength ? input.maxLength : 524288;
+        const box = document.getElementById('askButtons');
+        box.innerHTML = '';
+        const all = [...buttons, { value: null, label: tr('common.cancel') }];
+        all.forEach(b => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = b.label;
+            btn.className = 'px-4 py-2 rounded-xl text-sm font-medium text-white outline-none focus:ring-2 ' +
+                (b.primary ? 'bg-blue-600 hover:bg-blue-500 focus:ring-blue-400' : 'bg-slate-700 hover:bg-slate-600 focus:ring-slate-500');
+            btn.dataset.primary = b.primary ? '1' : '';
+            btn.onclick = () => resolveAsk(b.value);
+            box.appendChild(btn);
+        });
+        document.getElementById('askModal').classList.remove('hidden');
+        setTimeout(() => {
+            if (input) { field.focus(); field.select(); }
+            else (box.querySelector('button') || field).focus();
+        }, 0);
+    });
+}
+
+function resolveAsk(value) {
+    document.getElementById('askModal').classList.add('hidden');
+    document.getElementById('askPreview').removeAttribute('src');
+    const resolve = askResolver;
+    askResolver = null;
+    if (!resolve) return;
+    if (value === null) return resolve(null);
+    resolve(askHasInput ? { value, text: document.getElementById('askInput').value } : value);
+}
+
+// Enter in the text field presses the main button
+function askEnter() {
+    const primary = document.querySelector('#askButtons button[data-primary="1"]');
+    if (primary) primary.click();
+}
+
 // ---------- Project card in a separate tab ----------
 function openCardTab(id) {
     if (!id) return;
@@ -256,11 +319,66 @@ function renderProjectRefs(project) {
         box.innerHTML = `<div class="col-span-full text-xs text-slate-600 py-2">${tr('ref.empty')}</div>`;
         return;
     }
+    bindRefsReorder(box);
+    box.dataset.pid = project.ID;
     box.innerHTML = refs.map((r, i) => `
-        <div class="relative group aspect-square rounded-lg overflow-hidden border border-slate-700 bg-slate-950 cursor-pointer hover:border-sky-400 transition-colors" onclick="openProjectRefs('${project.ID}', ${i})">
-            <img src="${esc(r.Thumb)}" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover">
+        <div draggable="true" data-ref-id="${r.ID}" class="relative group aspect-square rounded-lg overflow-hidden border border-slate-700 bg-slate-950 cursor-pointer hover:border-sky-400 transition-colors" onclick="openProjectRefs('${project.ID}', ${i})" title="${tr('ref.drag_to_sort')}">
+            <img src="${esc(r.Thumb)}" alt="" loading="lazy" decoding="async" draggable="false" class="w-full h-full object-cover">
             <button onclick="event.stopPropagation(); removeProjectRef('${project.ID}', ${r.ID})" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white/80 hover:bg-red-600 hover:text-white text-xs leading-none opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" title="${tr('ref.delete')}">&times;</button>
         </div>`).join('');
+}
+
+// Reordering references by dragging the tiles. The tiles move live; the new order is saved when the drag ends.
+// The drag carries no files, so the file drop zones (static/dropzone.js) ignore it.
+let refDrag = null;      // {tile, before: [ids at the start]}
+
+function refTileIds(box) {
+    return Array.from(box.querySelectorAll('[data-ref-id]')).map(t => Number(t.dataset.refId));
+}
+
+function bindRefsReorder(box) {
+    if (box.dataset.reorderBound) return;
+    box.dataset.reorderBound = '1';
+    box.addEventListener('dragstart', (e) => {
+        const tile = e.target.closest && e.target.closest('[data-ref-id]');
+        if (!tile) return;
+        refDrag = { tile, before: refTileIds(box) };
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/x-ref', tile.dataset.refId);       // Firefox starts a drag only with data
+        setTimeout(() => tile.classList.add('opacity-40'), 0);
+    });
+    box.addEventListener('dragover', (e) => {
+        if (!refDrag) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const over = e.target.closest && e.target.closest('[data-ref-id]');
+        if (!over || over === refDrag.tile) return;
+        const r = over.getBoundingClientRect();
+        const after = e.clientX > r.left + r.width / 2;
+        box.insertBefore(refDrag.tile, after ? over.nextSibling : over);
+    });
+    box.addEventListener('drop', (e) => { if (refDrag) e.preventDefault(); });
+    box.addEventListener('dragend', () => {
+        if (!refDrag) return;
+        const { tile, before } = refDrag;
+        refDrag = null;
+        tile.classList.remove('opacity-40');
+        const ids = refTileIds(box);
+        if (ids.join(',') !== before.join(',')) saveRefsOrder(box.dataset.pid, ids);
+    });
+}
+
+async function saveRefsOrder(projectId, ids) {
+    try {
+        const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/refs/order`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
+        });
+        const result = await res.json();
+        if (result.status === 'error') throw new Error(result.message);
+    } catch (err) {
+        showToast(err.message || tr('ref.err_order'), 'error');
+    }
+    loadData();      // the lightbox and the indexes in onclick follow the new order
 }
 
 function openProjectRefs(projectId, index) {
@@ -403,6 +521,14 @@ function switchTab(tab) {
 }
 
 document.addEventListener('keydown', function(e) {
+    if (isAskOpen()) {
+        if (e.key === 'Escape') resolveAsk(null);
+        else if (e.key === 'Enter' && askHasInput && document.activeElement === document.getElementById('askInput')) {
+            e.preventDefault();
+            askEnter();
+        }
+        return;   // otherwise Enter triggers the focused button
+    }
     if (isConfirmOpen()) {
         if (e.key === 'Escape') resolveConfirm(false);
         return;   // Enter triggers the focused button ("Cancel" by default)

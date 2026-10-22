@@ -1,4 +1,4 @@
-// ---------- Drag and drop of image files onto the project photo, paint references and progress ----------
+// ---------- Drag and drop and paste (Ctrl+V) of images onto the project photo, paint references and progress ----------
 // A drop zone is any element with data-drop="photo|refs|progress". data-pid sets the project;
 // without it the zone belongs to the project open in the card (currentOpenProjectId).
 // One set of listeners on the document, so zones in re-rendered markup work without re-binding.
@@ -80,6 +80,47 @@
             return uploadProgressPhotos(projectId, images);
         }
     }
+
+    // ----- paste from the clipboard (Ctrl+V) -----
+    // The zone under the mouse pointer decides where the image goes; with no zone under the pointer
+    // and a project card open, a small dialog asks. Pasting text works as usual.
+    let hoverZone = null;
+    document.addEventListener('mouseover', (e) => { hoverZone = zoneOf(e); });
+
+    const visible = (el) => !!el && document.contains(el) && el.offsetParent !== null;
+    const cardOpen = () => !!currentOpenProjectId && !document.getElementById('projectDetailsModal').classList.contains('hidden');
+
+    document.addEventListener('paste', async (e) => {
+        const items = Array.from((e.clipboardData && e.clipboardData.items) || []);
+        const files = items.filter(i => i.kind === 'file' && (i.type || '').startsWith('image/'))
+            .map(i => i.getAsFile()).filter(Boolean);
+        if (!files.length) return;
+        if (isAskOpen() || isConfirmOpen() || isLightboxOpen()) return;
+
+        const zone = visible(hoverZone) ? hoverZone : null;
+        if (!zone && !cardOpen()) return showToast(tr('paste.open_card'));
+        e.preventDefault();
+
+        if (zone) {
+            const projectId = zone.dataset.pid || currentOpenProjectId;
+            if (projectId) handleDrop(zone.dataset.drop, projectId, files);
+            return;
+        }
+        const projectId = currentOpenProjectId;
+        const preview = URL.createObjectURL(files[0]);
+        const kind = await askDialog({
+            title: tr('paste.where_title'),
+            message: tr('paste.where_text'),
+            preview,
+            buttons: [
+                { value: 'progress', label: tr('paste.to_progress'), primary: true },
+                { value: 'refs', label: tr('paste.to_refs') },
+                { value: 'photo', label: tr('paste.to_cover') },
+            ],
+        });
+        URL.revokeObjectURL(preview);
+        if (kind) handleDrop(kind, projectId, files);
+    });
 
     function isUploading(btnId) {
         const btn = document.getElementById(btnId);
