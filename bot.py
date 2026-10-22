@@ -63,10 +63,20 @@ COMMANDS = [                         # (command, description key)
     ("test_notify", "bot.cmd_test_desc"),
 ]
 FEATURES = [                         # features without a command: text keys
-    "bot.feat_photo",
     "bot.feat_buttons",
     "bot.feat_push",
     "bot.feat_postpone",
+]
+
+
+PHOTO_HELP = [                       # the "Photos" section of /help: how to add and how to view them
+    "bot.help_photo_send",
+    "bot.help_photo_project",
+    "bot.help_photo_note",
+    "bot.help_photo_quality",
+    "bot.help_photo_view_bot",
+    "bot.help_photo_view_app",
+    "bot.help_photo_refs",
 ]
 
 
@@ -83,9 +93,11 @@ def welcome_text() -> str:
 
 def help_text() -> str:
     features = "\n".join(f"• {tr(key)}" for key in FEATURES)
+    photos = "\n".join(f"• {tr(key)}" for key in PHOTO_HELP)
     return (
         f"📖 <b>{tr('bot.help_title')}</b>\n\n"
         f"<b>{tr('bot.commands')}:</b>\n{commands_text()}\n\n"
+        f"📷 <b>{tr('bot.help_photo_title')}:</b>\n{photos}\n\n"
         f"<b>{tr('bot.help_features_title')}:</b>\n{features}"
     )
 
