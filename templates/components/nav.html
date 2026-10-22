@@ -9,13 +9,14 @@
             <div id="navTabs" class="flex gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700">
                 <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="px-3.5 py-1.5 text-sm font-medium rounded-md bg-slate-700 text-white transition-colors shadow-sm"><span class="tab-ic sm:hidden">🏠</span><span class="tab-lb">{{ tr('nav.dashboard') }}</span></button>
                 <button onclick="switchTab('allTasks')" id="tab-btn-allTasks" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic sm:hidden">📋</span><span class="tab-lb">{{ tr('nav.all_tasks') }}</span></button>
-                <button onclick="switchTab('calendar')" id="tab-btn-calendar" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic">📅</span> <span class="tab-lb">{{ tr('nav.calendar') }}</span></button>
-                <button onclick="switchTab('feed')" id="tab-btn-feed" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic">📷</span> <span class="tab-lb">{{ tr('nav.feed') }}</span></button>
+                <button onclick="switchTab('calendar')" id="tab-btn-calendar" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic sm:hidden">📅</span><span class="tab-lb">{{ tr('nav.calendar') }}</span></button>
+                <button onclick="switchTab('feed')" id="tab-btn-feed" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic sm:hidden">📷</span><span class="tab-lb">{{ tr('nav.feed') }}</span></button>
                 <button onclick="switchTab('analytics')" id="tab-btn-analytics" class="px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><span class="tab-ic">🏆</span> <span class="tab-lb"><span class="hidden sm:inline">{{ tr('nav.hall') }}</span><span class="sm:hidden">{{ tr('nav.hall_short') }}</span></span></button>
             </div>
         </div>
 
         <div id="navActions" class="flex items-center gap-3">
+            <button id="navVacation" onclick="openSettingsModal('notifications')" class="hidden text-xs px-3 py-1.5 rounded-lg bg-teal-500/15 border border-teal-500/30 text-teal-300 whitespace-nowrap"></button>
             <div id="navTokens" class="bg-amber-500/20 border border-amber-500/30 text-amber-400 px-4 py-1.5 rounded-lg font-bold flex items-center gap-2">
                 💰 <span class="nav-tokens-label">{{ tr('nav.tokens') }}:</span> <span id="tokenCounter">0</span>
             </div>

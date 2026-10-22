@@ -91,3 +91,17 @@ body.card-standalone #pdProgress > div > div:not(:first-child) {
         opacity: 1;
     }
 }
+
+/* ==========================================================================
+   Компактная карточка (модалка на дашборде): подвкладки «Задачи» и «Фото».
+   app.js (switchCardTab) ставит на #pdPanel класс pd-tab-media, когда открыта вкладка «Фото».
+   В отдельной вкладке (/?card=) подвкладок нет: рецепт, задачи и фото видны сразу.
+   ========================================================================== */
+body:not(.card-standalone) #pdPanel:not(.pd-tab-media) #pdMedia,
+body:not(.card-standalone) #pdPanel.pd-tab-media #pdNotesBox,
+body:not(.card-standalone) #pdPanel.pd-tab-media #pdTasks {
+    display: none;
+}
+body.card-standalone #pdSubtabs {
+    display: none;
+}

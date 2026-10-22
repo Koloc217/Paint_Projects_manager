@@ -41,6 +41,13 @@ function calChipClass(item) {
     return item.kind === 'project' ? 'bg-amber-500/20 text-amber-300' : 'bg-indigo-500/20 text-indigo-200';
 }
 
+// Цвет точки в списке дня: те же цвета, что у плашек в сетке
+function calDotClass(item) {
+    if (item.done) return 'bg-slate-500';
+    if (item.overdue) return 'bg-red-400';
+    return item.kind === 'project' ? 'bg-amber-400' : 'bg-indigo-400';
+}
+
 function calShift(delta) {
     if (!calMonth) calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + delta, 1);
@@ -87,7 +94,7 @@ function renderCalendar() {
         const list = items[iso] || [];
         const inMonth = d.getMonth() === calMonth.getMonth();
         const shown = list.slice(0, 3);
-        const chips = shown.map(it => `<div class="truncate text-[10px] leading-tight rounded px-1 py-0.5 ${calChipClass(it)}" title="${esc(it.projectName)}: ${esc(it.name)}">${it.kind === 'project' ? '📌 ' : ''}${esc(it.name)}</div>`).join('');
+        const chips = shown.map(it => `<div class="truncate text-[10px] leading-tight rounded px-1 py-0.5 ${calChipClass(it)}" title="${esc(it.projectName)}: ${esc(it.name)}">${esc(it.name)}</div>`).join('');
         const more = list.length > shown.length ? `<div class="text-[10px] text-slate-400">${tr('calendar.more', { n: list.length - shown.length })}</div>` : '';
         const ring = iso === calSelected ? 'ring-2 ring-indigo-400' : (iso === todayIso ? 'ring-1 ring-emerald-400/70' : '');
         cells += `
@@ -111,7 +118,7 @@ function renderCalendar() {
     }
     panel.innerHTML = head + '<div class="space-y-1.5">' + list.map(it => `
         <div onclick="openProjectDetails('${esc(it.projectId)}')" class="flex items-center gap-2 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 cursor-pointer hover:border-indigo-400/60">
-            <span class="text-xs">${it.kind === 'project' ? '📌' : (it.done ? '✅' : (it.overdue ? '⚠️' : '🔹'))}</span>
+            <span class="shrink-0 w-2 h-2 rounded-full ${calDotClass(it)}"></span>
             <div class="min-w-0">
                 <div class="text-sm ${it.done ? 'line-through text-slate-500' : 'text-slate-100'} truncate">${it.kind === 'project' ? tr('calendar.project_deadline') + ': ' : ''}${esc(it.name)}</div>
                 ${it.kind === 'task' ? `<div class="text-[11px] text-slate-400 truncate">${esc(it.projectName)}</div>` : ''}
