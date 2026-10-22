@@ -15,12 +15,12 @@ from common import (
     is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
 )
 from i18n import tr, tv
+import tgproxy
 from scheduler import spawn_script, seconds_to_next_run
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-PROXY_URL = os.getenv("PROXY_URL")
 
 # ==================== ДОСТУП: бот отвечает только привязанному чату ====================
 
@@ -91,11 +91,11 @@ def menu_commands() -> list:
     """Список для setMyCommands (меню «/» в Telegram): описание без служебных пояснений, до 256 символов."""
     return [{"command": name, "description": tr(key)[:256]} for name, key in COMMANDS]
 
-# ==================== СЕТЕВОЙ СЛОЙ (ЧЕРЕЗ SOCKS5) ====================
+# ==================== СЕТЕВОЙ СЛОЙ (напрямую или через прокси, см. tgproxy.py) ====================
 
 def _sync_tg_request(method: str, endpoint: str, payload: dict = None, params: dict = None, timeout_sec: float = 20.0):
-    """Синхронный запрос через HTTPTransport (как в notify.py), стабильно работающий с SOCKS5"""
-    transport = httpx.HTTPTransport(proxy=PROXY_URL) if PROXY_URL else None
+    """Синхронный запрос через HTTPTransport (как в notify.py); с прокси и без него"""
+    transport = tgproxy.transport()      # прокси необязателен: Настройки → Telegram или PROXY_URL в .env
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}"
     timeout = httpx.Timeout(timeout_sec, connect=10.0)
     with httpx.Client(transport=transport, timeout=timeout) as client:
@@ -419,7 +419,7 @@ def _count_photos(project_id: str) -> int:
 
 def _sync_tg_download(file_id: str) -> bytes:
     """Скачивает файл по file_id (getFile + загрузка), с тем же прокси, что и остальной бот."""
-    transport = httpx.HTTPTransport(proxy=PROXY_URL) if PROXY_URL else None
+    transport = tgproxy.transport()      # прокси необязателен: Настройки → Telegram или PROXY_URL в .env
     with httpx.Client(transport=transport, timeout=httpx.Timeout(40.0, connect=10.0)) as client:
         info = client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile", json={"file_id": file_id}).json()
         path = (info.get("result") or {}).get("file_path")
@@ -436,7 +436,7 @@ async def download_file(file_id: str) -> bytes:
 
 def _sync_tg_upload(endpoint: str, data: dict, files: dict):
     """Запрос с файлом (multipart): sendPhoto и editMessageMedia."""
-    transport = httpx.HTTPTransport(proxy=PROXY_URL) if PROXY_URL else None
+    transport = tgproxy.transport()      # прокси необязателен: Настройки → Telegram или PROXY_URL в .env
     with httpx.Client(transport=transport, timeout=httpx.Timeout(60.0, connect=10.0)) as client:
         return client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}", data=data, files=files).json()
 
@@ -1191,13 +1191,13 @@ async def start_bot_polling():
     while True:  # ВНЕШНИЙ ЦИКЛ: Принудительное пересоздание сессии
         try:
             await tg_request("POST", "deleteWebhook", payload={"drop_pending_updates": False}, timeout_sec=15.0)
-            print(f"✅ [{datetime.now().strftime('%H:%M:%S')}] Telegram-бот начал новую сессию!")
+            print(f"✅ [{datetime.now().strftime('%H:%M:%S')}] Telegram-бот начал новую сессию ({tgproxy.describe()})")
             try:
                 await tg_request("POST", "setMyCommands", payload={"commands": menu_commands()}, timeout_sec=15.0)
             except Exception as e:
                 print(f"⚠️ Не удалось обновить меню команд: {repr(e)}")
         except Exception as e:
-            print(f"⚠️ Ошибка подключения к Telegram при старте: {repr(e)}")
+            print(f"⚠️ Ошибка подключения к Telegram при старте ({tgproxy.describe()}): {repr(e)}")
 
         offset = 0
         session_start = datetime.now()

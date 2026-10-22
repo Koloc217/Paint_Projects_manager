@@ -29,6 +29,7 @@ from scheduler import scheduler_loop, spawn_script
 import auth
 import pipeline
 import vacation
+import tgproxy
 
 ensure_schema()
 
@@ -387,6 +388,46 @@ async def telegram_new_code():
         return {"status": "error", "message": tr("err.bot_already_linked")}
     new_pairing_code()
     return {"status": "ok", **telegram_state()}
+
+class ProxyForm(BaseModel):
+    enabled: bool = False
+    url: Optional[str] = None          # пусто — оставить текущий адрес
+
+
+PROXY_ERRORS = {"no_url": "tg.proxy_err_no_url", "bad_scheme": "tg.proxy_err_scheme",
+                "bad_host": "tg.proxy_err_host", "too_long": "tg.proxy_err_long"}
+
+
+@app.get("/api/telegram/proxy")
+async def telegram_proxy_state():
+    return tgproxy.state()
+
+
+@app.post("/api/telegram/proxy")
+async def telegram_proxy_save(data: ProxyForm):
+    err = tgproxy.save(data.enabled, data.url)
+    if err:
+        return {"status": "error", "message": tr(PROXY_ERRORS.get(err, "settings.err_save"))}
+    return {"status": "ok", **tgproxy.state()}
+
+
+@app.post("/api/telegram/proxy/check")
+async def telegram_proxy_check(data: ProxyForm):
+    """Проверка связи с Telegram с тем, что сейчас в форме (до сохранения)."""
+    url = tgproxy.resolve_new_url(data.url, load_config()) if data.enabled else None
+    if data.enabled:
+        if not url:
+            return {"ok": False, "message": tr("tg.proxy_err_no_url")}
+        err = tgproxy.validate(url)
+        if err:
+            return {"ok": False, "message": tr(PROXY_ERRORS[err])}
+    res = await asyncio.to_thread(tgproxy.check, os.getenv("TELEGRAM_BOT_TOKEN"), url)
+    via = tr("tg.proxy_via", url=tgproxy.mask(url)) if url else tr("tg.proxy_direct")
+    if res["ok"]:
+        return {"ok": True, "message": tr("tg.proxy_check_ok", bot="@" + str(res.get("username")), via=via)}
+    if res["error"] == "no_token":
+        return {"ok": False, "message": tr("tg.proxy_err_token")}
+    return {"ok": False, "message": tr("tg.proxy_check_fail", via=via, detail=res.get("detail") or "")}
 
 @app.post("/api/action")
 async def do_action(payload: ActionPayload, db: Session = Depends(get_db)):

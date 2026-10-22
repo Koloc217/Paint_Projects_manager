@@ -69,7 +69,7 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env          # впишите TELEGRAM_BOT_TOKEN; PROXY_URL и APPS_SCRIPT_URL по необходимости
+cp .env.example .env          # впишите TELEGRAM_BOT_TOKEN; APPS_SCRIPT_URL по необходимости
 python app.py                 # веб, бот и планировщик одним процессом
 ```
 
@@ -77,6 +77,10 @@ python app.py                 # веб, бот и планировщик одн�
 и папка `photos/` создаются при первом запуске и в git не попадают.
 
 Привязка бота: Настройки → Telegram, получить код и отправить его боту в нужном чате.
+
+Прокси для Telegram не обязателен. Если Telegram недоступен напрямую, включите его там же (Настройки → Telegram →
+«Прокси для Telegram»): SOCKS5 или HTTP, кнопка «Проверить связь», применяется без перезапуска.
+Старый способ тоже работает: `PROXY_URL` в `.env` действует, пока прокси не настроен в приложении.
 
 ## Обновление на устройстве
 
