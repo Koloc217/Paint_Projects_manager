@@ -35,10 +35,12 @@ function renderProjectProgress(project) {
             <div class="relative group aspect-square rounded-lg overflow-hidden border border-slate-700 bg-slate-950 cursor-pointer hover:border-fuchsia-400 transition-colors" onclick="openProjectProgress('${esc(project.ID)}', ${i})">
                 <img src="${esc(ph.Thumb)}" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover">
                 ${ph.Source === 'telegram' ? '<span class="absolute bottom-1 left-1 text-[10px] bg-black/70 text-sky-300 rounded px-1">TG</span>' : ''}
+                <button onclick="event.stopPropagation(); editProgressNote('${esc(project.ID)}', ${ph.ID})" class="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/70 text-white/80 hover:bg-blue-600 hover:text-white text-[10px] leading-none opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" title="${tr('progress.edit_note')}">✎</button>
                 <button onclick="event.stopPropagation(); removeProgressPhoto('${esc(project.ID)}', ${ph.ID})" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white/80 hover:bg-red-600 hover:text-white text-xs leading-none opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" title="${tr('progress.delete')}">&times;</button>
             </div>
             <div class="text-[10px] text-slate-400 mt-1 leading-tight">${esc(formatIsoDate((ph.At || '').slice(0, 10)))}</div>
-            <div class="text-[10px] text-slate-500 leading-tight truncate" title="${esc(ph.Note || '')}">${esc(ph.Stage && ph.Stage !== '—' ? progressStageLabel(ph.Stage) : '')}</div>
+            <div class="text-[10px] text-slate-500 leading-tight truncate">${esc(ph.Stage && ph.Stage !== '—' ? progressStageLabel(ph.Stage) : '')}</div>
+            ${ph.Note ? `<div onclick="editProgressNote('${esc(project.ID)}', ${ph.ID})" class="text-[10px] text-slate-300 leading-tight line-clamp-2 break-words cursor-text hover:text-white" title="${esc(ph.Note)}">${esc(ph.Note)}</div>` : ''}
         </div>`).join('');
     box.scrollLeft = box.scrollWidth;
 }
@@ -90,6 +92,35 @@ async function uploadProgressPhotos(projectId, files) {
     if (ok) {
         if (noteEl) noteEl.value = '';
         showToast(ok === 1 ? tr('progress.added') : tr('progress.added_many', { n: ok }), 'success');
+    }
+    loadData();
+}
+
+const PROGRESS_NOTE_MAX = 300;     // MAX_NOTE_LEN in progress.py
+
+async function editProgressNote(projectId, photoId) {
+    const p = currentProjects.find(x => x.ID === projectId);
+    const ph = p && (p.Progress || []).find(x => x.ID === photoId);
+    if (!ph) return;
+    const answer = await askDialog({
+        title: tr('progress.edit_note'),
+        message: progressCaption({ ...ph, Note: '' }, ''),
+        preview: ph.Thumb,
+        input: { value: ph.Note || '', placeholder: tr('progress.note_ph'), maxLength: PROGRESS_NOTE_MAX },
+        buttons: [{ value: 'save', label: tr('common.save'), primary: true }],
+    });
+    if (!answer) return;
+    const note = answer.text.trim();
+    if (note === (ph.Note || '')) return;
+    try {
+        const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/progress/${photoId}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note }),
+        });
+        const result = await res.json();
+        if (result.status === 'error') throw new Error(result.message);
+        showToast(tr('progress.note_saved'), 'success');
+    } catch (err) {
+        showToast(err.message || tr('progress.err_save'), 'error');
     }
     loadData();
 }

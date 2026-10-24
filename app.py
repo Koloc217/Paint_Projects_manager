@@ -26,7 +26,7 @@ from common import (
     is_done, load_config, save_config, compute_balance, DATE_FORMATS, detect_image_ext, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, new_pairing_code, unlink_chat, format_pairing_code, parse_iso_date, iso_date,
 )
-from bot import start_bot_polling
+from bot import start_bot_polling, COMMANDS as BOT_COMMANDS, FEATURES as BOT_FEATURES, PHOTO_HELP as BOT_PHOTO_HELP
 from scheduler import scheduler_loop, spawn_script
 import auth
 import pipeline
@@ -40,7 +40,7 @@ MAX_NAME_LEN = 120
 MAX_TASK_NAME_LEN = 300
 MAX_NOTES_LEN = 20000
 MAX_PHOTO_BYTES = 6 * 1024 * 1024
-MAX_REFS = 10
+MAX_REFS = 20
 MAX_REF_BYTES = 25 * 1024 * 1024
 MAX_THUMB_BYTES = 1536 * 1024
 PHOTOS_DIR = os.path.join(BASE_DIR, "photos")
@@ -101,6 +101,8 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 # The translation table goes into the page as is (UTF-8) rather than as \uXXXX: the page is smaller;
 # <, > and & are still escaped, so the data cannot close the <script> tag.
 templates.env.globals["tr"] = tr          # in templates: {{ tr('common.save') }}
+# Bot help in Settings -> Telegram is built from the same registry as /help in bot.py, so the texts never diverge
+templates.env.globals["bot_help"] = {"commands": BOT_COMMANDS, "photos": BOT_PHOTO_HELP, "features": BOT_FEATURES}
 templates.env.policies["json.dumps_kwargs"] = {"ensure_ascii": False, "sort_keys": True}
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
@@ -192,6 +194,9 @@ class ProgressUpload(BaseModel):
     image: str                     # JPEG resized by the browser (data URL)
     thumb: Optional[str] = None    # small preview
     note: str = ""
+
+class RefOrder(BaseModel):
+    ids: List[int]                 # reference ids in the new order
 
 class ProgressNote(BaseModel):
     note: str = ""
@@ -304,7 +309,7 @@ def get_data(db: Session = Depends(get_db)):
 
     ref_files = list_dir_names(REFS_DIR)
     refs_by_project = {}
-    for r in db.query(Reference).filter(Reference.project_id.in_(live_ids)).order_by(Reference.id):
+    for r in db.query(Reference).filter(Reference.project_id.in_(live_ids)).order_by(Reference.position, Reference.id):
         name = os.path.basename(r.filename)
         if name not in ref_files:
             continue
@@ -678,10 +683,22 @@ def add_project_ref(project_id: str, data: RefUpload, db: Session = Depends(get_
         except ValueError:
             thumb_name = ""
 
-    ref = Reference(project_id=project_id, filename=filename, thumb=thumb_name)
+    last = db.query(func.max(Reference.position)).filter(Reference.project_id == project_id).scalar()
+    ref = Reference(project_id=project_id, filename=filename, thumb=thumb_name, position=(last or 0) + 1)
     db.add(ref)
     db.commit()
     return {"status": "ok", "id": ref.id}
+
+@app.post("/api/projects/{project_id}/refs/order")
+def reorder_project_refs(project_id: str, data: RefOrder, db: Session = Depends(get_db)):
+    """New order of the references: the full list of their ids, first to last."""
+    refs = {r.id: r for r in db.query(Reference).filter(Reference.project_id == project_id).all()}
+    if sorted(data.ids) != sorted(refs):
+        return {"status": "error", "message": tr("ref.err_order")}
+    for pos, ref_id in enumerate(data.ids, start=1):
+        refs[ref_id].position = pos
+    db.commit()
+    return {"status": "ok"}
 
 @app.delete("/api/projects/{project_id}/refs/{ref_id}")
 def delete_project_ref(project_id: str, ref_id: int, db: Session = Depends(get_db)):
