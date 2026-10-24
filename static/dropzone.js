@@ -8,7 +8,19 @@
     const REF_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     let overZone = null;
 
-    const hasFiles = (e) => !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+    // A drag that starts inside the page (an image from the card, a reference tile being reordered) is not an
+    // upload: Chrome hands a dragged <img> over as a file, and dropping it on a zone used to create a copy.
+    // Files dragged in from the computer never fire dragstart in the page, so only they count as uploads.
+    let internalDrag = false;
+    document.addEventListener('dragstart', () => { internalDrag = true; }, true);
+    const endInternal = () => { internalDrag = false; };
+    document.addEventListener('dragend', endInternal, true);
+    document.addEventListener('drop', () => setTimeout(endInternal, 0), true);
+    // safety net: if the dragged element was removed and dragend never reached the document,
+    // the next mouse move (mouse events do not fire during a drag) clears the flag
+    document.addEventListener('mousemove', () => { if (internalDrag) internalDrag = false; }, true);
+
+    const hasFiles = (e) => !internalDrag && !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
     const zoneOf = (e) => (e.target && e.target.closest) ? e.target.closest('[data-drop]') : null;
 
     function setOver(zone) {
