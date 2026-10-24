@@ -9,7 +9,7 @@ import uuid
 import httpx
 from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
-from database import SessionLocal, Project, Task, ensure_schema
+from database import SessionLocal, Project, Task, Reference, ensure_schema
 import progress
 from common import (
     BASE_DIR, esc, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
@@ -64,6 +64,7 @@ COMMANDS = [                         # (command, description key)
 ]
 FEATURES = [                         # features without a command: text keys
     "bot.feat_buttons",
+    "bot.feat_share",
     "bot.feat_push",
     "bot.feat_postpone",
 ]
@@ -282,8 +283,11 @@ def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True)
     keyboard.append([{"text": f"🎨 {tr('bot.change_stage')} ({tv(stage_str)})", "callback_data": f"stage_menu:{proj.id}"},
                      {"text": f"➕ {tr('bot.btn_add_task')}", "callback_data": f"tk_new:{proj.id}"}])
     photos_count = _count_photos(proj.id)
+    media_row = []
     if photos_count:
-        keyboard.append([{"text": f"📷 {tr('bot.btn_photos', n=photos_count)}", "callback_data": f"ph_v:{proj.id}:0"}])
+        media_row.append({"text": f"📷 {tr('bot.btn_photos', n=photos_count)}", "callback_data": f"ph_v:{proj.id}:0"})
+    media_row.append({"text": f"📤 {tr('bot.btn_share')}", "callback_data": f"share:{proj.id}"})
+    keyboard.append(media_row)
     if total_active_count > 1:
         keyboard.append([{"text": f"📋 {tr('bot.btn_all_active')}", "callback_data": "show_all_proj"}])
 
@@ -491,14 +495,15 @@ async def download_file(file_id: str) -> bytes:
     return await asyncio.wait_for(asyncio.to_thread(_sync_tg_download, file_id), timeout=50.0)
 
 
-def _sync_tg_upload(endpoint: str, data: dict, files: dict):
-    """A request with a file (multipart): sendPhoto and editMessageMedia."""
+def _sync_tg_upload(endpoint: str, data: dict, files: dict, timeout_sec: float = 60.0):
+    """A request with files (multipart): sendPhoto, sendMediaGroup and editMessageMedia."""
     return _http_client().post(f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}", data=data, files=files,
-                               timeout=httpx.Timeout(60.0, connect=10.0)).json()
+                               timeout=httpx.Timeout(timeout_sec, connect=10.0)).json()
 
 
-async def tg_upload(endpoint: str, data: dict, files: dict):
-    return await asyncio.wait_for(asyncio.to_thread(_sync_tg_upload, endpoint, data, files), timeout=70.0)
+async def tg_upload(endpoint: str, data: dict, files: dict, timeout_sec: float = 60.0):
+    return await asyncio.wait_for(asyncio.to_thread(_sync_tg_upload, endpoint, data, files, timeout_sec),
+                                  timeout=timeout_sec + 10.0)
 
 
 def _extract_image(msg: dict):
@@ -625,6 +630,117 @@ async def handle_photo_choice(cb_id: str, chat_id: int, message_id: int, token: 
         await edit_message_text(chat_id, message_id, text, markup)
     else:
         await edit_message_text(chat_id, message_id, f"⚠️ {error or tr('bot.photo_download_failed')}")
+
+
+# ----- sharing a project: an album to forward -----
+# Cover, the latest progress photos and the references (up to Telegram's 10 per album), with the name, the stage
+# and the paint recipe in the caption. Tasks, tokens and deadlines stay private. The album can be forwarded to
+# anyone; the bot answers only the bound chat, so a forwarded album gives nobody access to the data.
+SHARE_MAX_ITEMS = 10                    # Telegram limit for an album
+SHARE_PROGRESS = 5                      # the latest progress photos
+SHARE_FILE_MAX = 5 * 1024 * 1024        # bigger originals (and GIF/WebP) go as their JPEG preview
+SHARE_PHOTO_EXT = (".jpg", ".jpeg", ".png")
+CAPTION_MAX = 1024                      # Telegram limit for a caption (characters after markup)
+SHARE_REFS_DIR = os.path.join(progress.PHOTOS_DIR, "refs")
+
+
+def _share_file(path: str, thumb: str = ""):
+    """The file to send for an image: the original if Telegram takes it as a photo, otherwise the preview."""
+    try:
+        if path and path.lower().endswith(SHARE_PHOTO_EXT) and os.path.getsize(path) <= SHARE_FILE_MAX:
+            return path
+    except OSError:
+        pass
+    return thumb if thumb and os.path.exists(thumb) else None
+
+
+def build_share(project_id: str):
+    """(files, caption, extra_text) for the project, or None if there is no such project."""
+    db = SessionLocal()
+    try:
+        proj = db.query(Project).filter(Project.id == project_id).first()
+        if not proj:
+            return None
+        files = []
+        if proj.photo:
+            cover = _share_file(os.path.join(progress.PHOTOS_DIR, os.path.basename(proj.photo)))
+            if cover:
+                files.append(cover)
+        latest = progress.list_photos(db, proj.id, limit=SHARE_PROGRESS)
+        for row in reversed(latest):                              # oldest of the latest first: a timeline
+            path = os.path.join(progress.PROGRESS_DIR, os.path.basename(row.filename))
+            thumb = os.path.join(progress.PROGRESS_DIR, os.path.basename(row.thumb)) if row.thumb else ""
+            f = _share_file(path, thumb)
+            if f:
+                files.append(f)
+        refs = db.query(Reference).filter(Reference.project_id == proj.id).order_by(Reference.position, Reference.id).all()
+        for r in refs:
+            if len(files) >= SHARE_MAX_ITEMS:
+                break
+            path = os.path.join(SHARE_REFS_DIR, os.path.basename(r.filename))
+            thumb = os.path.join(SHARE_REFS_DIR, os.path.basename(r.thumb)) if r.thumb else ""
+            f = _share_file(path, thumb)
+            if f:
+                files.append(f)
+
+        stage = proj.stage or "—"
+        head = f"🎨 <b>{esc(proj.name)}</b>"
+        head_len = len(proj.name) + 3
+        if status_done(proj.status):
+            head += f"\n🏆 {tr('bot.share_finished')}"
+            head_len += len(tr('bot.share_finished')) + 3
+        elif stage != "—":
+            head += f"\n{tr('project.stage')}: {esc(tv(stage))}"
+            head_len += len(tr('project.stage')) + len(tv(stage)) + 3
+        recipe = (proj.paint_notes or "").strip()
+        extra = None
+        if recipe:
+            title = f"🖌 {tr('bot.share_recipe')}:"
+            if head_len + len(title) + len(recipe) + 4 <= CAPTION_MAX:
+                caption = f"{head}\n\n<b>{title}</b>\n{esc(recipe)}"
+            else:                                                  # a long recipe goes as its own message
+                caption = f"{head}\n\n<i>{tr('bot.share_recipe_below')}</i>"
+                extra = f"<b>{title}</b> {esc(proj.name)}\n\n{esc(recipe[:3800])}"
+        else:
+            caption = head
+        return files, caption, extra
+    finally:
+        db.close()
+
+
+async def send_project_share(chat_id: int, project_id: str):
+    built = await asyncio.to_thread(build_share, project_id)
+    if not built:
+        await send_message(chat_id, tr("err.project_not_found"))
+        return
+    files, caption, extra = built
+    try:
+        if not files:
+            res = await tg_request("POST", "sendMessage", payload={"chat_id": chat_id, "text": caption, "parse_mode": "HTML"})
+        elif len(files) == 1:
+            res = await tg_upload("sendPhoto", {"chat_id": str(chat_id), "caption": caption, "parse_mode": "HTML"},
+                                  {"photo": (os.path.basename(files[0]), await asyncio.to_thread(_read_bytes, files[0]))})
+        else:
+            media, upload = [], {}
+            for i, path in enumerate(files):
+                item = {"type": "photo", "media": f"attach://f{i}"}
+                if i == 0:
+                    item.update({"caption": caption, "parse_mode": "HTML"})
+                media.append(item)
+                upload[f"f{i}"] = (os.path.basename(path), await asyncio.to_thread(_read_bytes, path))
+            res = await tg_upload("sendMediaGroup", {"chat_id": str(chat_id), "media": json.dumps(media)}, upload,
+                                  timeout_sec=180.0)
+        if not res.get("ok"):
+            print(f"[BOT ERROR] Telegram rejected the share: {res.get('description')}")
+            await send_message(chat_id, f"⚠️ {tr('bot.share_failed')}")
+            return
+    except Exception as e:
+        print(f"[BOT ERROR] share failed: {safe_error(e)}")
+        await send_message(chat_id, f"⚠️ {tr('bot.share_failed')}")
+        return
+    if extra:
+        await send_message(chat_id, extra)
+    await send_message(chat_id, f"📤 {tr('bot.share_hint')}")
 
 
 # ----- viewing photos -----
@@ -1141,6 +1257,10 @@ async def handle_callback(cb: dict):
             await answer_callback(cb_id)
             text, markup = await asyncio.to_thread(build_all_projects_view)
             await edit_message_text(chat_id, message_id, text, markup)
+
+        elif data.startswith("share:"):
+            await answer_callback(cb_id, tr("bot.share_preparing"))
+            await send_project_share(chat_id, data.split(":", 1)[1])
 
         elif data.startswith("open_p:"):
             proj_id = data.split(":", 1)[1]

@@ -370,6 +370,11 @@ must be added to the `COMMANDS` or `FEATURES` registry, then `/help` updates its
 
 ### Buttons
 "Start" and "Done" on a task, "Change stage" (stage menu), "All active projects", navigation between projects.
+
+**"📤 Share"** in a project card sends an album to forward: cover, the 5 latest progress photos and the references
+(10 at most, the Telegram limit), with the name, stage and paint recipe in the caption. Tasks, tokens and deadlines
+are left out. A long recipe comes as a separate message; big originals (over 5 MB), GIF and WebP go as previews.
+A forwarded album gives no access to the data: the bot answers only the bound chat.
 From a push: close the task and "+2d" — **postponing the deadline**: the date moves by 2 days from the later of two dates
 (the current deadline or today). If postponing is turned off in the settings (`allow_postpone`), a button from an old
 push replies that it is turned off; a closed task cannot be postponed, and pressing "close" again does not change the
