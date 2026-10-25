@@ -19,7 +19,8 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - References: images attached to a project, with a full-screen viewer.
 - Progress photos: shots taken along the way, with date and stage; a timeline in the project card and a shared "Feed" tab.
 - Trash: a deleted project stays in the trash for 30 days and can be restored.
-- Deadline calendar: a month grid with task and project deadlines.
+- Deadline calendar: a month grid with task and project deadlines. Deadlines can go to a phone calendar as an `.ics`
+  file (the "To phone" button or `/calendar` in the bot) or as a subscription that updates by itself.
 - Paint notebook: recipes and painting notes right in the project card.
 - Pipeline templates: "3D print" (7 steps) and "kit model" (5 steps) by default; they can be edited in the settings
   and you can add your own. Before the tasks are created, a deadline window opens: every step gets its own date,

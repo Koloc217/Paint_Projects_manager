@@ -125,3 +125,63 @@ function renderCalendar() {
             </div>
         </div>`).join('') + '</div>';
 }
+
+// ---------- Calendar for a phone: download a .ics file or turn on a subscription address ----------
+let calFeed = { enabled: false, path: null };
+
+function calFeedUrl(path, scheme) {
+    const url = new URL(path, window.location.origin);
+    return scheme === 'webcal' ? url.href.replace(/^https?:/, 'webcal:') : url.href;
+}
+
+function renderCalendarFeed() {
+    document.getElementById('calFeedEnabled').checked = calFeed.enabled;
+    document.getElementById('calFeedBox').classList.toggle('hidden', !calFeed.enabled);
+    if (!calFeed.enabled) return;
+    document.getElementById('calFeedUrl').value = calFeedUrl(calFeed.path);
+    document.getElementById('calFeedWebcal').href = calFeedUrl(calFeed.path, 'webcal');
+}
+
+async function openCalendarExport() {
+    openModal('calExportModal');
+    try {
+        calFeed = await (await fetch('/api/calendar/feed')).json();
+    } catch (e) { /* no network: keep what was shown */ }
+    renderCalendarFeed();
+}
+
+async function postCalendarFeed(body) {
+    try {
+        const res = await fetch('/api/calendar/feed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const data = await res.json();
+        if (data.status !== 'ok') throw new Error(data.message || '');
+        calFeed = data;
+        return true;
+    } catch (e) {
+        showToast(e.message || tr('calexp.err_save'));
+        return false;
+    } finally {
+        renderCalendarFeed();
+    }
+}
+
+async function setCalendarFeed(enabled) {
+    if (await postCalendarFeed({ enabled }) && enabled) showToast(tr('calexp.feed_on'), 'success');
+}
+
+async function newCalendarFeedAddress() {
+    const ok = await confirmDialog({ title: tr('calexp.new_address'), message: tr('calexp.new_address_confirm'), okText: tr('calexp.new_address'), icon: '🔑' });
+    if (!ok) return;
+    if (await postCalendarFeed({ enabled: true, new_token: true })) showToast(tr('calexp.new_address_done'), 'success');
+}
+
+async function copyCalendarFeed() {
+    const input = document.getElementById('calFeedUrl');
+    try {
+        await navigator.clipboard.writeText(input.value);
+    } catch (e) {
+        input.select();                           // http without a secure context: no clipboard API
+        document.execCommand('copy');
+    }
+    showToast(tr('calexp.copied'), 'success');
+}

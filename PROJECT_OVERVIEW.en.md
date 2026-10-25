@@ -49,6 +49,7 @@ and starting a new project costs tokens. The goal is to finish what you start in
 | `storage.py` | Used space: app, database, photos, logs (folder walk, Windows and Linux) |
 | `pipeline.py` | Pipeline templates: built-in defaults, storage and validation in `config.json` |
 | `vacation.py` | Vacation: moving deadlines, state, ending early |
+| `ics.py` | Deadlines in iCalendar format: a file and a subscription for a phone calendar |
 | `tgproxy.py` | Optional proxy for Telegram: where the address comes from, validation, password masking, connection check |
 | `i18n.py`, `static/i18n.js` | Localization of the server/bot and of the browser |
 | `auth.py`, `static/auth.js`, `templates/login.html` | Optional password login (off by default) |
@@ -163,6 +164,12 @@ deadline, and allows creating projects without tokens.
 - **Calendar.** A month grid (with the `mdy` date format the week starts on Sunday, otherwise on Monday): deadlines of
   open tasks and 📌 project deadlines. Overdue items are red, closed ones struck through; a cell shows three entries and
   "N more". Clicking a day opens its list, clicking an entry opens the project. Finished projects are not shown.
+  The "To phone" button (`ics.py`) hands the same deadlines to a phone calendar, without closed tasks:
+  - **an `.ics` file** ("Download .ics" or `/calendar` in the bot): a snapshot of today, imported once;
+  - **a subscription** `/cal/<token>.ics` (off by default): the phone calendar re-reads the address by itself, with a
+    hint to refresh hourly. Every event is all-day with a stable UID, so a moved deadline moves instead of being
+    duplicated. "New address" replaces the token and the old address stops working. An iPhone subscribes directly
+    (`webcal://`); Android needs the ICSx⁵ app, since Google Calendar cannot reach a home server.
 - **Feed.** All progress photos by day, newest first, with a project filter. A click opens the photo full screen with a
   caption (project, date, stage, note) and arrow navigation.
 - **Hall of Fame & Analytics.** Four figures (projects finished, tasks closed, tokens earned, overall task progress), a
@@ -350,6 +357,7 @@ All user text is escaped before sending (HTML mode).
 | `/help` | commands and features of the bot; the list comes from the `COMMANDS` and `FEATURES` registry in `bot.py`, which also builds the "/" menu in Telegram |
 | `/task [name]` | task builder: project, name, deadline (buttons "Today", "Tomorrow", "In 3 days", "In a week", "Project deadline", "Pick a date", "No deadline"); a date can be typed in the format from the settings |
 | `/photo` | the latest progress photo across all projects; ◀ ▶ buttons flip through, "Delete" asks for confirmation |
+| `/calendar` | deadlines as an `.ics` file: open it on a phone to add them to the calendar |
 | `/stats` | statistics of the current month: tasks closed, projects finished, tokens earned, balance |
 | `/test_notify` | starts a test notification |
 
@@ -504,6 +512,7 @@ are shown separately. The size is the file length, not the space allocated on di
 | `PIPELINE_TEMPLATES` | pipeline templates (no key = the two built-in ones), edited in Settings → Templates |
 | `VACATION` | vacation: `start`, `until` (first day after the vacation), `days` |
 | `TG_PROXY` | proxy for Telegram set in the UI: `enabled`, `url` (no key = `PROXY_URL` from `.env`) |
+| `ICS_FEED` | calendar subscription: `enabled`, `token` (the secret part of `/cal/<token>.ics`) |
 | `TG_CHAT_ID`, `TG_PAIRING_CODE` | bot link (internal) |
 
 The file is written atomically (a temporary file and `os.replace`); missing keys are filled with defaults.
@@ -532,6 +541,9 @@ Responses look like `{"status": "ok"}` or `{"status": "error", "message": "..."}
 | `GET /api/data` | projects, tasks, balance, settings, schedule, languages |
 | `POST /api/config` | save settings (time and language format are checked) |
 | `POST /api/notify/test` | start a test notification |
+| `GET /api/calendar.ics` | deadlines as an `.ics` file (download) |
+| `GET`, `POST /api/calendar/feed` | subscription state; turn it on or off (`enabled`), replace the address (`new_token`) |
+| `GET /cal/<token>.ics` | deadline subscription; no login, a wrong token or a disabled subscription gives 404 |
 | `GET /api/storage` | used space by category (bytes and number of files) |
 | `GET /api/telegram` | link state: whether a chat is linked, the chat ID or the pairing code |
 | `POST /api/telegram/unlink`, `/api/telegram/code` | unlink the chat; create a new code |
@@ -578,7 +590,8 @@ PNG, GIF, WebP); SVG and a faked extension are rejected.
   - Brute force: 5 failures from one address within 5 minutes lock login for the rest of the window; every failure adds
     a pause.
   - Everything is closed, including `/photos`; only `/login`, `/api/auth/login`, `/static/`, `/sw.js` and
-    `/manifest.webmanifest` are open (PWA installation needs the last two).
+    `/manifest.webmanifest` are open (PWA installation needs the last two), plus `/cal/`, the calendar subscription:
+    a phone calendar cannot log in, so the long token in the address acts as the password.
   - The password check (scrypt) runs in a worker thread and does not hold up other requests.
   - The Telegram bot, notifications and the scheduler do not go through the web app; login does not affect them.
   - **Forgot the password:** `python auth.py reset` (resets to `admin`/`123456` and turns login off);

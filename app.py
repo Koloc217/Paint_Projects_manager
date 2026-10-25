@@ -9,7 +9,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from fastapi import FastAPI, Request, Depends
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import func
@@ -35,6 +35,7 @@ import pipeline
 import vacation
 import tgproxy
 import storage
+import ics
 
 ensure_schema()
 
@@ -488,6 +489,42 @@ async def telegram_proxy_check(data: ProxyForm):
     if res["error"] == "no_token":
         return {"ok": False, "message": tr("tg.proxy_err_token")}
     return {"ok": False, "message": tr("tg.proxy_check_fail", via=via, detail=res.get("detail") or "")}
+
+# ---------- Calendar for a phone: a .ics file and an optional subscription address ----------
+class CalendarFeedBody(BaseModel):
+    enabled: bool = False
+    new_token: bool = False
+
+
+def ics_response(data: bytes, download: bool) -> Response:
+    headers = {"Cache-Control": "no-store"}
+    if download:
+        headers["Content-Disposition"] = 'attachment; filename="deadlines.ics"'
+    return Response(content=data, media_type="text/calendar; charset=utf-8", headers=headers)
+
+
+@app.get("/api/calendar.ics")
+def calendar_file(request: Request, db: Session = Depends(get_db)):
+    return ics_response(ics.build(db, str(request.base_url)), download=True)
+
+
+@app.get("/api/calendar/feed")
+def calendar_feed_state():
+    return ics.feed_state()
+
+
+@app.post("/api/calendar/feed")
+def calendar_feed_set(body: CalendarFeedBody):
+    return {"status": "ok", **ics.set_feed(body.enabled, body.new_token)}
+
+
+@app.get("/cal/{name}", include_in_schema=False)
+def calendar_feed(name: str, request: Request, db: Session = Depends(get_db)):
+    """Public (no login, see auth.py): the token in the address is the password. Off or wrong token: 404."""
+    if not name.endswith(".ics") or not ics.token_ok(name[:-4]):
+        return Response(status_code=404)
+    return ics_response(ics.build(db, str(request.base_url)), download=False)
+
 
 @app.get("/api/storage")
 def storage_usage():

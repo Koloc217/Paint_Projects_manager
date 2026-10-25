@@ -11,6 +11,7 @@ from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, Reference, ensure_schema
 import progress
+import ics
 from common import (
     BASE_DIR, esc, to_tokens, clip_lines, short_text, TG_ALERT_LIMIT, MAX_TASK_NAME_LEN, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
@@ -58,6 +59,7 @@ COMMANDS = [                         # (command, description key)
     ("projects", "bot.cmd_all_desc"),
     ("task", "bot.cmd_task_desc"),
     ("photo", "bot.cmd_photo_desc"),
+    ("calendar", "bot.cmd_calendar_desc"),
     ("stats", "bot.cmd_stats_desc"),
     ("help", "bot.cmd_help_desc"),
     ("test_notify", "bot.cmd_test_desc"),
@@ -486,6 +488,33 @@ PENDING_TTL_SEC = 3600
 MAX_TG_DOWNLOAD = 20 * 1024 * 1024        # Bot API limit for file downloads
 _pending_photos = {}                       # token -> {"files": [file_id], "caption", "ts"}
 _photo_groups = {}                         # media_group_id -> {"token": ..., "project": ..., "ts": ...}
+
+
+def _build_calendar():
+    """(file bytes, number of deadlines) for /calendar."""
+    db = SessionLocal()
+    try:
+        return ics.build(db), len(ics.collect(db))
+    finally:
+        db.close()
+
+
+async def send_calendar(chat_id: int):
+    """/calendar: deadlines as a .ics file; opened on a phone, it adds them to the calendar."""
+    data, count = await asyncio.to_thread(_build_calendar)
+    if not count:
+        await send_message(chat_id, tr("bot.calendar_empty"))
+        return
+    try:
+        res = await tg_upload("sendDocument",
+                              {"chat_id": str(chat_id), "caption": tr("bot.calendar_caption", n=count), "parse_mode": "HTML"},
+                              {"document": ("deadlines.ics", data, "text/calendar")})
+        if not res.get("ok"):
+            print(f"[BOT] sendDocument (calendar): {res.get('description')}")
+            await send_message(chat_id, tr("bot.calendar_failed"))
+    except Exception as e:
+        print(f"[BOT] sendDocument (calendar): {safe_error(e)}")
+        await send_message(chat_id, tr("bot.calendar_failed"))
 
 
 def _count_photos(project_id: str) -> int:
@@ -1399,6 +1428,8 @@ async def process_update(item: dict):
     elif text.startswith("/photo"):
         if not await send_photo_view(chat_id, "*", 0):
             await send_message(chat_id, tr("bot.photo_none"))
+    elif text.startswith("/calendar"):
+        await send_calendar(chat_id)
     elif text.startswith("/stats"):
         await send_message(chat_id, await asyncio.to_thread(build_current_month_stats))
     elif text.startswith("/test_notify"):
