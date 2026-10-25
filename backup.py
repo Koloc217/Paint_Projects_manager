@@ -9,7 +9,7 @@ import httpx
 from datetime import datetime
 from dotenv import load_dotenv
 from database import SessionLocal, ensure_schema
-from common import BASE_DIR, NO_STAGE, live_projects, live_tasks
+from common import BASE_DIR, NO_STAGE, legacy_value, live_projects, live_tasks
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 APPS_SCRIPT_URL = os.getenv("APPS_SCRIPT_URL")
@@ -32,8 +32,9 @@ def main() -> int:
         proj_data = [{
             "id": p.id,
             "name": p.name,
-            "status": p.status,
-            "stage": p.stage or NO_STAGE,
+            # the sheet keeps the old Russian values: the backup format does not change
+            "status": legacy_value(p.status),
+            "stage": legacy_value(p.stage or NO_STAGE),
             "priority": p.priority,
             "estimate": _dt(p.estimate, "%Y-%m-%d"),
             "token": p.token or 0,
@@ -47,7 +48,7 @@ def main() -> int:
             "project_id": t.project_id,
             "task_name": t.task_name,
             "deadline": _dt(t.deadline, "%Y-%m-%d"),
-            "status": t.status,
+            "status": legacy_value(t.status),
             "postponed": t.postponed or 0,
             "completed_at": _dt(t.completed_at, "%Y-%m-%d %H:%M:%S"),
         } for t in live_tasks(db).all()]

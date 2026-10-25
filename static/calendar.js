@@ -6,7 +6,7 @@ function calIso(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const CAL_DONE = ['завершен', 'завершено', 'закончен', 'completed'];
+const CAL_DONE = ['finished', 'выполнено', 'завершен', 'завершено', 'закончен', 'completed'];
 function calIsDone(status) {
     return CAL_DONE.includes(String(status || '').toLowerCase().trim());
 }

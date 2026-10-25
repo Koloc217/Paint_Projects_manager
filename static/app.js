@@ -443,7 +443,7 @@ async function removeProjectRef(projectId, refId) {
 }
 
 // Every spelling of "finished" the server may store (see DONE_STATUSES in common.py)
-const DONE_STATUSES = ['закончен', 'завершено', 'завершен', 'completed'];
+const DONE_STATUSES = ['finished', 'закончен', 'завершено', 'завершен', 'выполнено', 'completed'];
 function isDoneStatus(status) {
     return DONE_STATUSES.includes(String(status ?? '').toLowerCase().trim());
 }
@@ -1015,8 +1015,8 @@ function getPriorityColor(priority) {
 // Searches the name, id, priority, status, stage (both the stored Russian value and its UI translation),
 // the paint recipe and the project's task names.
 const searchQuery = { active: '', hall: '' };
-const STATUS_TR = { 'В планах': 'status.planned', 'В работе': 'status.in_work', 'На паузе': 'status.on_hold', 'Закончен': 'status.finished' };
-const STAGE_TR = { 'Печать': 'stage.printing', 'Шлифовка': 'stage.sanding', 'Сборка': 'stage.assembly', 'Грунт': 'stage.priming', 'Покрас': 'stage.painting', 'Доводка': 'stage.finishing' };
+const STATUS_TR = { 'planned': 'status.planned', 'in_work': 'status.in_work', 'on_hold': 'status.on_hold', 'finished': 'status.finished' };
+const STAGE_TR = { 'printing': 'stage.printing', 'sanding': 'stage.sanding', 'assembly': 'stage.assembly', 'priming': 'stage.priming', 'painting': 'stage.painting', 'finishing': 'stage.finishing' };
 
 function normSearch(s) { return String(s == null ? '' : s).toLowerCase().replace(/ё/g, 'е'); }
 
@@ -1093,19 +1093,19 @@ function renderProjects() {
 
             <div class="pt-3 border-t border-slate-700/50 flex items-center justify-between gap-2">
                 <select onclick="event.stopPropagation()" onchange="updateProjectStatus('${p.ID}', this.value)" class="w-1/2 text-[11px] bg-slate-900 border border-slate-700 text-slate-300 rounded px-1.5 py-1 outline-none cursor-pointer">
-                    <option value="В планах" ${p.Status === 'В планах' ? 'selected' : ''}>${tr('status.planned')}</option>
-                    <option value="В работе" ${p.Status === 'В работе' ? 'selected' : ''}>${tr('status.in_work')}</option>
-                    <option value="На паузе" ${p.Status === 'На паузе' ? 'selected' : ''}>${tr('status.on_hold')}</option>
-                    <option value="Закончен">${tr('project.complete')} ✔️</option>
+                    <option value="planned" ${p.Status === 'planned' ? 'selected' : ''}>${tr('status.planned')}</option>
+                    <option value="in_work" ${p.Status === 'in_work' ? 'selected' : ''}>${tr('status.in_work')}</option>
+                    <option value="on_hold" ${p.Status === 'on_hold' ? 'selected' : ''}>${tr('status.on_hold')}</option>
+                    <option value="finished">${tr('project.complete')} ✔️</option>
                 </select>
                 <select onclick="event.stopPropagation()" onchange="updateProjectStage('${p.ID}', this.value)" class="w-1/2 text-[11px] bg-slate-900 border border-slate-700 text-slate-300 rounded px-1.5 py-1 outline-none cursor-pointer">
-                    <option value="—" ${p.Stage === '—' ? 'selected' : ''}>${tr('project.stage')}: —</option>
-                    <option value="Печать" ${p.Stage === 'Печать' ? 'selected' : ''}>${tr('stage.printing')}</option>
-                    <option value="Шлифовка" ${p.Stage === 'Шлифовка' ? 'selected' : ''}>${tr('stage.sanding')}</option>
-                    <option value="Сборка" ${p.Stage === 'Сборка' ? 'selected' : ''}>${tr('stage.assembly')}</option>
-                    <option value="Грунт" ${p.Stage === 'Грунт' ? 'selected' : ''}>${tr('stage.priming')}</option>
-                    <option value="Покрас" ${p.Stage === 'Покрас' ? 'selected' : ''}>${tr('stage.painting')}</option>
-                    <option value="Доводка" ${p.Stage === 'Доводка' ? 'selected' : ''}>${tr('stage.finishing')}</option>
+                    <option value="none" ${p.Stage === 'none' ? 'selected' : ''}>${tr('project.stage')}: —</option>
+                    <option value="printing" ${p.Stage === 'printing' ? 'selected' : ''}>${tr('stage.printing')}</option>
+                    <option value="sanding" ${p.Stage === 'sanding' ? 'selected' : ''}>${tr('stage.sanding')}</option>
+                    <option value="assembly" ${p.Stage === 'assembly' ? 'selected' : ''}>${tr('stage.assembly')}</option>
+                    <option value="priming" ${p.Stage === 'priming' ? 'selected' : ''}>${tr('stage.priming')}</option>
+                    <option value="painting" ${p.Stage === 'painting' ? 'selected' : ''}>${tr('stage.painting')}</option>
+                    <option value="finishing" ${p.Stage === 'finishing' ? 'selected' : ''}>${tr('stage.finishing')}</option>
                 </select>
             </div>
         </div>`;
@@ -1137,9 +1137,9 @@ function renderTasks() {
             </div>
             <p class="text-sm text-slate-200 font-medium mb-2 leading-snug">${esc(t.Task)}</p>
             <select onchange="updateTaskStatus('${t.ID}', this.value)" class="text-[11px] bg-slate-900 border border-slate-700 text-slate-300 rounded px-1.5 py-1 outline-none cursor-pointer w-32">
-                <option value="Не начато" ${t.Status === 'Не начато' ? 'selected' : ''}>${tr('status.not_started')} ⏸️</option>
-                <option value="В процессе" ${t.Status === 'В процессе' ? 'selected' : ''}>${tr('status.in_progress')} 🔄</option>
-                <option value="Закончен">${tr('status.done')} ✔️</option>
+                <option value="not_started" ${t.Status === 'not_started' ? 'selected' : ''}>${tr('status.not_started')} ⏸️</option>
+                <option value="in_progress" ${t.Status === 'in_progress' ? 'selected' : ''}>${tr('status.in_progress')} 🔄</option>
+                <option value="finished">${tr('status.done')} ✔️</option>
             </select>
         </div>`;
     }).join('');
@@ -1180,9 +1180,9 @@ function renderAllTasks() {
                 </div>
                 <div class="flex items-center gap-3 sm:ml-4">
                     <select onchange="updateTaskStatus('${t.ID}', this.value)" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1 outline-none cursor-pointer">
-                        <option value="Не начато" ${t.Status === 'Не начато' ? 'selected' : ''}>${tr('status.not_started')} ⏸️</option>
-                        <option value="В процессе" ${t.Status === 'В процессе' ? 'selected' : ''}>${tr('status.in_progress')} 🔄</option>
-                        <option value="Закончен" ${isDone ? 'selected' : ''}>${tr('status.done')} ✔️</option>
+                        <option value="not_started" ${t.Status === 'not_started' ? 'selected' : ''}>${tr('status.not_started')} ⏸️</option>
+                        <option value="in_progress" ${t.Status === 'in_progress' ? 'selected' : ''}>${tr('status.in_progress')} 🔄</option>
+                        <option value="finished" ${isDone ? 'selected' : ''}>${tr('status.done')} ✔️</option>
                     </select>
                     <button onclick="openEditTaskModal('${t.ID}')" class="text-slate-500 hover:text-blue-400 opacity-0 group-hover:opacity-100 p-1">✏️</button>
                     <button onclick="deleteTask('${t.ID}')" class="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 p-1">🗑️</button>
@@ -1224,8 +1224,8 @@ function renderAnalytics() {
     document.getElementById('statEarnedTokens').innerText = `+${earnedTokensTotal}`;
     document.getElementById('statTaskRate').innerText = `${rate}%`;
 
-    const stages = ['—', 'Печать', 'Шлифовка', 'Сборка', 'Грунт', 'Покрас', 'Доводка'];
-    const stageCounts = stages.map(st => activeProjs.filter(p => (p.Stage || '—') === st).length);
+    const stages = ['none', 'printing', 'sanding', 'assembly', 'priming', 'painting', 'finishing'];
+    const stageCounts = stages.map(st => activeProjs.filter(p => (p.Stage || 'none') === st).length);
 
     const ct = chartTheme();
     Chart.defaults.font.family = ct.font;
@@ -1352,7 +1352,7 @@ function renderHall() {
             </div>
             <div class="mt-4 pt-3 border-t border-slate-700/50 flex justify-between items-center">
                 <button onclick="openProjectDetails('${p.ID}')" class="text-xs text-indigo-400 hover:text-indigo-300">${tr('project.open_card')}</button>
-                <button onclick="updateProjectStatus('${p.ID}', 'В работе')" class="text-xs px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition-colors">↩️ ${tr('project.reopen')}</button>
+                <button onclick="updateProjectStatus('${p.ID}', 'in_work')" class="text-xs px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition-colors">↩️ ${tr('project.reopen')}</button>
             </div>
         </div>`;
     }).join('');
@@ -1420,9 +1420,9 @@ function openProjectDetails(projectId) {
                 </div>
                 <div class="flex gap-2 sm:ml-3 items-center">
                     <select onchange="updateTaskStatus('${t.ID}', this.value)" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1 outline-none cursor-pointer">
-                        <option value="Не начато" ${t.Status === 'Не начато' ? 'selected' : ''}>${tr('status.not_started')} ⏸️</option>
-                        <option value="В процессе" ${t.Status === 'В процессе' ? 'selected' : ''}>${tr('status.in_progress')} 🔄</option>
-                        <option value="Закончен" ${isDone ? 'selected' : ''}>${tr('status.done')} ✔️</option>
+                        <option value="not_started" ${t.Status === 'not_started' ? 'selected' : ''}>${tr('status.not_started')} ⏸️</option>
+                        <option value="in_progress" ${t.Status === 'in_progress' ? 'selected' : ''}>${tr('status.in_progress')} 🔄</option>
+                        <option value="finished" ${isDone ? 'selected' : ''}>${tr('status.done')} ✔️</option>
                     </select>
                     <button onclick="openEditTaskModal('${t.ID}')" class="text-slate-500 hover:text-blue-400 opacity-0 group-hover:opacity-100 p-1">✏️</button>
                     <button onclick="deleteTask('${t.ID}')" class="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 p-1">🗑️</button>
@@ -1546,7 +1546,7 @@ async function updateProjectStatus(id, status) {
     }
     if (p) p.Status = status;
     if (isDoneStatus(status)) {
-        currentTasks.forEach(t => { if (t['Project ID'] === id && !isDoneStatus(t.Status)) t.Status = 'Закончен'; });
+        currentTasks.forEach(t => { if (t['Project ID'] === id && !isDoneStatus(t.Status)) t.Status = 'finished'; });
         showToast(tr('toast.project_to_hall'), "success");
     }
     renderProjects(); renderTasks(); renderAllTasks();
@@ -1652,7 +1652,7 @@ async function createTask() {
     if(!taskName) return showToast(tr('task.err_empty'));
     const proj = currentProjects.find(p => p.ID === projectId);
     if (!deadline) {
-        if (proj && proj.Status !== 'В планах') return showToast(tr('project.err_deadline_required'));
+        if (proj && proj.Status !== 'planned') return showToast(tr('project.err_deadline_required'));
         if (proj && proj.Estimate) deadline = proj.Estimate;
     }
     if (!projectId) return showToast(tr('err.project_not_found'));

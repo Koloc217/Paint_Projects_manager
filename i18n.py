@@ -11,8 +11,8 @@ Code and templates use technical key names only: tr("common.save"). Wording is e
 
   • tr("key", n=3)  — text in the interface language; {n} is filled in with str.format.
   • tv(value)       — translation of a value stored in the database (status, stage, weekday). The database keeps
-                      canonical Russian values ("В работе", "Покрас"...), so data and the bot's callback_data
-                      stay stable; they are translated here for display only.
+                      technical codes ("in_work", "painting"...), shown as "status.<code>" / "stage.<code>";
+                      old Russian values are still understood.
   • a key missing in the chosen language falls back to ru-RU (the default language), then to the key itself.
 
 New language: add a block with its code (e.g. "de-DE") and a "meta.name" key to locales.json
@@ -22,23 +22,20 @@ Settings → General → Interface language right away. Completeness check: pyth
 import os
 import json
 
-from common import BASE_DIR, config_value
+from common import (BASE_DIR, config_value, normalize_value,
+                    PROJECT_STATUSES, TASK_STATUSES, STAGES, NO_STAGE)
 
 LOCALES_FILE = os.path.join(BASE_DIR, "locales.json")
 DEFAULT_LANG = "ru-RU"
 NAME_KEY = "meta.name"
 
-# Values stored in the database in Russian (canonical) -> translation key.
-# "—" (no stage selected) is deliberately absent: it is shown as is.
-VALUE_KEYS = {
-    "В планах": "status.planned", "В работе": "status.in_work", "На паузе": "status.on_hold",
-    "Закончен": "status.finished", "Не начато": "status.not_started", "В процессе": "status.in_progress",
-    "Выполнено": "status.done",
-    "Печать": "stage.printing", "Шлифовка": "stage.sanding", "Сборка": "stage.assembly",
-    "Грунт": "stage.priming", "Покрас": "stage.painting", "Доводка": "stage.finishing", "Без стадии": "stage.none",
+# Status and stage codes -> translation key. The "no stage" code is shown as "—".
+VALUE_KEYS = {code: f"status.{code}" for code in PROJECT_STATUSES + TASK_STATUSES}
+VALUE_KEYS.update({code: f"stage.{code}" for code in STAGES if code != NO_STAGE})
+VALUE_KEYS.update({
     "Пн": "day.mon", "Вт": "day.tue", "Ср": "day.wed", "Чт": "day.thu",
     "Пт": "day.fri", "Сб": "day.sat", "Вс": "day.sun",
-}
+})
 
 _file_cache = {"mtime": None, "data": {}, "languages": []}
 _norm_cache = {}           # (requested code, locales mtime) -> normalized code or None
@@ -142,5 +139,10 @@ def tr(key: str, **params) -> str:
 
 def tv(value) -> str:
     """Translation of a database value (status, stage, weekday); an unknown value is returned as is."""
-    key = VALUE_KEYS.get(value)
-    return tr(key) if key else ("" if value is None else str(value))
+    if value is None:
+        return ""
+    code = normalize_value(value)              # old Russian values (e.g. in the activity journal) work too
+    if code == NO_STAGE:
+        return "—"
+    key = VALUE_KEYS.get(code) or VALUE_KEYS.get(value)
+    return tr(key) if key else str(value)

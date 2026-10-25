@@ -16,7 +16,7 @@ with a stable UID, so a subscribed calendar updates moved dates instead of addin
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from common import live_projects, live_tasks, is_done, edit_config, config_value, STATUS_ON_HOLD
+from common import live_projects, live_tasks, is_done, edit_config, config_value, STATUS_ON_HOLD, NO_STAGE
 
 
 def enabled() -> bool:
@@ -83,7 +83,7 @@ def collect(db):
         if not p.estimate:
             continue
         details = [f"{tr('ics.status')}: {tv(p.status)}"]
-        if p.stage and p.stage != "—":
+        if p.stage and p.stage != NO_STAGE:
             details.append(f"{tr('ics.stage')}: {tv(p.stage)}")
         events.append((f"project-{p.id}", p.estimate.date(), tr("ics.project_summary", name=p.name),
                        "\n".join(details), p.id))

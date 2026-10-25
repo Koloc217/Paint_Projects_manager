@@ -7,7 +7,7 @@ It is a web app with a Telegram bot, notifications and a "token" system: finishe
 and starting a new project costs tokens. The goal is to finish what you start instead of piling up unpainted models.
 
 > Status values, stages and some UI labels below are given as they appear in the English interface. In the database
-> statuses and stages are stored as canonical Russian strings (see section 2).
+> statuses and stages are stored as technical codes (see section 2).
 
 ---
 
@@ -118,9 +118,12 @@ time of the event), `kind`, `old`, `new`, `source` (`web`, `bot`, `history`).
 **`tg_messages`** — messages in the bot chat that may be deleted (`/clear`, digest cleanup): `chat_id`, `message_id`,
 `kind` (`bot`, `user`, `digest`, `report`), `created_at`. Rows older than 48 hours are dropped, except the latest digest.
 
-Statuses and stages are stored in Russian and serve as values in the logic; for display they are translated into the
-interface language. "Finished" is any of the statuses `закончен`, `завершено`, `завершен` or `completed`
-(case-insensitive).
+Statuses and stages are stored as technical codes: project statuses `planned`, `in_work`, `on_hold`, `finished`, task
+statuses `not_started`, `in_progress`, `finished`; stages `none`, `printing`, `sanding`, `assembly`, `priming`,
+`painting`, `finishing`. Labels come from `locales.json` (`status.<code>`, `stage.<code>`). Old Russian values are
+converted to codes once at startup (`migrate_value_codes()` in `database.py`, the `LEGACY_VALUES` map in `common.py`);
+the API and the bot's buttons still accept them as input. "Finished" is `finished` plus the old `закончен`,
+`завершено`, `завершен`, `выполнено`, `completed` (case-insensitive).
 
 ---
 
@@ -165,7 +168,7 @@ deadline, and allows creating projects without tokens.
 - **Dashboard.** Active projects as cards on the left, "Upcoming tasks" on the right (the 5 open tasks with the earliest
   deadlines, tasks without a date at the end).
   - **Project search:** a field above the list. Several space-separated words, all of them must match. Case and ё/е do
-    not matter. Searches the name, id, priority, status, stage (both the stored Russian value and its translation),
+    not matter. Searches the name, id, priority, status, stage (both the stored code and its translation),
     the notes text and the project's task names. The counter shows "found / total", Esc clears the field, the filter
     survives data refreshes. Runs in the browser; nothing is sent to the server.
 - **All tasks.** Tasks grouped by active project.
@@ -524,9 +527,9 @@ are shown separately. The size is the file length, not the space allocated on di
     into the page (`window.APP_I18N`).
 - **Fallbacks:** a key missing in the chosen language is taken from `ru-RU`, and if it is missing there too, the key
   itself is shown. A placeholder error (`{n}` not passed) does not crash the app.
-- Project and task names are never translated. Statuses, stages and weekdays stay canonical Russian values in the
-  database (`В работе`, `Покрас`, `Пн`...) so data and the bot's `callback_data` do not break; for display they are
-  translated by `tv(value)` (the `VALUE_KEYS` table in `i18n.py`). Pipeline step names are inserted in the language
+- Project and task names are never translated. Statuses and stages are stored as codes (`in_work`,
+  `painting`...), weekdays as Russian abbreviations (`Пн`...); for display they are
+  translated by `tv(value)`, which also understands the old Russian values (the `VALUE_KEYS` table in `i18n.py`). Pipeline step names are inserted in the language
   active at the moment of clicking and are then stored as ordinary task text.
 - **A new language:** add a block with its code and a `meta.name` key to `locales.json`; it appears in the list right
   away. A stub with all keys: `python tools/check_locales.py --create de-DE --name Deutsch`.
@@ -688,6 +691,7 @@ PNG, GIF, WebP); SVG and a faked extension are rejected.
 - Vacation keeps only the last period. An ended vacation does not move deadlines back (by design).
 - Catching up missed runs is limited by a window (3 hours for pushes, 24 hours for the backup) and takes only the latest run.
 - DEV MODE combines three functions in one switch.
-- Statuses and stages are stored as Russian strings; the list of stages is defined in code (`common.py`).
+- The list of stages is defined in code (`common.STAGES`). The Google Sheets backup still exports the old Russian
+  values (`legacy_value()`), so the sheet format does not change.
 - SQLite without foreign keys. WAL mode is on, but on a file system without WAL support (network drives) the database
   runs in the default mode, and the app says so in the log.

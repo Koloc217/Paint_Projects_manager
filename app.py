@@ -24,6 +24,7 @@ from i18n import tr, tv, get_lang, table_for, available_languages, normalize_lan
 from common import (
     BASE_DIR, DEFAULT_NOTIFY_SETTINGS, DEFAULT_SCHEDULE, DAY_KEYS, DAY_LABELS,
     PROJECT_STATUSES, TASK_STATUSES, STAGES, PRIORITIES, STATUS_PLANNED, TASK_NOT_STARTED, STATUS_FINISHED,
+    NO_STAGE, normalize_value,
     is_done, load_config, edit_config, compute_balance, DATE_FORMATS, detect_image_ext, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, new_pairing_code, unlink_chat, format_pairing_code, parse_iso_date, iso_date,
     MAX_TOKENS, to_tokens, MAX_PROJECT_NAME_LEN, MAX_TASK_NAME_LEN,
@@ -321,7 +322,7 @@ def get_data(db: Session = Depends(get_db)):
         "ID": p.id,
         "Name": p.name,
         "Status": p.status,
-        "Stage": p.stage or "—",
+        "Stage": p.stage or NO_STAGE,
         "Priority": p.priority,
         "Estimate": iso_date(p.estimate),
         "Token Reward": to_tokens(p.token_reward),
@@ -618,6 +619,8 @@ def set_task_status(task: Task, status: str, now: datetime) -> None:
 @app.post("/api/action")
 def do_action(payload: ActionPayload, db: Session = Depends(get_db)):
     now = datetime.now()
+    payload.status = normalize_value(payload.status)     # an old client may still send Russian values
+    payload.stage = normalize_value(payload.stage)
     if payload.action == "update_project_status":
         if payload.status not in PROJECT_STATUSES:
             return {"status": "error", "message": tr("err.bad_value")}
@@ -655,6 +658,7 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
     name, err = validate_name(data.name)
     if err:
         return {"status": "error", "message": err}
+    data.status = normalize_value(data.status)
     if data.priority not in PRIORITIES or data.status not in PROJECT_STATUSES:
         return {"status": "error", "message": tr("err.bad_value")}
     reward, err = parse_token_field(data.token_reward)

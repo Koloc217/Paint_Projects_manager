@@ -27,25 +27,53 @@ CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 CONFIG_LOCK_FILE = os.path.join(BASE_DIR, ".config.lock")
 
 # ---------------------------------------------------------------------------
-# Canonical values. They are stored in the database in Russian (old data and the bot's callback_data rely
-# on them) and translated only for display, see i18n.tv().
+# Canonical values: technical codes stored in the database and used in the logic and the bot's callback_data.
+# Labels come from locales.json ("status.<code>", "stage.<code>"), see i18n.tv().
 # ---------------------------------------------------------------------------
-STATUS_PLANNED = "В планах"
-STATUS_IN_WORK = "В работе"
-STATUS_ON_HOLD = "На паузе"
-STATUS_FINISHED = "Закончен"
+STATUS_PLANNED = "planned"
+STATUS_IN_WORK = "in_work"
+STATUS_ON_HOLD = "on_hold"
+STATUS_FINISHED = "finished"
 PROJECT_STATUSES = (STATUS_PLANNED, STATUS_IN_WORK, STATUS_ON_HOLD, STATUS_FINISHED)
 
-TASK_NOT_STARTED = "Не начато"
-TASK_IN_PROGRESS = "В процессе"
+TASK_NOT_STARTED = "not_started"
+TASK_IN_PROGRESS = "in_progress"
 TASK_STATUSES = (TASK_NOT_STARTED, TASK_IN_PROGRESS, STATUS_FINISHED)
 
-NO_STAGE = "—"
-STAGES = (NO_STAGE, "Печать", "Шлифовка", "Сборка", "Грунт", "Покрас", "Доводка")   # Доводка: finishing touches before completion
+NO_STAGE = "none"
+STAGES = (NO_STAGE, "printing", "sanding", "assembly", "priming", "painting", "finishing")   # finishing: touches before completion
 PRIORITIES = ("Low", "Medium", "High", "Critical")
 
-# Every spelling of "finished" that older versions could have written
-DONE_STATUSES = ("закончен", "завершено", "завершен", "completed")
+# Values written by older versions (Russian strings) -> current codes.
+# Used by the one-time database migration and to accept old input (bot buttons still in the chat, old clients).
+LEGACY_VALUES = {
+    "В планах": STATUS_PLANNED, "В работе": STATUS_IN_WORK, "На паузе": STATUS_ON_HOLD,
+    "Закончен": STATUS_FINISHED, "Завершено": STATUS_FINISHED, "Завершен": STATUS_FINISHED,
+    "Выполнено": STATUS_FINISHED, "Completed": STATUS_FINISHED, "completed": STATUS_FINISHED,
+    "Не начато": TASK_NOT_STARTED, "В процессе": TASK_IN_PROGRESS,
+    "—": NO_STAGE, "Без стадии": NO_STAGE,
+    "Печать": "printing", "Шлифовка": "sanding", "Сборка": "assembly",
+    "Грунт": "priming", "Покрас": "painting", "Доводка": "finishing",
+}
+
+# Every spelling of "finished": the current code plus what older versions could have written
+DONE_STATUSES = (STATUS_FINISHED, "закончен", "завершено", "завершен", "выполнено", "completed")
+
+
+def normalize_value(value):
+    """A status or stage as a current code: old Russian values are converted, anything else is returned as is."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    return LEGACY_VALUES.get(s, s)
+
+
+def legacy_value(code):
+    """Current code -> the Russian value older versions used (for the Google Sheets backup, whose format stays)."""
+    for old, new in LEGACY_VALUES.items():
+        if new == code and old not in ("Завершено", "Завершен", "Выполнено", "Completed", "completed", "Без стадии"):
+            return old
+    return code
 
 DEFAULT_NOTIFY_SETTINGS = {
     "allow_postpone": True,
