@@ -207,6 +207,26 @@ python tools/check_theme.py        # every theme in the registry (or one: theme-
 python tools/build_assets.py css   # rebuild Tailwind CSS after new classes (without css: also fonts and Chart.js)
 ```
 
+### Tests
+
+```bash
+pip install -r requirements-dev.txt   # once: pytest
+python -m pytest                      # all tests, about 2 seconds
+python -m pytest tests/test_tasks.py  # one file
+```
+
+The tests run a copy of the code in a temporary folder with an empty database: they never see or change the real
+`tracker.db`, `config.json`, photos or `.env` (the bot token). Covered: projects and tokens, tasks, the trash,
+pipeline templates, status codes and the migration of old values, translation completeness.
+
+Checking the migration on a copy of your own database (the file itself is not changed):
+
+```bash
+PROJECT_HUB_TEST_DB=/path/to/tracker.db python -m pytest tests/test_real_db.py
+```
+
+In PowerShell: `$env:PROJECT_HUB_TEST_DB="C:\path\tracker.db"; python -m pytest tests/test_real_db.py`.
+
 ## Known limitations
 
 - One user, no roles or permissions.

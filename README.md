@@ -204,6 +204,26 @@ python tools/check_theme.py        # все темы из реестра (или
 python tools/build_assets.py css   # пересобрать Tailwind CSS после новых классов (без css: ещё шрифты и Chart.js)
 ```
 
+### Тесты
+
+```bash
+pip install -r requirements-dev.txt   # один раз: pytest
+python -m pytest                      # все тесты, около 2 секунд
+python -m pytest tests/test_tasks.py  # один файл
+```
+
+Тесты запускают копию кода во временной папке с пустой базой: настоящие `tracker.db`, `config.json`, фото и
+`.env` (токен бота) они не видят и не меняют. Что покрыто: проекты и токены, задачи, корзина, шаблоны пайплайна,
+коды статусов и миграция старых значений, полнота переводов.
+
+Проверка миграции на копии своей базы (сам файл не меняется):
+
+```bash
+PROJECT_HUB_TEST_DB=/путь/к/tracker.db python -m pytest tests/test_real_db.py
+```
+
+В PowerShell: `$env:PROJECT_HUB_TEST_DB="C:\путь\tracker.db"; python -m pytest tests/test_real_db.py`.
+
 ## Известные ограничения
 
 - Один пользователь, без ролей и прав.

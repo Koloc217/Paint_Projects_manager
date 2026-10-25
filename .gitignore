@@ -25,3 +25,6 @@ scheduler_state.json
 .notify_state.json
 .notify.lock
 .deploy_prev
+
+# tests
+.pytest_cache/
