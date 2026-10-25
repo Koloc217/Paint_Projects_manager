@@ -28,7 +28,7 @@ from common import (
     is_chat_bound, ensure_pairing_code, new_pairing_code, unlink_chat, format_pairing_code, parse_iso_date, iso_date,
     MAX_TOKENS, to_tokens, MAX_PROJECT_NAME_LEN, MAX_TASK_NAME_LEN,
 )
-from bot import start_bot_polling, COMMANDS as BOT_COMMANDS, FEATURES as BOT_FEATURES, PHOTO_HELP as BOT_PHOTO_HELP
+from bot import start_bot_polling, active_commands as bot_active_commands, FEATURES as BOT_FEATURES, PHOTO_HELP as BOT_PHOTO_HELP
 from scheduler import scheduler_loop, spawn_script
 import auth
 import pipeline
@@ -114,7 +114,7 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 # <, > and & are still escaped, so the data cannot close the <script> tag.
 templates.env.globals["tr"] = tr          # in templates: {{ tr('common.save') }}
 # Bot help in Settings -> Telegram is built from the same registry as /help in bot.py, so the texts never diverge
-templates.env.globals["bot_help"] = {"commands": BOT_COMMANDS, "photos": BOT_PHOTO_HELP, "features": BOT_FEATURES}
+templates.env.globals["bot_help"] = lambda: {"commands": bot_active_commands(), "photos": BOT_PHOTO_HELP, "features": BOT_FEATURES}
 templates.env.policies["json.dumps_kwargs"] = {"ensure_ascii": False, "sort_keys": True}
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
@@ -233,6 +233,7 @@ class ConfigUpdate(BaseModel):
     dev_mode: bool
     project_cost: float = 10        # a whole number, checked by parse_token_field
     delete_keeps_balance: bool = True
+    calendar_enabled: Optional[bool] = None     # None: an older page without the field, keep the setting
     allow_postpone: bool = True
     stagnation_alert: bool = True
     stagnation_days: int = 10
@@ -293,7 +294,8 @@ def index(request: Request):
     lang = get_lang()
     return templates.TemplateResponse(
         request=request, name="index.html",
-        context={"lang": lang, "i18n": table_for(lang), "date_format": load_config()["DATE_FORMAT"]},
+        context={"lang": lang, "i18n": table_for(lang), "date_format": load_config()["DATE_FORMAT"],
+                 "calendar_enabled": ics.enabled()},
     )
 
 @app.get("/api/data")
@@ -354,6 +356,7 @@ def get_data(db: Session = Depends(get_db)):
         "dev_mode": config.get("DEV_MODE", False),
         "project_cost": to_tokens(config.get("PROJECT_COST", 10), 10),
         "delete_keeps_balance": config.get("DELETE_KEEPS_BALANCE", True),
+        "calendar_enabled": bool(config.get("CALENDAR_ENABLED")),
         "notify_settings": config.get("NOTIFY", DEFAULT_NOTIFY_SETTINGS),
         "schedule_settings": config.get("SCHEDULE", DEFAULT_SCHEDULE),
         "language": get_lang(),
@@ -388,6 +391,8 @@ def update_config_route(data: ConfigUpdate):
         cfg["DEV_MODE"] = data.dev_mode
         cfg["PROJECT_COST"] = project_cost
         cfg["DELETE_KEEPS_BALANCE"] = data.delete_keeps_balance
+        if data.calendar_enabled is not None:
+            cfg["CALENDAR_ENABLED"] = data.calendar_enabled
         if data.language is not None:
             cfg["LANGUAGE"] = normalize_lang(data.language)
         if data.date_format is not None:
@@ -505,6 +510,8 @@ def ics_response(data: bytes, download: bool) -> Response:
 
 @app.get("/api/calendar.ics")
 def calendar_file(request: Request, db: Session = Depends(get_db)):
+    if not ics.enabled():
+        return Response(status_code=404)
     return ics_response(ics.build(db, str(request.base_url)), download=True)
 
 
@@ -515,6 +522,8 @@ def calendar_feed_state():
 
 @app.post("/api/calendar/feed")
 def calendar_feed_set(body: CalendarFeedBody):
+    if not ics.enabled():
+        return {"status": "error", "message": tr("calexp.err_off")}
     return {"status": "ok", **ics.set_feed(body.enabled, body.new_token)}
 
 

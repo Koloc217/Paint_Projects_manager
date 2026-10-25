@@ -6,6 +6,9 @@ Two ways to get it:
     Calendar tab). The token is the only protection of that address, so it is long and can be replaced at any time;
     the address works only where the server is reachable (home network or VPN).
 
+All of it is behind the CALENDAR_ENABLED setting (Settings → General, off by default). Turning the calendar off
+keeps the subscription token, so turning it on again revives the same address.
+
 What goes in: the same as in the app's Calendar tab, minus closed tasks: deadlines of projects that are not
 finished and deadlines of their open tasks. Projects in the trash are left out. Every event is an all-day event
 with a stable UID, so a subscribed calendar updates moved dates instead of adding duplicates.
@@ -14,6 +17,11 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from common import live_projects, live_tasks, is_done, edit_config, config_value, STATUS_ON_HOLD
+
+
+def enabled() -> bool:
+    """The whole calendar is an option (CALENDAR_ENABLED, off by default): the tab, the file, /calendar and the feed."""
+    return bool(config_value("CALENDAR_ENABLED"))
 from i18n import tr, tv
 
 PRODID = "-//Project Hub//Deadlines//EN"
@@ -123,7 +131,7 @@ def feed_settings() -> dict:
 def feed_state() -> dict:
     """For the app: whether the subscription is on and its path (without the host, the browser adds its own)."""
     feed = feed_settings()
-    on = feed["enabled"] and bool(feed["token"])
+    on = enabled() and feed["enabled"] and bool(feed["token"])
     return {"enabled": on, "path": f"/cal/{feed['token']}.ics" if on else None}
 
 
@@ -139,6 +147,6 @@ def set_feed(enabled: bool, new_token: bool = False) -> dict:
 
 def token_ok(token: str) -> bool:
     feed = feed_settings()
-    if not (feed["enabled"] and feed["token"]):
+    if not (enabled() and feed["enabled"] and feed["token"]):
         return False
     return secrets.compare_digest(str(token).encode("utf-8"), feed["token"].encode("utf-8"))

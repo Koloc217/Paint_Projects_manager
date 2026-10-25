@@ -83,8 +83,16 @@ PHOTO_HELP = [                       # the "Photos" section of /help: how to add
 ]
 
 
+OPTIONAL_COMMANDS = {"calendar": ics.enabled}     # shown only while their option is on
+
+
+def active_commands() -> list:
+    """COMMANDS without those whose option is off: for /help, the "/" menu and the help in Settings."""
+    return [(name, key) for name, key in COMMANDS if OPTIONAL_COMMANDS.get(name, lambda: True)()]
+
+
 def commands_text() -> str:
-    return "\n".join(f"• /{name} — {tr(key)}" for name, key in COMMANDS)
+    return "\n".join(f"• /{name} — {tr(key)}" for name, key in active_commands())
 
 
 def welcome_text() -> str:
@@ -107,7 +115,22 @@ def help_text() -> str:
 
 def menu_commands() -> list:
     """List for setMyCommands (the "/" menu in Telegram): descriptions without extra notes, up to 256 characters."""
-    return [{"command": name, "description": tr(key)[:256]} for name, key in COMMANDS]
+    return [{"command": name, "description": tr(key)[:256]} for name, key in active_commands()]
+
+
+_menu_sent = {"value": None}     # the last menu Telegram accepted: resent when an option or the language changes
+
+
+async def sync_menu_commands():
+    menu = menu_commands()
+    if menu == _menu_sent["value"]:
+        return
+    try:
+        res = await tg_request("POST", "setMyCommands", payload={"commands": menu}, timeout_sec=15.0)
+        if res.get("ok"):
+            _menu_sent["value"] = menu
+    except Exception as e:
+        print(f"⚠️ Could not update the command menu: {safe_error(e)}")
 
 # ==================== NETWORK LAYER (direct or through a proxy, see tgproxy.py) ====================
 # One HTTP client is kept and reused, so requests share open connections: without it every call (including the
@@ -1429,7 +1452,10 @@ async def process_update(item: dict):
         if not await send_photo_view(chat_id, "*", 0):
             await send_message(chat_id, tr("bot.photo_none"))
     elif text.startswith("/calendar"):
-        await send_calendar(chat_id)
+        if ics.enabled():
+            await send_calendar(chat_id)
+        else:
+            await send_message(chat_id, tr("bot.calendar_off"))
     elif text.startswith("/stats"):
         await send_message(chat_id, await asyncio.to_thread(build_current_month_stats))
     elif text.startswith("/test_notify"):
@@ -1459,10 +1485,8 @@ async def start_bot_polling():
         try:
             await tg_request("POST", "deleteWebhook", payload={"drop_pending_updates": False}, timeout_sec=15.0)
             print(f"✅ [{datetime.now().strftime('%H:%M:%S')}] Telegram bot started a new session ({tgproxy.describe()})")
-            try:
-                await tg_request("POST", "setMyCommands", payload={"commands": menu_commands()}, timeout_sec=15.0)
-            except Exception as e:
-                print(f"⚠️ Could not update the command menu: {safe_error(e)}")
+            _menu_sent["value"] = None
+            await sync_menu_commands()
         except asyncio.CancelledError:
             return
         except Exception as e:
@@ -1485,6 +1509,7 @@ async def start_bot_polling():
                 print(f"🔄 [{now.strftime('%H:%M:%S')}] Planned reconnect before scheduled notifications...")
                 break
 
+            await sync_menu_commands()          # cheap when nothing changed: compares with what was sent
             try:
                 data = await tg_request("GET", "getUpdates", params={"offset": offset, "timeout": 10}, timeout_sec=20.0)
             except asyncio.CancelledError:
