@@ -612,6 +612,8 @@ function sortTasks(tasksList) {
 
 // Several loads can overlap (window focus + an action); only the newest response is applied,
 // otherwise an older answer arriving late would overwrite fresher data.
+let tgCleanupMode = 'keep_46h';    // digest cleanup in the bot chat (Settings → Telegram)
+
 let loadSeq = 0;
 async function loadData() {
     const seq = ++loadSeq;
@@ -630,6 +632,7 @@ async function loadData() {
         scheduleSettings = data.schedule_settings || {};
         deleteKeepsBalance = data.delete_keeps_balance ?? true;
         applyCalendarExport(!!data.calendar_export);
+        tgCleanupMode = data.tg_cleanup || 'keep_46h';
         languagesList = data.languages || [];
         trashItems = data.trash || [];
         trashDays = data.trash_days || 30;
@@ -943,6 +946,7 @@ function openSettingsModal(tab = 'general') {
     document.getElementById('cfgProjectCost').value = projectCost;
     document.getElementById('cfgDeleteKeepsBalance').checked = deleteKeepsBalance;
     document.getElementById('cfgCalendarExport').checked = calendarExport;
+    document.getElementById('cfgTgCleanup').value = tgCleanupMode;
     document.getElementById('cfgAllowPostpone').checked = notifySettings.allow_postpone ?? true;
     document.getElementById('cfgStagnationAlert').checked = notifySettings.stagnation_alert ?? true;
     document.getElementById('cfgStagnationDays').value = notifySettings.stagnation_days ?? 10;
@@ -968,6 +972,7 @@ async function saveSettings() {
         project_cost: isNaN(costVal) ? 10 : costVal,
         delete_keeps_balance: document.getElementById('cfgDeleteKeepsBalance').checked,
         calendar_export: document.getElementById('cfgCalendarExport').checked,
+        tg_cleanup: document.getElementById('cfgTgCleanup').value,
         allow_postpone: document.getElementById('cfgAllowPostpone').checked,
         stagnation_alert: document.getElementById('cfgStagnationAlert').checked,
         stagnation_days: parseInt(document.getElementById('cfgStagnationDays').value) || 10,

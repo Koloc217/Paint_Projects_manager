@@ -320,6 +320,22 @@
                         </div>
                     </div>
 
+                    <!-- Chat cleanup: what happens to old notification digests (tgclean.py); /clear works in any mode -->
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-2">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <div class="font-semibold text-white">{{ tr('tg.cleanup_title') }}</div>
+                                <div class="text-xs text-slate-400">{{ tr('tg.cleanup_hint') }}</div>
+                            </div>
+                            <select id="cfgTgCleanup" class="shrink-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white outline-none cursor-pointer [color-scheme:dark]">
+                                <option value="keep_46h">{{ tr('tg.cleanup_keep_46h') }}</option>
+                                <option value="latest_only">{{ tr('tg.cleanup_latest_only') }}</option>
+                                <option value="off">{{ tr('tg.cleanup_off') }}</option>
+                            </select>
+                        </div>
+                        <div class="text-[11px] text-slate-500 pt-2 border-t border-slate-800">{{ tr('tg.cleanup_note') }}</div>
+                    </div>
+
                     <!-- Proxy for Telegram: optional, applies at once (the "Apply" button), see tgproxy.py -->
                     <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-3">
                         <label class="flex items-center justify-between cursor-pointer">
