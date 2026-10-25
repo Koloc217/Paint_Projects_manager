@@ -140,13 +140,13 @@ Tokens are whole numbers: a reward and the start cost are accepted only as whole
   the trash nor after erasing: on erasing, the project's contribution (the reward if it was finished, minus the start
   cost) is recorded in `adjustments`. With the option off, the start cost is refunded as soon as the project goes to the
   trash and charged again on restore.
-- **Editing.** The name can always be changed. Priority and deadline of a project only in DEV MODE.
+- **Editing.** The name and priority can always be changed. The project deadline only in DEV MODE.
 - **What counts as "progress"** (`updated_at`): changing status and stage, creating a task, changing a task status,
   changing the paint notebook text (saving it unchanged does not count), applying a pipeline template, closing or
-  postponing a task from the bot, an edit in DEV MODE. Renaming, photos and references do not count.
+  postponing a task from the bot, an edit in DEV MODE. Renaming, changing the priority, photos and references do not count.
 
 ### DEV MODE
-One switch does three things: turns off automatic pushes ("silent mode"), allows editing project priority and
+One switch does three things: turns off automatic pushes ("silent mode"), allows editing the project
 deadline, and allows creating projects without tokens.
 
 ---
@@ -191,7 +191,7 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
 - **Clicking the name or the badges** opens the project card.
 
 ### Open project card
-- Header: photo (change and remove), the name with a pencil (rename; in DEV MODE also priority and deadline),
+- Header: photo (change and remove), the name with a pencil (name and priority; in DEV MODE also the deadline),
   an "open in a new tab" button, "Pipeline template", "+ Task".
 - **Sub-tabs** (only in the compact card over the dashboard): "Tasks" — the paint notebook and tasks,
   "Photos" — references and progress (the number of images next to the name). The open sub-tab is kept while the card
@@ -554,7 +554,7 @@ Responses look like `{"status": "ok"}` or `{"status": "error", "message": "..."}
 | `GET`, `POST /api/telegram/proxy`, `POST /api/telegram/proxy/check` | Telegram proxy: state (without the password), save, check the connection |
 | `POST /api/action` | change project status and stage, task status |
 | `POST /api/projects` | create a project |
-| `POST /api/projects/{id}/edit`, `/rename` | edit (DEV MODE); rename (always) |
+| `POST /api/projects/{id}/edit`, `/rename` | edit including the deadline (DEV MODE); name and priority (always) |
 | `POST`, `DELETE /api/projects/{id}/photo` | upload and remove the photo |
 | `POST /api/projects/{id}/refs`, `DELETE …/refs/{ref_id}` | add and remove a reference |
 | `POST /api/projects/{id}/refs/order` | new reference order (`ids`: the full list in order) |

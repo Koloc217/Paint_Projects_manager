@@ -1601,9 +1601,8 @@ function openEditModal(id) {
     if(!p) return;
     document.getElementById('epId').value = p.ID; document.getElementById('epName').value = p.Name;
     document.getElementById('epPriority').value = p.Priority; document.getElementById('epEstimate').value = p.Estimate || '';
-    // Priority and deadline are editable in DEV MODE only; the name always.
+    // Name and priority are always editable; the deadline in DEV MODE only.
     document.getElementById('epDevFields').classList.toggle('hidden', !isDevMode);
-    document.getElementById('epTitle').innerText = isDevMode ? tr('project.edit') : tr('project.rename');
     openModal('editProjectModal');
 }
 
@@ -1618,13 +1617,13 @@ async function saveProjectEdit() {
         body = { name: name, priority: document.getElementById('epPriority').value, estimate: document.getElementById('epEstimate').value || null };
     } else {
         url = `/api/projects/${id}/rename`;
-        body = { name: name };
+        body = { name: name, priority: document.getElementById('epPriority').value };
     }
     const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
     const result = await res.json();
     if(result.status === "error") return showToast(result.message || tr('err.save_failed'), "error");
     closeModal('editProjectModal');
-    showToast(isDevMode ? tr('toast.project_updated') : tr('toast.project_renamed'), "success");
+    showToast(tr('toast.project_updated'), "success");
     loadData();
 }
 

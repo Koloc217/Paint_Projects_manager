@@ -194,6 +194,7 @@ class ProjectEdit(BaseModel):
 
 class ProjectRename(BaseModel):
     name: str
+    priority: Optional[str] = None      # None: leave the priority as is
 
 class PhotoUpload(BaseModel):
     image: str  # data:image/jpeg;base64,... (the browser resizes and converts to JPEG)
@@ -671,16 +672,20 @@ def edit_project(project_id: str, data: ProjectEdit, db: Session = Depends(get_d
 
 @app.post("/api/projects/{project_id}/rename")
 def rename_project(project_id: str, data: ProjectRename, db: Session = Depends(get_db)):
-    """Renaming is always allowed, regardless of DEV_MODE."""
+    """Name and priority: always allowed, regardless of DEV_MODE (the deadline needs DEV_MODE, see /edit)."""
     name, err = validate_name(data.name)
     if err:
         return {"status": "error", "message": err}
+    if data.priority is not None and data.priority not in PRIORITIES:
+        return {"status": "error", "message": tr("err.bad_value")}
     proj = get_project(db, project_id)
     if not proj:
         return {"status": "error", "message": tr("err.project_not_found")}
-    # updated_at is left alone: a rename is not progress on the project
+    # updated_at is left alone: renaming or reprioritizing is not progress on the project
     # (otherwise it would reset the stagnation detector).
     proj.name = name
+    if data.priority is not None:
+        proj.priority = data.priority
     db.commit()
     return {"status": "ok", "name": name}
 
