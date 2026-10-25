@@ -45,7 +45,7 @@ and starting a new project costs tokens. The goal is to finish what you start in
 | `scheduler.py` | Built-in schedule (replaces cron), runs scripts as subprocesses |
 | `backup.py` | Sends a copy of projects and tasks to Google Sheets through Apps Script |
 | `database.py` | SQLAlchemy models and automatic schema migration |
-| `common.py` | Config (cached, atomic writes), canonical values, token balance, escaping, chat linking |
+| `common.py` | Config (cached, atomic writes under a lock, `edit_config()`), canonical values, token balance, escaping, trimming Telegram messages, chat linking |
 | `storage.py` | Used space: app, database, photos, logs (folder walk, Windows and Linux) |
 | `pipeline.py` | Pipeline templates: built-in defaults, storage and validation in `config.json` |
 | `vacation.py` | Vacation: moving deadlines, state, ending early |
@@ -55,6 +55,7 @@ and starting a new project costs tokens. The goal is to finish what you start in
 | `tls.py` | Basic HTTPS: a self-signed certificate via `openssl`, uvicorn options, `python tls.py status \| cert [--force]` |
 | `locales.json` | All texts in one file, blocks per language (`ru-RU`, `en-US`) |
 | `tools/check_locales.py` | Checks `locales.json` |
+| `tools/build_assets.py` | Builds `static/vendor/` (Tailwind CSS, Chart.js) and `static/fonts/` (theme fonts) |
 | `tools/deploy.sh`, `tools/clean.sh` | Deploying a branch to the device (database copy, update, restart, rollback); cleaning up files of old versions |
 | `templates/index.html`, `templates/components/{nav,tabs,modals,toasts}.html` | Page markup |
 | `static/app.js` | UI logic |
@@ -90,8 +91,8 @@ indexes on `tasks.project_id` and `projects.deleted_at` in older databases (`CRE
 | `stage` | `—`, `Печать` (Printing), `Шлифовка` (Sanding), `Сборка` (Assembly), `Грунт` (Priming), `Покрас` (Painting) |
 | `priority` | `Low`, `Medium`, `High`, `Critical` |
 | `estimate` | project deadline |
-| `token` | tokens spent to start it (0 in DEV MODE) |
-| `token_reward` | reward for finishing |
+| `token` | tokens spent to start it (0 in DEV MODE), a whole number |
+| `token_reward` | reward for finishing, a whole number; shown only on the project card in the list |
 | `paint_notes` | paint notebook with recipes |
 | `photo` | file name of the photo in `photos/` |
 | `updated_at` | last "progress" on the project (for the stagnation detector) |
@@ -99,7 +100,7 @@ indexes on `tasks.project_id` and `projects.deleted_at` in older databases (`CRE
 
 **`tasks`**: `id` (`TSK-XXXXXX`), `project_id`, `task_name`, `deadline`, `status` (`Не начато` (Not started),
 `В процессе` (In progress), `Закончен` (Done)), `postponed` (how many times the deadline was moved from the bot),
-`completed_at`.
+`completed_at`, `closed_from` (the status before it was closed together with its project; empty if closed by hand).
 
 **`project_refs`** — paint references: `project_id`, `filename` (original), `thumb` (preview), `position` (order in the card), `created_at`.
 
@@ -118,13 +119,18 @@ interface language. "Finished" is any of the statuses `закончен`, `за�
 
 **Balance** = `INITIAL_TOKENS` + rewards of finished projects − start cost of all projects + adjustments.
 
+Tokens are whole numbers: a reward and the start cost are accepted only as whole numbers from 0 to 1,000,000
+(fractions, NaN and Infinity are rejected); old fractional values in the database are rounded once at start-up.
+
 - **Creating a project.** If DEV MODE is off and the balance is below `PROJECT_COST`, the project is not created (an
   error with the current balance). Otherwise the project gets `token = PROJECT_COST` (0 in DEV MODE).
 - **The reward** counts once the project gets the "Finished" status.
-- **Finishing a project.** `completed_at` is set, and all its open tasks become "Done" with the current date.
-  Tasks closed earlier keep their own completion date, so the analytics charts do not shift. Setting the same status
-  again does not change the completion date. Returning a project from the Hall of Fame ("Return to work") clears
-  `completed_at`; the tasks stay closed.
+- **Finishing a project.** If the project has open tasks, the UI asks for confirmation first. `completed_at` is set,
+  all open tasks become "Done" with the current date, and their previous status is stored in `closed_from`. Tasks
+  closed earlier keep their own completion date, so the analytics charts do not shift. Setting the same status again
+  does not change the completion date. Returning a project to work (from the Hall of Fame or the status list) clears
+  `completed_at` and reopens the tasks that were closed together with the project, with their previous status; tasks
+  closed by hand stay closed.
 - **Deleting a project = the trash.** The project gets `deleted_at` and disappears from lists, the bot, notifications,
   the backup and the photo feed; its tasks, photos and references stay where they are. From the trash the project can
   be restored, erased right away, or left alone: after `TRASH_DAYS` days (30 by default) a background check erases it
@@ -256,7 +262,8 @@ the server by the file content; the file name is generated by the server.
 - **PWA.** The manifest and icons allow adding the page to the home screen; the "App on your phone" block in
   Settings → General shows an "Install" button (Chrome, the `beforeinstallprompt` event) or a hint for the browser.
   Service worker (only on trusted HTTPS or `localhost`): pages and `/static/*` go network first, without a network a page
-  is replaced by `static/offline.html`; CDN libraries come from the cache and are refreshed in the background;
+  is replaced by `static/offline.html`; Tailwind, Chart.js and the fonts are local files (`static/vendor/`,
+  `static/fonts/`), no CDN;
   `/api/*` and `/photos/*` are never cached. After editing `sw.js`, increase `VERSION`.
 - **Themes:** Standard, Cyberpunk, Warhammer 40k, SCP Dossier, Workbench, Synthwave, JRPG (FFVII), Model Manual,
   Hardware PCB. The choice is stored in the browser (`localStorage`, key `ph_skin`); buttons and modals are styled for
@@ -392,7 +399,8 @@ task shows ⏳ (or ⏳×N); in the push the ⏳×N counter appears from the seco
    hold, from the most overdue to the nearest. Tasks without a deadline are not included. Below the message there are up
    to 4 "close" and "+2d" buttons for the most urgent tasks.
 2. **Stagnation detector:** projects "In progress" without progress for `stagnation_days` days (10 by default).
-3. **Friday plan** (on Fridays): up to three open tasks of every project "In progress", nearest deadline first.
+3. **Friday plan** (on Fridays): up to three open tasks of every project "In progress", nearest deadline first, and
+   a separate list of projects "In progress" without a single open task (nothing to plan for them).
 4. **Report for the previous month** is sent on the 1st (if enabled) before the evening digest.
 5. If there is nothing to say, an "All on track!" message with the current focus is sent.
 
@@ -616,7 +624,7 @@ PNG, GIF, WebP); SVG and a faked extension are rejected.
 - HTTPS is off by default, the certificate is self-signed (a browser warning on every device), no renewal, no redirect
   from HTTP.
 - The Google Sheets backup does not include photos, references or progress photos.
-- PWA without trusted HTTPS: only a shortcut on the home screen, no service worker. Libraries load from a CDN.
+- PWA without trusted HTTPS: only a shortcut on the home screen, no service worker.
 - Receiving photos in Telegram was tested only against a stubbed Telegram API; it should be checked once on a live bot.
 - Step names are edited in Settings → Templates; the deadline window only has dates and checkboxes. Task names are
   stored in the language active at creation time.

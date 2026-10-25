@@ -63,7 +63,11 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 
 ## Stack
 
-Python 3.10+, FastAPI, SQLAlchemy + SQLite, Jinja2, httpx, Tailwind (CDN), Chart.js, Telegram Bot API.
+Python 3.10+, FastAPI, SQLAlchemy + SQLite, Jinja2, httpx, Tailwind, Chart.js, Telegram Bot API.
+
+The interface does not need internet access: Tailwind CSS, Chart.js and the theme fonts live in `static/vendor/` and
+`static/fonts/`. After adding new Tailwind classes to templates or JS: `python tools/build_assets.py css` (needs Node.js,
+only on the machine where you build).
 
 ## Getting started
 
@@ -141,8 +145,8 @@ touch screens. The styles live in `static/mobile.css` and change nothing on desk
 - **Android (Chrome):** if the page is opened over trusted HTTPS, an "Install" button appears in the settings
   (or Chrome offers the installation itself). Otherwise: menu ⋮ → "Add to Home screen".
 
-**What depends on HTTPS.** The browser enables the service worker (the "No connection" offline page, caching of CDN
-libraries, full installation in Chrome) only on `https` with a certificate the device trusts, or on `localhost`.
+**What depends on HTTPS.** The browser enables the service worker (the "No connection" offline page, caching of the
+interface files, full installation in Chrome) only on `https` with a certificate the device trusts, or on `localhost`.
 Over plain `http` in a home network an icon can still be added, but on Android it is a shortcut that opens in a browser
 tab. To make the phone trust the certificate:
 
@@ -181,7 +185,8 @@ static/dropzone.js, dropzone.css                        drag and drop of images 
 static/themes.css, mobile.css, card-tab.css          themes, phone layout, card in a separate tab
 static/sw.js, manifest.webmanifest, pwa.js, icons/, offline.html   PWA: service worker, manifest, install, icons, offline page
 static/backgrounds/                                  theme background images
-tools/                                               check_locales.py, check_theme.py, deploy.sh, clean.sh
+static/vendor/, static/fonts/                        Tailwind CSS, Chart.js and fonts (built by tools/build_assets.py)
+tools/                                               check_locales.py, check_theme.py, build_assets.py, deploy.sh, clean.sh
 logs/                                                app.log, notify.log, backup.log (created automatically)
 PLANS.md                                             postponed ideas and decisions (in Russian)
 ```
@@ -191,6 +196,7 @@ PLANS.md                                             postponed ideas and decisio
 ```bash
 python tools/check_locales.py      # translation keys: what is used, what is missing
 python tools/check_theme.py        # every theme in the registry (or one: theme-name)
+python tools/build_assets.py css   # rebuild Tailwind CSS after new classes (without css: also fonts and Chart.js)
 ```
 
 ## Known limitations
@@ -200,8 +206,7 @@ python tools/check_theme.py        # every theme in the registry (or one: theme-
   once. There is no automatic certificate renewal.
 - No redirect from HTTP to HTTPS: there is one port, serving either HTTP or HTTPS.
 - The backup does not include photos, references or progress photos.
-- Without trusted HTTPS the PWA is limited (a shortcut instead of an app, no offline page). Tailwind and Chart.js
-  load from a CDN, so the first start on a phone needs internet access (later they come from the service worker cache).
+- Without trusted HTTPS the PWA is limited (a shortcut instead of an app, no offline page).
 - Catching up missed runs is limited: pushes within 3 hours on the same day, the backup within 24 hours, only the latest run.
 - The database runs in WAL mode: do not copy `tracker.db` while the app is running (stop the app or use
   `sqlite3 tracker.db ".backup copy.db"`).

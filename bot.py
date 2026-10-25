@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, Reference, ensure_schema
 import progress
 from common import (
-    BASE_DIR, esc, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
+    BASE_DIR, esc, to_tokens, clip_lines, short_text, TG_ALERT_LIMIT, MAX_TASK_NAME_LEN, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
     is_done as status_done, STAGES, STATUS_IN_WORK, STATUS_ON_HOLD, STATUS_PLANNED, STATUS_FINISHED,
     TASK_NOT_STARTED, TASK_IN_PROGRESS,
@@ -204,7 +204,8 @@ async def edit_message_text(chat_id: int, message_id: int, text: str, reply_mark
         print(f"[BOT ERROR] edit_message_text failed: {safe_error(e)}")
 
 async def answer_callback(callback_id: str, text: str = "", show_alert: bool = False):
-    payload = {"callback_query_id": callback_id, "text": text, "show_alert": show_alert}
+    # Telegram silently drops an answer longer than 200 characters: the user would see no confirmation at all
+    payload = {"callback_query_id": callback_id, "text": short_text(text, TG_ALERT_LIMIT), "show_alert": show_alert}
     try:
         await tg_request("POST", "answerCallbackQuery", payload=payload, timeout_sec=10.0)
     except Exception:
@@ -241,12 +242,27 @@ def format_deadline(dt, is_done: bool = False) -> str:
     elif diff <= 3: return f"🔥 {tr('bot.burning_lc')} ({date_str})"
     return f"{tr('bot.until')} {date_str}"
 
+CARD_MAX_OPEN = 15          # open tasks listed in a card; the rest becomes "…and N more"
+CARD_MAX_BUTTONS = 8        # task button rows under a card (the nearest deadlines first)
+URGENT_MAX = 8              # urgent tasks of other projects under the focus card
+PROJECT_BUTTONS_MAX = 40    # project buttons in lists (Telegram allows about 100 buttons per message)
+BTN_NAME_LEN = 18           # task name on a button
+
+
+def more_line(n: int) -> str:
+    return f"<i>… {tr('common.and_more', n=n)}</i>"
+
+
 def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True):
+    """Text and buttons of a project card. Closed tasks are folded into one line and the open ones are capped,
+    so the card stays under Telegram's message limit however many tasks the project collects."""
     def task_sort_key(t):
         d = to_date(t.deadline)
         return (1 if status_done(t.status) else 0, 1 if d is None else 0, d or date(2099, 1, 1))
 
     tasks.sort(key=task_sort_key)
+    open_tasks = [t for t in tasks if not status_done(t.status)]
+    closed_count = len(tasks) - len(open_tasks)
 
     stage_str = getattr(proj, 'stage', '—') or '—'
     proj_is_done = status_done(proj.status)
@@ -256,29 +272,31 @@ def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True)
     lines = [
         f"{header_icon} {esc(proj.name)}</b>",
         f"📌 {tr('bot.status')}: <b>{esc(tv(proj.status))}</b> | 🎨 {tr('project.stage')}: <b>{esc(tv(stage_str))}</b>",
-        f"⚡ {tr('bot.priority')}: {priority_badge(proj.priority)} | 💰 {tr('bot.reward')}: <b>+{proj.token_reward}</b> ({tr('common.balance')}: {tokens})",
-        f"📅 {tr('bot.project_deadline')}: {est_str}\n",
-        f"<b>{tr('bot.task_list')}:</b>"
+        f"⚡ {tr('bot.priority')}: {priority_badge(proj.priority)} | 💰 {tr('common.balance')}: {tokens}",
+        f"📅 {tr('bot.project_deadline')}: {est_str}",
+        "",
+        f"<b>{tr('bot.task_list')}:</b>",
     ]
 
     keyboard = []
     if not tasks:
         lines.append(f"<i>{tr('bot.no_tasks')}</i>")
-    else:
-        for t in tasks:
-            is_done = status_done(t.status)
-            in_progress = str(t.status).strip() == TASK_IN_PROGRESS
-            icon = "✅" if is_done else ("🔄" if in_progress else "⏸️")
-            post_mark = postpone_mark(getattr(t, 'postponed', 0))
-            lines.append(f"{icon} {esc(t.task_name)}{post_mark} <i>({format_deadline(t.deadline, is_done)})</i>")
-
-            if not is_done:
-                short_name = t.task_name[:18] + ".." if len(t.task_name) > 18 else t.task_name
-                row = []
-                if not in_progress:
-                    row.append({"text": f"🔄 {tr('bot.btn_start_work')}: {short_name}", "callback_data": f"t_prog:{t.id}:{proj.id}"})
-                row.append({"text": f"✅ {tr('bot.btn_done')}: {short_name}", "callback_data": f"t_done:{t.id}:{proj.id}"})
-                keyboard.append(row)
+    for t in open_tasks[:CARD_MAX_OPEN]:
+        in_progress = str(t.status).strip() == TASK_IN_PROGRESS
+        icon = "🔄" if in_progress else "⏸️"
+        post_mark = postpone_mark(getattr(t, 'postponed', 0))
+        lines.append(f"{icon} {esc(t.task_name)}{post_mark} <i>({format_deadline(t.deadline, False)})</i>")
+        if len(keyboard) < CARD_MAX_BUTTONS:
+            short_name = short_text(t.task_name, BTN_NAME_LEN)
+            row = []
+            if not in_progress:
+                row.append({"text": f"🔄 {tr('bot.btn_start_work')}: {short_name}", "callback_data": f"t_prog:{t.id}:{proj.id}"})
+            row.append({"text": f"✅ {tr('bot.btn_done')}: {short_name}", "callback_data": f"t_done:{t.id}:{proj.id}"})
+            keyboard.append(row)
+    if len(open_tasks) > CARD_MAX_OPEN:
+        lines.append(more_line(len(open_tasks) - CARD_MAX_OPEN))
+    if closed_count:
+        lines.append(f"✅ <i>{tr('bot.closed_count', n=closed_count)}</i>")
 
     keyboard.append([{"text": f"🎨 {tr('bot.change_stage')} ({tv(stage_str)})", "callback_data": f"stage_menu:{proj.id}"},
                      {"text": f"➕ {tr('bot.btn_add_task')}", "callback_data": f"tk_new:{proj.id}"}])
@@ -380,22 +398,24 @@ def build_current_focus_view(specific_proj_id: str = None):
         if burning_other:
             burning_other.sort(key=lambda x: x[2])  # most overdue first
             
-            extra_lines = [f"\n🚨 <b>{tr('bot.urgent_other')}:</b>"]
-            for t, p, diff in burning_other:
+            extra_lines = ["", f"🚨 <b>{tr('bot.urgent_other')}:</b>"]
+            for t, p, diff in burning_other[:URGENT_MAX]:
                 date_str = fmt_date(to_date(t.deadline))
                 diff_text = f"{tr('bot.overdue_lc')} ({date_str})" if diff < 0 else f"{tr('bot.burning_lc')} ({date_str})"
                 extra_lines.append(f"• <b>{esc(p.name)}</b>: {esc(t.task_name)} <i>({diff_text})</i>")
-            
+            if len(burning_other) > URGENT_MAX:
+                extra_lines.append(more_line(len(burning_other) - URGENT_MAX))
             text += "\n" + "\n".join(extra_lines)
 
-        return text, markup
+        # Long project and task names can still add up: a message over the limit would not arrive at all
+        return "\n".join(clip_lines(text.split("\n"), more=more_line)), markup
     finally:
         db.close()
 
 def build_stage_menu_view(proj_id: str):
     db = SessionLocal()
     try:
-        proj = db.query(Project).filter(Project.id == proj_id).first()
+        proj = _live_project(db, proj_id)
         if not proj:
             return tr("err.project_not_found"), None
         stage_str = getattr(proj, 'stage', '—') or '—'
@@ -414,14 +434,15 @@ def build_all_projects_view():
         active = [p for p in projects if not status_done(p.status)]
         if not active:
             return tr("project.no_active"), None
-        lines = [f"📋 <b>{tr('project.active_list')}:</b>\n"]
+        lines = [f"📋 <b>{tr('project.active_list')}:</b>", ""]
         keyboard = []
         for p in active:
             st = getattr(p, 'stage', '—')
             lines.append(f"• <b>{esc(p.name)}</b> — {esc(tv(p.status))} [{esc(tv(st))}] ({priority_badge(p.priority)})")
-            keyboard.append([{"text": f"🔍 {p.name}", "callback_data": f"open_p:{p.id}"}])
+            if len(keyboard) < PROJECT_BUTTONS_MAX:
+                keyboard.append([{"text": f"🔍 {short_text(p.name, 60)}", "callback_data": f"open_p:{p.id}"}])
         keyboard.append([{"text": f"➕ {tr('bot.btn_add_task')}", "callback_data": "tk_new:*"}])
-        return "\n".join(lines), {"inline_keyboard": keyboard}
+        return "\n".join(clip_lines(lines, more=more_line)), {"inline_keyboard": keyboard}
     finally:
         db.close()
 
@@ -437,7 +458,7 @@ def build_current_month_stats():
 
         closed_tasks = [t for t in tasks if t.completed_at and t.completed_at >= month_start]
         closed_projs = [p for p in projects if p.completed_at and p.completed_at >= month_start]
-        earned_month = sum((p.token_reward or 0) for p in closed_projs)
+        earned_month = sum(to_tokens(p.token_reward) for p in closed_projs)
 
         balance, _ = compute_balance(db, config)
 
@@ -608,7 +629,8 @@ async def handle_photo_message(chat_id: int, msg: dict):
     _pending_photos[token] = {"files": [file_id], "caption": note, "ts": time.time()}
     if group:
         _photo_groups[group] = {"token": token, "project": None, "ts": time.time()}
-    keyboard = [[{"text": f"🎨 {name}", "callback_data": f"ph_to:{token}:{pid}"}] for pid, name in active]
+    keyboard = [[{"text": f"🎨 {short_text(name, 60)}", "callback_data": f"ph_to:{token}:{pid}"}]
+                for pid, name in active[:PROJECT_BUTTONS_MAX]]
     keyboard.append([{"text": f"✖ {tr('common.cancel')}", "callback_data": f"ph_cancel:{token}"}])
     await send_message(chat_id, f"📷 {tr('bot.photo_which')}", {"inline_keyboard": keyboard})
 
@@ -658,7 +680,7 @@ def build_share(project_id: str):
     """(files, caption, extra_text) for the project, or None if there is no such project."""
     db = SessionLocal()
     try:
-        proj = db.query(Project).filter(Project.id == project_id).first()
+        proj = _live_project(db, project_id)
         if not proj:
             return None
         files = []
@@ -885,7 +907,7 @@ async def handle_photo_callback(cb: dict, data: str) -> bool:
 # ==================== TASK BUILDER ====================
 # /task or the "Task" button: project -> name -> deadline -> created. The draft lives in memory for one hour.
 
-MAX_TASK_NAME = 120
+MAX_TASK_NAME = MAX_TASK_NAME_LEN
 _task_drafts = {}          # chat_id -> {"step": ..., "project": id|None, "name": str|None, "ts": float}
 
 
@@ -937,7 +959,7 @@ def _project_choice_view():
         db.close()
     if not active:
         return tr("bot.task_no_projects"), None
-    keyboard = [[{"text": f"📁 {name}", "callback_data": f"tk_p:{pid}"}] for pid, name in active]
+    keyboard = [[{"text": f"📁 {short_text(name, 60)}", "callback_data": f"tk_p:{pid}"}] for pid, name in active[:PROJECT_BUTTONS_MAX]]
     keyboard.append(_cancel_row())
     return f"➕ {tr('bot.task_pick_project')}", {"inline_keyboard": keyboard}
 
@@ -1171,17 +1193,18 @@ async def handle_callback(cb: dict):
             # t_done comes from a project card, n_done straight from a push notification
             parts = data.split(":")
             from_push = parts[0] == "n_done"
-            task = db.query(Task).filter(Task.id == parts[1]).first()
+            task = _live_task(db, parts[1])
             if not task:
                 await answer_callback(cb_id, tr("bot.task_not_found"))
                 return
             if not status_done(task.status):           # a second press must not move the completion date
                 task.status = STATUS_FINISHED
                 task.completed_at = now
+                task.closed_from = ""
                 _touch_project(db, task.project_id, now)
                 db.commit()
             if from_push:
-                await answer_callback(cb_id, f"✅ {tr('bot.task_closed_named', name=task.task_name)}", show_alert=True)
+                await answer_callback(cb_id, f"✅ {tr('bot.task_closed_named', name=short_text(task.task_name, MAX_TASK_NAME_LEN))}", show_alert=True)
             else:
                 await answer_callback(cb_id, f"✅ {tr('bot.task_closed')}")
             card_project = task.project_id if from_push else (parts[2] if len(parts) > 2 else None)
@@ -1192,7 +1215,7 @@ async def handle_callback(cb: dict):
             # Moves the deadline by +2 days from a push. The first time silently, repeated ones with a snarky
             # comment (text only, no token penalty).
             task_id = data.split(":", 1)[1]
-            task = db.query(Task).filter(Task.id == task_id).first()
+            task = _live_task(db, task_id)
             if not task:
                 await answer_callback(cb_id, tr("bot.task_not_found"))
                 return
@@ -1222,13 +1245,15 @@ async def handle_callback(cb: dict):
         elif data.startswith("t_prog:"):
             parts = data.split(":")
             task_id, proj_id = parts[1], (parts[2] if len(parts) > 2 else None)
-            task = db.query(Task).filter(Task.id == task_id).first()
-            if task:
+            task = _live_task(db, task_id)
+            if task and not status_done(task.status):   # an old button must not reopen a closed task
                 task.status = TASK_IN_PROGRESS
                 task.completed_at = None
                 _touch_project(db, task.project_id, now)
                 db.commit()
                 await answer_callback(cb_id, f"🔄 {tr('bot.task_in_progress')}")
+            elif task:
+                await answer_callback(cb_id, f"✅ {tr('bot.task_closed')}")
             else:
                 await answer_callback(cb_id, tr("bot.task_not_found"))
             text, markup = await asyncio.to_thread(build_current_focus_view, proj_id)
@@ -1242,12 +1267,14 @@ async def handle_callback(cb: dict):
 
         elif data.startswith("p_stage:"):
             _, proj_id, new_stage = data.split(":", 2)
-            proj = db.query(Project).filter(Project.id == proj_id).first()
+            proj = _live_project(db, proj_id)
             if proj and new_stage in STAGES:
                 proj.stage = new_stage
                 proj.updated_at = now
                 db.commit()
                 await answer_callback(cb_id, f"🎨 {tr('project.stage')}: {tv(new_stage)}")
+            elif not proj:
+                await answer_callback(cb_id, tr("err.project_not_found"))
             else:
                 await answer_callback(cb_id)
             text, markup = await asyncio.to_thread(build_current_focus_view, proj_id)
@@ -1275,6 +1302,18 @@ async def handle_callback(cb: dict):
         traceback.print_exc()
     finally:
         db.close()
+
+
+def _live_project(db, project_id: str):
+    """A project outside the trash, or None. Buttons of old messages stay clickable after a project is deleted:
+    they must not change a project in the trash."""
+    return db.query(Project).filter(Project.id == project_id, Project.deleted_at.is_(None)).first()
+
+
+def _live_task(db, task_id: str):
+    """A task whose project is outside the trash, or None."""
+    return (db.query(Task).filter(Task.id == task_id)
+            .filter(Task.project_id.in_(db.query(Project.id).filter(Project.deleted_at.is_(None)))).first())
 
 
 def _touch_project(db, project_id: str, now: datetime) -> None:

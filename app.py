@@ -1,5 +1,6 @@
 import os
 import re
+import math
 import time
 import uuid
 import base64
@@ -23,8 +24,9 @@ from i18n import tr, tv, get_lang, table_for, available_languages, normalize_lan
 from common import (
     BASE_DIR, DEFAULT_NOTIFY_SETTINGS, DEFAULT_SCHEDULE, DAY_KEYS, DAY_LABELS,
     PROJECT_STATUSES, TASK_STATUSES, STAGES, PRIORITIES, STATUS_PLANNED, TASK_NOT_STARTED, STATUS_FINISHED,
-    is_done, load_config, save_config, compute_balance, DATE_FORMATS, detect_image_ext, live_projects, live_tasks,
+    is_done, load_config, edit_config, compute_balance, DATE_FORMATS, detect_image_ext, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, new_pairing_code, unlink_chat, format_pairing_code, parse_iso_date, iso_date,
+    MAX_TOKENS, to_tokens, MAX_PROJECT_NAME_LEN, MAX_TASK_NAME_LEN,
 )
 from bot import start_bot_polling, COMMANDS as BOT_COMMANDS, FEATURES as BOT_FEATURES, PHOTO_HELP as BOT_PHOTO_HELP
 from scheduler import scheduler_loop, spawn_script
@@ -36,8 +38,7 @@ import storage
 
 ensure_schema()
 
-MAX_NAME_LEN = 120
-MAX_TASK_NAME_LEN = 300
+MAX_NAME_LEN = MAX_PROJECT_NAME_LEN
 MAX_NOTES_LEN = 20000
 MAX_PHOTO_BYTES = 6 * 1024 * 1024
 MAX_REFS = 20
@@ -62,6 +63,16 @@ def validate_name(raw, max_len=MAX_NAME_LEN, empty_key="err.project_name_empty")
     if len(name) > max_len:
         return None, tr("err.name_too_long", n=max_len)
     return name, None
+
+
+def parse_token_field(value):
+    """(whole_number, None) or (None, error_text) for a token amount from the client (a reward or a cost).
+    Rejects fractions, negatives, NaN/Infinity and absurdly large values."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        return None, tr("err.tokens_whole", n=MAX_TOKENS)
+    if value != int(value) or not 0 <= value <= MAX_TOKENS:
+        return None, tr("err.tokens_whole", n=MAX_TOKENS)
+    return int(value), None
 
 
 def parse_date_field(value):
@@ -172,7 +183,7 @@ class ProjectCreate(BaseModel):
     name: str
     priority: str = "Medium"
     estimate: Optional[str] = None
-    token_reward: float = 0.0
+    token_reward: float = 0         # a whole number; float here only so that 2.5 gets a readable error, not a 422
     status: str = STATUS_PLANNED
 
 class ProjectEdit(BaseModel):
@@ -219,7 +230,7 @@ class DaySchedule(BaseModel):
 
 class ConfigUpdate(BaseModel):
     dev_mode: bool
-    project_cost: float = 10.0
+    project_cost: float = 10        # a whole number, checked by parse_token_field
     delete_keeps_balance: bool = True
     allow_postpone: bool = True
     stagnation_alert: bool = True
@@ -301,7 +312,7 @@ def get_data(db: Session = Depends(get_db)):
         "Stage": p.stage or "—",
         "Priority": p.priority,
         "Estimate": iso_date(p.estimate),
-        "Token Reward": p.token_reward,
+        "Token Reward": to_tokens(p.token_reward),
         "PaintNotes": p.paint_notes or "",
         "Photo": photo_url(p.photo, covers),
         "CompletedAt": iso_date(p.completed_at),
@@ -340,7 +351,7 @@ def get_data(db: Session = Depends(get_db)):
         "total_tokens": current_tokens,
         "earned_tokens": earned,
         "dev_mode": config.get("DEV_MODE", False),
-        "project_cost": config.get("PROJECT_COST", 10),
+        "project_cost": to_tokens(config.get("PROJECT_COST", 10), 10),
         "delete_keeps_balance": config.get("DELETE_KEEPS_BALANCE", True),
         "notify_settings": config.get("NOTIFY", DEFAULT_NOTIFY_SETTINGS),
         "schedule_settings": config.get("SCHEDULE", DEFAULT_SCHEDULE),
@@ -365,32 +376,34 @@ def update_config_route(data: ConfigUpdate):
         return {"status": "error", "message": tr("err.unknown_language")}
     if data.date_format is not None and data.date_format not in DATE_FORMATS:
         return {"status": "error", "message": tr("err.bad_date_format")}
+    project_cost, err = parse_token_field(data.project_cost)
+    if err:
+        return {"status": "error", "message": err}
 
-    cfg = load_config()
-    days = dict(cfg["SCHEDULE"]["notify_days"])
-    for key, day in (data.notify_days or {}).items():
-        days[key] = {"enabled": day.enabled, "time": day.time}
-    cfg["DEV_MODE"] = data.dev_mode
-    cfg["PROJECT_COST"] = max(0.0, data.project_cost)
-    cfg["DELETE_KEEPS_BALANCE"] = data.delete_keeps_balance
-    if data.language is not None:
-        cfg["LANGUAGE"] = normalize_lang(data.language)
-    if data.date_format is not None:
-        cfg["DATE_FORMAT"] = data.date_format
-    cfg["NOTIFY"] = {
-        "allow_postpone": data.allow_postpone,
-        "stagnation_alert": data.stagnation_alert,
-        "stagnation_days": min(90, max(1, data.stagnation_days)),
-        "friday_digest": data.friday_digest,
-        "monthly_report": data.monthly_report
-    }
-    cfg["SCHEDULE"] = {
-        "notify_enabled": data.notify_enabled,
-        "notify_days": days,
-        "backup_enabled": data.backup_enabled,
-        "backup_time": data.backup_time
-    }
-    save_config(cfg)
+    with edit_config() as cfg:
+        days = dict(cfg["SCHEDULE"]["notify_days"])
+        for key, day in (data.notify_days or {}).items():
+            days[key] = {"enabled": day.enabled, "time": day.time}
+        cfg["DEV_MODE"] = data.dev_mode
+        cfg["PROJECT_COST"] = project_cost
+        cfg["DELETE_KEEPS_BALANCE"] = data.delete_keeps_balance
+        if data.language is not None:
+            cfg["LANGUAGE"] = normalize_lang(data.language)
+        if data.date_format is not None:
+            cfg["DATE_FORMAT"] = data.date_format
+        cfg["NOTIFY"] = {
+            "allow_postpone": data.allow_postpone,
+            "stagnation_alert": data.stagnation_alert,
+            "stagnation_days": min(90, max(1, data.stagnation_days)),
+            "friday_digest": data.friday_digest,
+            "monthly_report": data.monthly_report
+        }
+        cfg["SCHEDULE"] = {
+            "notify_enabled": data.notify_enabled,
+            "notify_days": days,
+            "backup_enabled": data.backup_enabled,
+            "backup_time": data.backup_time
+        }
     return {"status": "ok"}
 
 
@@ -483,24 +496,34 @@ def storage_usage():
 
 
 def set_project_status(proj: Project, status: str, db: Session, now: datetime) -> None:
-    """Changes the status; finishing a project closes its open tasks, reopening clears the finish date.
+    """Changes the status. Finishing a project closes its open tasks and remembers their previous status;
+    reopening it brings exactly those tasks back (tasks closed by hand stay closed) and clears the finish date.
     Dates that are already set are kept, so the analytics charts do not move when nothing really changed."""
     was_done = is_done(proj.status)
     proj.status = status
     proj.updated_at = now
+    tasks = db.query(Task).filter(Task.project_id == proj.id)
     if is_done(status):
         if not was_done or proj.completed_at is None:
             proj.completed_at = now
-        for task in db.query(Task).filter(Task.project_id == proj.id):
+        for task in tasks:
             if not is_done(task.status):
+                task.closed_from = task.status if task.status in TASK_STATUSES else TASK_NOT_STARTED
                 task.status = STATUS_FINISHED
                 task.completed_at = now
     else:
         proj.completed_at = None
+        if was_done:
+            for task in tasks:
+                if task.closed_from and is_done(task.status):
+                    task.status = task.closed_from
+                    task.completed_at = None
+                task.closed_from = ""
 
 
 def set_task_status(task: Task, status: str, now: datetime) -> None:
     was_done = is_done(task.status)
+    task.closed_from = ""                  # changed by hand: no longer "closed together with the project"
     task.status = status
     if not is_done(status):
         task.completed_at = None
@@ -548,15 +571,18 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
     name, err = validate_name(data.name)
     if err:
         return {"status": "error", "message": err}
-    if data.priority not in PRIORITIES or data.status not in PROJECT_STATUSES or data.token_reward < 0:
+    if data.priority not in PRIORITIES or data.status not in PROJECT_STATUSES:
         return {"status": "error", "message": tr("err.bad_value")}
+    reward, err = parse_token_field(data.token_reward)
+    if err:
+        return {"status": "error", "message": err}
     est_date, err = parse_date_field(data.estimate)
     if err:
         return {"status": "error", "message": err}
 
     config = load_config()
     current_tokens, _ = compute_balance(db, config)
-    project_cost = config.get("PROJECT_COST", 10)
+    project_cost = to_tokens(config.get("PROJECT_COST", 10), 10)
     dev_mode = config.get("DEV_MODE", False)
 
     if not dev_mode and current_tokens < project_cost:
@@ -565,7 +591,7 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
     now = datetime.now()
     new_proj = Project(
         name=name, status=data.status, priority=data.priority,
-        estimate=est_date, token_reward=data.token_reward,
+        estimate=est_date, token_reward=reward,
         token=project_cost if not dev_mode else 0,
         paint_notes="",
         updated_at=now,
@@ -776,14 +802,13 @@ def get_pipeline_templates(project_id: Optional[str] = None, db: Session = Depen
 
 @app.post("/api/pipeline-templates")
 def save_pipeline_templates(data: TemplatesUpdate):
-    cfg = load_config()
-    if data.reset:
-        cfg.pop("PIPELINE_TEMPLATES", None)
-    else:
-        err = pipeline.save(cfg, data.templates)
-        if err:
-            return {"status": "error", "message": err}
-    save_config(cfg)
+    with edit_config() as cfg:
+        if data.reset:
+            cfg.pop("PIPELINE_TEMPLATES", None)
+        else:
+            err = pipeline.save(cfg, data.templates)
+            if err:
+                return {"status": "error", "message": err}
     return {"status": "ok", "templates": pipeline.for_client(cfg)}
 
 @app.post("/api/projects/{project_id}/template")
@@ -839,8 +864,8 @@ def purge_project(db: Session, proj: Project, config: dict = None) -> None:
     if config.get("DELETE_KEEPS_BALANCE", True):
         # The project's contribution to the balance: the reward (if finished) minus the start cost.
         # It is recorded as an adjustment, so deleting does not change the balance.
-        reward = (proj.token_reward or 0) if is_done(proj.status) else 0
-        contribution = reward - (proj.token or 0)
+        reward = to_tokens(proj.token_reward) if is_done(proj.status) else 0
+        contribution = reward - to_tokens(proj.token)
         if contribution:
             db.add(Adjustment(amount=contribution, reason=f"Deleted project «{proj.name}»"))
     photo_name = proj.photo

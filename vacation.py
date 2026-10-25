@@ -5,7 +5,7 @@ The vacation is active while today < until. Cancelling brings notifications back
 """
 from datetime import date, datetime, timedelta
 
-from common import load_config, save_config, is_done, live_projects, live_tasks
+from common import load_config, edit_config, is_done, live_projects, live_tasks
 from database import Project, Task
 
 MAX_DAYS = 30
@@ -42,46 +42,44 @@ def start(db, days: int, now: datetime = None):
     Returns (None, {"projects": n, "tasks": m}) or (error_code, None)."""
     if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= MAX_DAYS:
         return "bad_days", None
-    cfg = load_config()
-    if state(cfg)["active"]:
-        return "already", None
-    now = now or datetime.now()
-    delta = timedelta(days=days)
+    with edit_config() as cfg:          # the lock also stops two vacations from starting at once
+        if state(cfg)["active"]:
+            return "already", None
+        now = now or datetime.now()
+        delta = timedelta(days=days)
 
-    projects = [p for p in live_projects(db).all() if not is_done(p.status)]
-    open_ids = {p.id for p in projects}
-    moved_projects = 0
-    for p in projects:
-        if p.estimate:
-            p.estimate = p.estimate + delta
-            moved_projects += 1
-        # The stagnation detector must not fire right after the return: a vacation is not idle time
-        if p.updated_at:
-            p.updated_at = p.updated_at + delta
-    moved_tasks = 0
-    for t in live_tasks(db).filter(Task.deadline.isnot(None)).all():
-        if t.project_id in open_ids and not is_done(t.status):
-            t.deadline = t.deadline + delta
-            moved_tasks += 1
-    db.commit()
+        projects = [p for p in live_projects(db).all() if not is_done(p.status)]
+        open_ids = {p.id for p in projects}
+        moved_projects = 0
+        for p in projects:
+            if p.estimate:
+                p.estimate = p.estimate + delta
+                moved_projects += 1
+            # The stagnation detector must not fire right after the return: a vacation is not idle time
+            if p.updated_at:
+                p.updated_at = p.updated_at + delta
+        moved_tasks = 0
+        for t in live_tasks(db).filter(Task.deadline.isnot(None)).all():
+            if t.project_id in open_ids and not is_done(t.status):
+                t.deadline = t.deadline + delta
+                moved_tasks += 1
+        db.commit()
 
-    cfg["VACATION"] = {
-        "start": now.date().isoformat(),
-        "until": (now.date() + delta).isoformat(),
-        "days": days,
-    }
-    save_config(cfg)
-    return None, {"projects": moved_projects, "tasks": moved_tasks}
+        cfg["VACATION"] = {
+            "start": now.date().isoformat(),
+            "until": (now.date() + delta).isoformat(),
+            "days": days,
+        }
+        return None, {"projects": moved_projects, "tasks": moved_tasks}
 
 
 def cancel(now: datetime = None) -> bool:
     """Ends a vacation early: notifications resume, deadlines are not moved back."""
-    cfg = load_config()
-    if not state(cfg)["active"]:
-        return False
-    v = dict(cfg["VACATION"])
-    v["until"] = (now or datetime.now()).date().isoformat()
-    v["cancelled"] = True
-    cfg["VACATION"] = v
-    save_config(cfg)
-    return True
+    with edit_config() as cfg:
+        if not state(cfg)["active"]:
+            return False
+        v = dict(cfg["VACATION"])
+        v["until"] = (now or datetime.now()).date().isoformat()
+        v["cancelled"] = True
+        cfg["VACATION"] = v
+        return True

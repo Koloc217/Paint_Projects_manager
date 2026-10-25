@@ -133,12 +133,16 @@ function isConfirmOpen() {
     return !!el && !el.classList.contains('hidden');
 }
 
-function confirmDialog({ title = tr('confirm.title'), message = '', okText = tr('common.delete'), danger = true } = {}) {
+function confirmDialog({ title = tr('confirm.title'), message = '', okText = tr('common.delete'), danger = true, icon = null } = {}) {
     if (confirmResolver) { confirmResolver(false); confirmResolver = null; }
     return new Promise(resolve => {
         confirmResolver = resolve;
         document.getElementById('confirmTitle').textContent = title;
         document.getElementById('confirmMessage').textContent = message;
+        const iconEl = document.getElementById('confirmIcon');
+        iconEl.textContent = icon || (danger ? '🗑' : '❔');
+        iconEl.className = 'w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-lg border ' +
+            (danger ? 'bg-red-500/15 border-red-500/30' : 'bg-indigo-500/15 border-indigo-500/30');
         const ok = document.getElementById('confirmOk');
         ok.textContent = okText;
         ok.className = 'px-4 py-2 rounded-xl text-sm font-medium text-white outline-none focus:ring-2 ' +
@@ -956,7 +960,7 @@ function openSettingsModal(tab = 'general') {
 
 async function saveSettings() {
     if (!(await tplSaveIfDirty())) return;
-    const costVal = parseFloat(document.getElementById('cfgProjectCost').value);
+    const costVal = Number(document.getElementById('cfgProjectCost').value);
     const body = {
         dev_mode: document.getElementById('cfgDevMode').checked,
         project_cost: isNaN(costVal) ? 10 : costVal,
@@ -1330,7 +1334,6 @@ function renderHall() {
             <div>
                 <div class="flex justify-between items-start gap-2 mb-2">
                     <h3 class="text-base font-bold text-white">${esc(p.Name)}</h3>
-                    <span class="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full whitespace-nowrap">🏆 +${p['Token Reward'] || 0} 💰</span>
                 </div>
                 <div class="text-xs text-slate-400 flex items-center gap-3 mb-2">
                     <span>✅ ${tr('stats.tasks')}: ${pTasks.length}</span>
@@ -1518,15 +1521,27 @@ async function applyTemplateToProject() {
     loadData();
 }
 
-function updateProjectStatus(id, status) {
+async function updateProjectStatus(id, status) {
     const p = currentProjects.find(x => x.ID === id);
+    if (isDoneStatus(status) && !(p && isDoneStatus(p.Status))) {
+        // Finishing closes every open task: one slip in the status list on a phone must not do that silently
+        const open = currentTasks.filter(t => t['Project ID'] === id && !isDoneStatus(t.Status)).length;
+        if (open > 0) {
+            const ok = await confirmDialog({
+                title: tr('project.finish_title'),
+                message: tr('confirm.finish_open_tasks', { name: p ? p.Name : '', n: open }),
+                okText: tr('project.finish_ok'), danger: false, icon: '🏆',
+            });
+            if (!ok) { renderProjects(); return; }     // puts the old value back into the status list
+        }
+    }
     if (p) p.Status = status;
     if (isDoneStatus(status)) {
-        currentTasks.forEach(t => { if(t['Project ID'] === id) t.Status = 'Закончен'; });
+        currentTasks.forEach(t => { if (t['Project ID'] === id && !isDoneStatus(t.Status)) t.Status = 'Закончен'; });
         showToast(tr('toast.project_to_hall'), "success");
     }
     renderProjects(); renderTasks(); renderAllTasks();
-    sendAction({ action: 'update_project_status', id: id, status: status });
+    sendAction({ action: 'update_project_status', id: id, status: status });   // reopening: the server brings the tasks back
 }
 
 function updateProjectStage(id, stage) {
@@ -1551,9 +1566,10 @@ function updateProjectSelect() {
 }
 
 async function createProject() {
-    const body = { name: document.getElementById('pName').value.trim(), priority: document.getElementById('pPriority').value, estimate: document.getElementById('pEstimate').value || null, token_reward: parseFloat(document.getElementById('pToken').value) || 0 };
+    const body = { name: document.getElementById('pName').value.trim(), priority: document.getElementById('pPriority').value, estimate: document.getElementById('pEstimate').value || null, token_reward: Number(document.getElementById('pToken').value) || 0 };
     if(!body.name) return showToast(tr('project.err_name_empty'));
-    
+    if (!Number.isInteger(body.token_reward) || body.token_reward < 0) return showToast(tr('project.err_reward_whole'));
+
     const res = await fetch('/api/projects', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
     const result = await res.json();
     

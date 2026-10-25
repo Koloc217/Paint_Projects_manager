@@ -65,6 +65,9 @@ class Task(Base):
     status = Column(String, default="Не начато")
     postponed = Column(Integer, default=0)
     completed_at = Column(DateTime, nullable=True)
+    # set when the task was closed together with its project: the status it had before, so reopening the project
+    # can bring it back; empty for tasks closed by hand
+    closed_from = Column(String, default="")
 
 
 class Reference(Base):
@@ -125,11 +128,19 @@ def ensure_schema():
             conn.execute(text("ALTER TABLE tasks ADD COLUMN postponed INTEGER DEFAULT 0"))
         if "completed_at" not in task_cols:
             conn.execute(text("ALTER TABLE tasks ADD COLUMN completed_at DATETIME"))
+        if "closed_from" not in task_cols:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN closed_from VARCHAR DEFAULT ''"))
 
         ref_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(project_refs)")).fetchall()]
         if "position" not in ref_cols:
             conn.execute(text("ALTER TABLE project_refs ADD COLUMN position INTEGER DEFAULT 0"))
             conn.execute(text("UPDATE project_refs SET position = id"))     # keep the old upload order
+
+        # Tokens are whole numbers: older versions allowed fractions (step 0.1 in the form), round them once
+        conn.execute(text("UPDATE projects SET token = ROUND(token) WHERE token IS NOT NULL AND token != ROUND(token)"))
+        conn.execute(text("UPDATE projects SET token_reward = ROUND(token_reward) "
+                          "WHERE token_reward IS NOT NULL AND token_reward != ROUND(token_reward)"))
+        conn.execute(text("UPDATE adjustments SET amount = ROUND(amount) WHERE amount IS NOT NULL AND amount != ROUND(amount)"))
 
         # Indexes for the lookups done on every page load and bot update. create_all() does not add
         # indexes to tables that already exist, so older databases get them here.
