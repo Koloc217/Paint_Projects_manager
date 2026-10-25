@@ -43,8 +43,8 @@ class Project(Base):
     __tablename__ = "projects"
     id = Column(String, primary_key=True, default=gen_proj_id)
     name = Column(String, nullable=False)
-    status = Column(String, default="В планах")
-    stage = Column(String, default="—")
+    status = Column(String, default="planned")    # code, see common.PROJECT_STATUSES
+    stage = Column(String, default="none")       # code, see common.STAGES
     priority = Column(String, default="Medium")
     estimate = Column(DateTime, nullable=True)
     token = Column(Float, default=0.0)
@@ -62,7 +62,7 @@ class Task(Base):
     project_id = Column(String, nullable=False, index=True)
     task_name = Column(String, nullable=False)
     deadline = Column(DateTime, nullable=True)
-    status = Column(String, default="Не начато")
+    status = Column(String, default="not_started")   # code, see common.TASK_STATUSES
     postponed = Column(Integer, default=0)
     completed_at = Column(DateTime, nullable=True)
     # set when the task was closed together with its project: the status it had before, so reopening the project
@@ -88,7 +88,7 @@ class ProgressPhoto(Base):
     project_id = Column(String, nullable=False, index=True)
     filename = Column(String, nullable=False)
     thumb = Column(String, default="")          # preview (JPEG); empty = the file itself is used
-    stage = Column(String, default="—")         # project stage at upload time (canonical Russian value)
+    stage = Column(String, default="none")      # project stage at upload time (code)
     note = Column(Text, default="")             # caption; from Telegram, the photo caption
     source = Column(String, default="web")      # web | telegram
     created_at = Column(DateTime, default=datetime.now)
@@ -136,7 +136,7 @@ def ensure_schema():
     with engine.connect() as conn:
         proj_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(projects)")).fetchall()]
         if "stage" not in proj_cols:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN stage VARCHAR DEFAULT '—'"))
+            conn.execute(text("ALTER TABLE projects ADD COLUMN stage VARCHAR DEFAULT 'none'"))
         if "paint_notes" not in proj_cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN paint_notes TEXT DEFAULT ''"))
         if "photo" not in proj_cols:
@@ -169,8 +169,33 @@ def ensure_schema():
                           "WHERE token_reward IS NOT NULL AND token_reward != ROUND(token_reward)"))
         conn.execute(text("UPDATE adjustments SET amount = ROUND(amount) WHERE amount IS NOT NULL AND amount != ROUND(amount)"))
 
+        migrate_value_codes(conn)
+
         # Indexes for the lookups done on every page load and bot update. create_all() does not add
         # indexes to tables that already exist, so older databases get them here.
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tasks_project_id ON tasks (project_id)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_projects_deleted_at ON projects (deleted_at)"))
         conn.commit()
+
+
+# Columns that hold a status or a stage. activity.old/new hold them only for these event kinds.
+_CODE_COLUMNS = (("projects", "status"), ("projects", "stage"), ("tasks", "status"),
+                 ("tasks", "closed_from"), ("progress_photos", "stage"))
+_ACTIVITY_KINDS = ("project_created", "project_status", "project_stage", "task_status")
+
+
+def migrate_value_codes(conn) -> None:
+    """Statuses and stages: old Russian values -> technical codes (common.LEGACY_VALUES).
+    Idempotent: only rows that still hold an old value are touched, so it is cheap on every start."""
+    from common import LEGACY_VALUES    # common imports this module, so the import stays local
+    kinds = ", ".join(f"'{k}'" for k in _ACTIVITY_KINDS)
+    for old, new in LEGACY_VALUES.items():
+        params = {"old": old, "new": new}
+        for table, column in _CODE_COLUMNS:
+            conn.execute(text(f"UPDATE {table} SET {column} = :new WHERE {column} = :old"), params)
+        for column in ("old", "new"):
+            conn.execute(text(f"UPDATE activity SET {column} = :new WHERE {column} = :old AND kind IN ({kinds})"),
+                         params)
+    # an empty stage meant "no stage"
+    conn.execute(text("UPDATE projects SET stage = 'none' WHERE stage IS NULL OR stage = ''"))
+    conn.execute(text("UPDATE progress_photos SET stage = 'none' WHERE stage IS NULL OR stage = ''"))

@@ -1,13 +1,13 @@
 // ---------- Progress (WIP) photos: the block in the project card and the shared "Feed" ----------
 const PROGRESS_STAGE_KEYS = {
-    '—': 'stage.none', 'Печать': 'stage.printing', 'Шлифовка': 'stage.sanding',
-    'Сборка': 'stage.assembly', 'Грунт': 'stage.priming', 'Покрас': 'stage.painting', 'Доводка': 'stage.finishing',
+    'none': 'stage.none', 'printing': 'stage.printing', 'sanding': 'stage.sanding',
+    'assembly': 'stage.assembly', 'priming': 'stage.priming', 'painting': 'stage.painting', 'finishing': 'stage.finishing',
 };
 const PROGRESS_MAX_SIDE = 1600;
 const PROGRESS_MAX_FILES = 10;      // per upload
 
 function progressStageLabel(stage) {
-    const key = PROGRESS_STAGE_KEYS[stage || '—'];
+    const key = PROGRESS_STAGE_KEYS[stage || 'none'];
     return key ? tr(key) : (stage || '');
 }
 
@@ -15,7 +15,7 @@ function progressCaption(ph, projectName) {
     const parts = [];
     if (projectName) parts.push(projectName);
     parts.push(formatIsoDate((ph.At || '').slice(0, 10)) + ((ph.At || '').slice(11) ? ' ' + ph.At.slice(11) : ''));
-    if (ph.Stage && ph.Stage !== '—') parts.push(progressStageLabel(ph.Stage));
+    if (ph.Stage && ph.Stage !== 'none') parts.push(progressStageLabel(ph.Stage));
     if (ph.Note) parts.push(ph.Note);
     return parts.join(' · ');
 }
@@ -39,7 +39,7 @@ function renderProjectProgress(project) {
                 <button onclick="event.stopPropagation(); removeProgressPhoto('${esc(project.ID)}', ${ph.ID})" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white/80 hover:bg-red-600 hover:text-white text-xs leading-none opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" title="${tr('progress.delete')}">&times;</button>
             </div>
             <div class="text-[10px] text-slate-400 mt-1 leading-tight">${esc(formatIsoDate((ph.At || '').slice(0, 10)))}</div>
-            <div class="text-[10px] text-slate-500 leading-tight truncate">${esc(ph.Stage && ph.Stage !== '—' ? progressStageLabel(ph.Stage) : '')}</div>
+            <div class="text-[10px] text-slate-500 leading-tight truncate">${esc(ph.Stage && ph.Stage !== 'none' ? progressStageLabel(ph.Stage) : '')}</div>
             ${ph.Note ? `<div onclick="editProgressNote('${esc(project.ID)}', ${ph.ID})" class="text-[10px] text-slate-300 leading-tight line-clamp-2 break-words cursor-text hover:text-white" title="${esc(ph.Note)}">${esc(ph.Note)}</div>` : ''}
         </div>`).join('');
     box.scrollLeft = box.scrollWidth;
@@ -261,7 +261,7 @@ function renderFeed() {
                 <img src="${esc(x.ph.Thumb)}" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover">
                 <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-5 pb-1.5 text-xs leading-tight text-white/90">
                     <div class="truncate">${esc(x.name)}</div>
-                    ${x.ph.Stage && x.ph.Stage !== '—' ? `<div class="truncate text-white/60">${esc(progressStageLabel(x.ph.Stage))}</div>` : ''}
+                    ${x.ph.Stage && x.ph.Stage !== 'none' ? `<div class="truncate text-white/60">${esc(progressStageLabel(x.ph.Stage))}</div>` : ''}
                 </div>
             </div>`;
     });

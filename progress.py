@@ -7,7 +7,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from common import BASE_DIR, detect_image_ext
+from common import BASE_DIR, NO_STAGE, detect_image_ext
 from database import Project, ProgressPhoto
 
 PHOTOS_DIR = os.path.join(BASE_DIR, "photos")
@@ -61,7 +61,7 @@ def add_photo(db: Session, project_id: str, raw: bytes, thumb_raw: bytes = None,
         _write(thumb_name, thumb_raw)
     row = ProgressPhoto(
         project_id=project_id, filename=filename, thumb=thumb_name,
-        stage=getattr(proj, "stage", None) or "—",
+        stage=getattr(proj, "stage", None) or NO_STAGE,
         note=(note or "").strip()[:MAX_NOTE_LEN], source=source if source in ("web", "telegram") else "web",
     )
     db.add(row)
@@ -97,7 +97,7 @@ def thumb_url(row: ProgressPhoto, present: set = None) -> str:
 def serialize(row: ProgressPhoto, present: set = None) -> dict:
     return {
         "ID": row.id, "ProjectID": row.project_id, "Url": url(row.filename), "Thumb": thumb_url(row, present),
-        "Stage": row.stage or "—", "Note": row.note or "", "Source": row.source or "web",
+        "Stage": row.stage or NO_STAGE, "Note": row.note or "", "Source": row.source or "web",
         "At": row.created_at.strftime("%Y-%m-%d %H:%M") if row.created_at else "",
     }
 

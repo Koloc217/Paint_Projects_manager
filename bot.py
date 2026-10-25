@@ -17,7 +17,7 @@ import ics
 from common import (
     BASE_DIR, esc, to_tokens, clip_lines, short_text, TG_ALERT_LIMIT, MAX_TASK_NAME_LEN, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
-    is_done as status_done, STAGES, STATUS_IN_WORK, STATUS_ON_HOLD, STATUS_PLANNED, STATUS_FINISHED,
+    is_done as status_done, STAGES, NO_STAGE, normalize_value, STATUS_IN_WORK, STATUS_ON_HOLD, STATUS_PLANNED, STATUS_FINISHED,
     TASK_NOT_STARTED, TASK_IN_PROGRESS,
 )
 from i18n import tr, tv
@@ -303,7 +303,7 @@ def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True)
     open_tasks = [t for t in tasks if not status_done(t.status)]
     closed_count = len(tasks) - len(open_tasks)
 
-    stage_str = getattr(proj, 'stage', '—') or '—'
+    stage_str = getattr(proj, 'stage', NO_STAGE) or NO_STAGE
     proj_is_done = status_done(proj.status)
     est_str = format_deadline(proj.estimate, proj_is_done) if proj.estimate else tr("bot.not_set")
     header_icon = f"🔥 <b>{tr('bot.in_focus')}:" if is_focus else f"🎯 <b>{tr('common.project')}:"
@@ -460,7 +460,7 @@ def build_stage_menu_view(proj_id: str):
         proj = _live_project(db, proj_id)
         if not proj:
             return tr("err.project_not_found"), None
-        stage_str = getattr(proj, 'stage', '—') or '—'
+        stage_str = getattr(proj, 'stage', NO_STAGE) or NO_STAGE
         text = f"🎨 <b>{tr('bot.choose_stage')} «{esc(proj.name)}»</b>\n{tr('bot.current_stage')}: <b>{esc(tv(stage_str))}</b>"
         stages = STAGES
         btns = [{"text": (f"• {tv(st)} •" if st == stage_str else tv(st)), "callback_data": f"p_stage:{proj.id}:{st}"} for st in stages]
@@ -479,7 +479,7 @@ def build_all_projects_view():
         lines = [f"📋 <b>{tr('project.active_list')}:</b>", ""]
         keyboard = []
         for p in active:
-            st = getattr(p, 'stage', '—')
+            st = getattr(p, 'stage', NO_STAGE)
             lines.append(f"• <b>{esc(p.name)}</b> — {esc(tv(p.status))} [{esc(tv(st))}] ({priority_badge(p.priority)})")
             if len(keyboard) < PROJECT_BUTTONS_MAX:
                 keyboard.append([{"text": f"🔍 {short_text(p.name, 60)}", "callback_data": f"open_p:{p.id}"}])
@@ -658,7 +658,7 @@ async def save_telegram_photos(project_id: str, file_ids: list, note: str):
             except Exception as e:
                 print(f"[BOT ERROR] Could not fetch the photo: {safe_error(e)}")
                 error = tr("bot.photo_download_failed")
-        return saved, proj.name, getattr(proj, "stage", "—") or "—", error, len(file_ids) - len(saved)
+        return saved, proj.name, getattr(proj, "stage", NO_STAGE) or NO_STAGE, error, len(file_ids) - len(saved)
     finally:
         db.close()
 
@@ -670,7 +670,7 @@ def not_added_text(failed: int, total: int, error: str = None) -> str:
 
 
 def _saved_view(name: str, stage: str, ids: list, project_id: str):
-    suffix = f" · {esc(tv(stage))}" if stage and stage != "—" else ""
+    suffix = f" · {esc(tv(stage))}" if stage and stage != NO_STAGE else ""
     text = f"📷 {tr('bot.photo_saved', name=esc(name), stage=suffix)}"
     row = [{"text": f"📷 {tr('bot.btn_open_photos')}", "callback_data": f"ph_v:{project_id}:0"}]
     undo = "ph_undo:" + ",".join(str(i) for i in ids[:6])
@@ -817,13 +817,13 @@ def build_share(project_id: str):
             if f:
                 files.append(f)
 
-        stage = proj.stage or "—"
+        stage = proj.stage or NO_STAGE
         head = f"🎨 <b>{esc(proj.name)}</b>"
         head_len = len(proj.name) + 3
         if status_done(proj.status):
             head += f"\n🏆 {tr('bot.share_finished')}"
             head_len += len(tr('bot.share_finished')) + 3
-        elif stage != "—":
+        elif stage != NO_STAGE:
             head += f"\n{tr('project.stage')}: {esc(tv(stage))}"
             head_len += len(tr('project.stage')) + len(tv(stage)) + 3
         recipe = (proj.paint_notes or "").strip()
@@ -890,7 +890,7 @@ def _photo_view(scope: str, index: int):
         row = rows[index]
         proj = db.query(Project).filter(Project.id == row.project_id).first()
         lines = [f"<b>{esc(proj.name if proj else row.project_id)}</b>"]
-        if row.stage and row.stage != "—":
+        if row.stage and row.stage != NO_STAGE:
             lines[0] += f" · {esc(tv(row.stage))}"
         when = row.created_at.strftime("%H:%M") if row.created_at else ""
         lines.append(f"📅 {fmt_date(row.created_at)} {when}".strip())
@@ -1646,6 +1646,7 @@ async def handle_callback(cb: dict):
 
         elif data.startswith("p_stage:"):
             _, proj_id, new_stage = data.split(":", 2)
+            new_stage = normalize_value(new_stage)     # buttons sent before the switch to codes carry Russian names
             proj = _live_project(db, proj_id)
             if proj and new_stage in STAGES:
                 proj.stage = new_stage
