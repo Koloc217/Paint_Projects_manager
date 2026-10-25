@@ -15,6 +15,8 @@ How it works
   • Brute force: 5 failed attempts from one address within 5 minutes lock it for the rest of the window, plus a
     pause on every failure.
   • The Telegram bot, notifications and the scheduler do not go through the web app; login does not affect them.
+  • The calendar subscription /cal/<token>.ics is open without login (phone calendars cannot log in): it is off by
+    default and the long token in the address is its password (see ics.py).
 
 Forgot the password:  python auth.py reset   (resets to admin / 123456 and turns login off)
 """
@@ -44,7 +46,7 @@ MIN_PASSWORD_LEN = 8                 # checked in the browser (the server only r
 
 MAX_FAILS = 5
 FAIL_WINDOW_SEC = 300
-PUBLIC_PREFIXES = ("/static/",)
+PUBLIC_PREFIXES = ("/static/", "/cal/")    # /cal/: calendar subscription, protected by its own secret token
 PUBLIC_PATHS = ("/login", "/api/auth/login", "/sw.js", "/manifest.webmanifest")   # PWA: without login, otherwise installing fails
 # while the default password is not changed, only these are available
 MUST_CHANGE_PATHS = ("/login", "/api/auth/login", "/api/auth/change", "/api/auth/logout", "/api/auth/status")
