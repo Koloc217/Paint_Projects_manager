@@ -1570,8 +1570,12 @@ function updateTaskStatus(id, status) {
 
 function updateProjectSelect() {
     const select = document.getElementById('tProjectId');
+    // Rebuilding the options resets the selection to the first project; keep the chosen one
+    // (loadData runs on window focus, e.g. after a native date picker, while the modal is open)
+    const prev = select.value;
     const activeProjects = currentProjects.filter(p => !isDoneStatus(p.Status));
     select.innerHTML = activeProjects.map(p => `<option value="${p.ID}">${esc(p.Name)}</option>`).join('');
+    if (prev && activeProjects.some(p => p.ID === prev)) select.value = prev;
 }
 
 async function createProject() {
