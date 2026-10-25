@@ -1,7 +1,8 @@
 # Python 3.10+
-fastapi
-uvicorn
-sqlalchemy
-jinja2            # page templates (Jinja2Templates)
-httpx[socks]      # Telegram through a SOCKS5 proxy (the "socks" extra is needed when a proxy is set)
-python-dotenv
+# Version ranges: newer minor releases install fine, a major release with breaking changes does not come in unnoticed.
+fastapi>=0.110,<1           # TemplateResponse(request=..., name=...) and lifespan need 0.108+
+uvicorn>=0.29,<1
+sqlalchemy>=2.0,<3
+jinja2>=3.1,<4              # page templates (Jinja2Templates)
+httpx[socks]>=0.27,<1       # Telegram through a SOCKS5 proxy (HTTPTransport(proxy=...) needs 0.26+, "socks" extra for socks5://)
+python-dotenv>=1.0,<2

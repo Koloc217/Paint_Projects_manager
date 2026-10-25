@@ -266,7 +266,7 @@ body.theme-cyberpunk #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
    ========================================================================== */
 body.theme-warhammer {
     /* Theme fonts (both include Cyrillic). Headings/buttons/dates: Playfair Display SC; text: Alegreya.
-       To try another pair, change these two lines and the Google Fonts link in index.html. */
+       To try another pair, change these two lines and FONTS in tools/build_assets.py. */
     --wh-title: 'Playfair Display SC', 'Cormorant SC', Georgia, serif;
     --wh-body: 'Alegreya', 'Philosopher', Georgia, serif;
     /* charts: bronze, gold and crimson on dark parchment */
