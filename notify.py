@@ -12,6 +12,7 @@ from common import (
 from i18n import tr, tv
 import tgproxy
 import vacation
+import tgclean
 
 # Duplicate protection: the automatic digest goes out at most once per MIN_GAP_SEC, even if two sources start it
 # at the same time (an old cron entry + the built-in scheduler, two copies of the app).
@@ -25,8 +26,9 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 
-def send_tg_message(chat_id, text, reply_markup=None) -> bool:
-    """Sends one message to the linked chat. Returns True if Telegram accepted it."""
+def send_tg_message(chat_id, text, reply_markup=None, kind="digest") -> bool:
+    """Sends one message to the linked chat. Returns True if Telegram accepted it.
+    kind is how the chat cleanup treats it (tgclean.py): digests are cleaned up automatically, a report is not."""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
     if reply_markup:
@@ -41,6 +43,10 @@ def send_tg_message(chat_id, text, reply_markup=None) -> bool:
     if resp.status_code != 200:
         print(f"[NOTIFY ERROR] Telegram returned {resp.status_code}: {resp.text[:300]}")
         return False
+    try:
+        tgclean.record(chat_id, tgclean.ids_from_result(resp.json()), kind)
+    except ValueError:
+        pass
     return True
 
 
@@ -173,7 +179,7 @@ def main() -> int:
     try:
         # 1. Monthly report (on the 1st of the month, or by button / command)
         if is_monthly_flag or (now.day == 1 and notify_cfg.get("monthly_report", True) and not is_test):
-            sent_ok &= send_tg_message(chat_id, build_monthly_report(db, now, config))
+            sent_ok &= send_tg_message(chat_id, build_monthly_report(db, now, config), kind="report")
             if is_monthly_flag:
                 return 0 if sent_ok else 1
 

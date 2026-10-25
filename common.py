@@ -101,6 +101,8 @@ DEFAULT_CONFIG = {
     # deadlines to phones and other devices (the "To phone" button, the .ics file, /calendar in the bot, the subscription):
     # an option, off by default. The Calendar tab in the app is always on.
     "CALENDAR_EXPORT": False,
+    # cleanup of notification digests in the bot chat (tgclean.py): keep_46h | latest_only | off
+    "TG_CLEANUP": "keep_46h",
     # calendar subscription (/cal/<token>.ics): off by default; the token is generated when it is turned on
     "ICS_FEED": {"enabled": False, "token": ""},
 }
@@ -244,6 +246,8 @@ def _normalize_config(cfg: dict) -> dict:
         cfg["DATE_FORMAT"] = DEFAULT_CONFIG["DATE_FORMAT"]
     for key in ("PROJECT_COST", "INITIAL_TOKENS"):        # tokens are whole numbers
         cfg[key] = to_tokens(cfg.get(key), DEFAULT_CONFIG[key])
+    if cfg.get("TG_CLEANUP") not in ("keep_46h", "latest_only", "off"):
+        cfg["TG_CLEANUP"] = DEFAULT_CONFIG["TG_CLEANUP"]
     days = cfg.get("TRASH_DAYS")
     if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= 3650:
         cfg["TRASH_DAYS"] = DEFAULT_CONFIG["TRASH_DAYS"]
