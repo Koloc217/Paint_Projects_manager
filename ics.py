@@ -6,8 +6,8 @@ Two ways to get it:
     Calendar tab). The token is the only protection of that address, so it is long and can be replaced at any time;
     the address works only where the server is reachable (home network or VPN).
 
-All of it is behind the CALENDAR_ENABLED setting (Settings → General, off by default). Turning the calendar off
-keeps the subscription token, so turning it on again revives the same address.
+Both are behind the CALENDAR_EXPORT setting (Settings → General, off by default); the Calendar tab in the app is
+always on. Turning the export off keeps the subscription token, so turning it on again revives the same address.
 
 What goes in: the same as in the app's Calendar tab, minus closed tasks: deadlines of projects that are not
 finished and deadlines of their open tasks. Projects in the trash are left out. Every event is an all-day event
@@ -20,8 +20,9 @@ from common import live_projects, live_tasks, is_done, edit_config, config_value
 
 
 def enabled() -> bool:
-    """The whole calendar is an option (CALENDAR_ENABLED, off by default): the tab, the file, /calendar and the feed."""
-    return bool(config_value("CALENDAR_ENABLED"))
+    """Export to devices is an option (CALENDAR_EXPORT, off by default): the file, /calendar and the feed.
+    The Calendar tab in the app does not depend on it."""
+    return bool(config_value("CALENDAR_EXPORT"))
 from i18n import tr, tv
 
 PRODID = "-//Project Hub//Deadlines//EN"

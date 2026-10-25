@@ -128,6 +128,14 @@ function renderCalendar() {
 
 // ---------- Calendar for a phone: download a .ics file or turn on a subscription address ----------
 let calFeed = { enabled: false, path: null };
+let calendarExport = false;       // an option (Settings → General), off by default; the Calendar tab itself is always on
+
+// Shows or hides the "To phone" button; closes its dialog if the option was turned off meanwhile
+function applyCalendarExport(on) {
+    calendarExport = on;
+    document.getElementById('calExportBtn').classList.toggle('hidden', !on);
+    if (!on) closeModal('calExportModal');
+}
 
 function calFeedUrl(path, scheme) {
     const url = new URL(path, window.location.origin);
@@ -143,6 +151,7 @@ function renderCalendarFeed() {
 }
 
 async function openCalendarExport() {
+    if (!calendarExport) return;
     openModal('calExportModal');
     try {
         calFeed = await (await fetch('/api/calendar/feed')).json();
