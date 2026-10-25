@@ -602,6 +602,13 @@ function sortTasks(tasksList) {
         const bDone = isDoneStatus(b.Status);
         if (aDone && !bDone) return 1;
         if (!aDone && bDone) return -1;
+        if (aDone && bDone) {
+            // Closed tasks: most recently completed first (ISO strings compare correctly)
+            const aTs = a.CompletedTs || a.CompletedAt || '';
+            const bTs = b.CompletedTs || b.CompletedAt || '';
+            if (aTs !== bTs) return aTs < bTs ? 1 : -1;
+            return (b.Deadline || '').localeCompare(a.Deadline || '');
+        }
         if (!a.Deadline && !b.Deadline) return 0;
         if (!a.Deadline) return 1; 
         if (!b.Deadline) return -1;

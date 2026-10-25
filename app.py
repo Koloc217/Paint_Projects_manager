@@ -355,6 +355,7 @@ def get_data(db: Session = Depends(get_db)):
         "Status": t.status,
         "Postponed": t.postponed or 0,
         "CompletedAt": iso_date(t.completed_at),
+        "CompletedTs": t.completed_at.isoformat(timespec="seconds") if t.completed_at else None,  # sort key: newest closed first
     } for t in tasks]
 
     return {
