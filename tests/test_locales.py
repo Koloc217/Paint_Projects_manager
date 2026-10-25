@@ -1,4 +1,4 @@
-"""locales.json: every language has every key the code uses (runs tools/check_locales.py on the test copy)."""
+"""locales.json: every language has every key the code uses (runs tools/check_locales.py)."""
 import os
 import subprocess
 import sys

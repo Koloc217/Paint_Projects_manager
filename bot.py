@@ -15,7 +15,7 @@ import tgclean
 import activity
 import ics
 from common import (
-    BASE_DIR, esc, to_tokens, clip_lines, short_text, TG_ALERT_LIMIT, MAX_TASK_NAME_LEN, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
+    DATA_DIR, esc, to_tokens, clip_lines, short_text, TG_ALERT_LIMIT, MAX_TASK_NAME_LEN, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
     is_done as status_done, STAGES, NO_STAGE, normalize_value, STATUS_IN_WORK, STATUS_ON_HOLD, STATUS_PLANNED, STATUS_FINISHED,
     TASK_NOT_STARTED, TASK_IN_PROGRESS,
@@ -24,7 +24,7 @@ from i18n import tr, tv
 import tgproxy
 from scheduler import spawn_script, seconds_to_next_run
 
-load_dotenv(os.path.join(BASE_DIR, ".env"))
+load_dotenv(os.path.join(DATA_DIR, ".env"))
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 

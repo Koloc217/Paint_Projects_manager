@@ -28,3 +28,10 @@ scheduler_state.json
 
 # tests
 .pytest_cache/
+
+# IDE (personal settings; shared run configurations live in .run/)
+.idea/
+*.iml
+
+# local data for running the app from the IDE (PROJECT_HUB_DATA_DIR=.devdata)
+.devdata/

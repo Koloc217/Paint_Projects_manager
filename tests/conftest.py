@@ -1,8 +1,9 @@
-"""Test setup: the app runs from a temporary COPY of the code.
+"""Test setup: the real code with a throwaway DATA folder.
 
-Every module keeps its data next to itself (BASE_DIR): tracker.db, config.json, auth.json, photos/, .env.
-Copying only the code (*.py, locales.json, templates/, static/) into a temp folder means the tests can never
-read or change the real database, photos, settings or secrets (.env is not copied, so the bot token never loads).
+The app keeps all its data in DATA_DIR: tracker.db, config.json, .env, auth.json, photos/, logs/.
+Before the app is imported, PROJECT_HUB_DATA_DIR is pointed to an empty temp folder, so the tests never read or
+change the real database, photos, settings or secrets (there is no .env there, so the bot token never loads).
+The code itself is imported from the repository, so breakpoints in the IDE work as usual.
 
 Each test starts with an empty database and a fresh config.json (see the `client` fixture).
 """
@@ -15,41 +16,30 @@ import tempfile
 import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CODE_DIRS = ("templates", "static")
-SKIP_IN_STATIC = ("backgrounds",)      # large images are not needed by the API
 
 # Settings every test starts from: enough tokens to create projects, no DEV_MODE.
 BASE_CONFIG = {"INITIAL_TOKENS": 100, "PROJECT_COST": 10, "DEV_MODE": False, "LANGUAGE": "ru-RU"}
 
+# Runs once, before any test module is imported.
+DATA_DIR = tempfile.mkdtemp(prefix="project-hub-test-")
+os.environ["PROJECT_HUB_DATA_DIR"] = DATA_DIR
+for secret in ("TELEGRAM_BOT_TOKEN", "PROXY_URL", "APPS_SCRIPT_URL"):
+    os.environ.pop(secret, None)        # values exported in the shell or the IDE must not reach the tests either
+if REPO not in sys.path:
+    sys.path.insert(0, REPO)
 
-def _copy_code(dst: str) -> None:
-    for name in os.listdir(REPO):
-        src = os.path.join(REPO, name)
-        if os.path.isfile(src) and (name.endswith(".py") or name == "locales.json"):
-            shutil.copy2(src, dst)
-    for name in CODE_DIRS:
-        shutil.copytree(os.path.join(REPO, name), os.path.join(dst, name),
-                        ignore=shutil.ignore_patterns(*SKIP_IN_STATIC, "__pycache__"))
-    shutil.copytree(os.path.join(REPO, "tools"), os.path.join(dst, "tools"),
-                    ignore=shutil.ignore_patterns("__pycache__"))
-
-
-# Runs once, before any test module is imported: the copied code goes first on sys.path.
-APP_DIR = tempfile.mkdtemp(prefix="project-hub-test-")
-_copy_code(APP_DIR)
-sys.path.insert(0, APP_DIR)
-os.environ.pop("TELEGRAM_BOT_TOKEN", None)      # a token exported in the shell must not reach the tests either
-
-import app as app_module          # noqa: E402  (imported from APP_DIR)
+import app as app_module          # noqa: E402
 import common                     # noqa: E402
 import database                   # noqa: E402
 
-assert os.path.dirname(app_module.__file__) == APP_DIR, "tests must import the copy, not the real app"
-assert os.path.dirname(database.DB_PATH) == APP_DIR
+assert database.DATA_DIR == os.path.abspath(DATA_DIR), "the app must use the temp data folder"
+assert os.path.dirname(database.DB_PATH) == database.DATA_DIR
+assert not os.path.exists(os.path.join(DATA_DIR, ".env"))
 
 
 def pytest_sessionfinish(session, exitstatus):
-    shutil.rmtree(APP_DIR, ignore_errors=True)
+    database.engine.dispose()
+    shutil.rmtree(DATA_DIR, ignore_errors=True)
 
 
 def write_config(**overrides) -> None:

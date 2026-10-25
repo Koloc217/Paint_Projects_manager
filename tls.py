@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.abspath(os.environ.get("PROJECT_HUB_DATA_DIR") or BASE_DIR)   # same rule as database.DATA_DIR
 CERT_DIR = os.path.join(BASE_DIR, "certs")
 DEFAULT_CERT = os.path.join(CERT_DIR, "server.crt")
 DEFAULT_KEY = os.path.join(CERT_DIR, "server.key")
@@ -45,7 +46,7 @@ def _path(value: str, default: str) -> str:
 
 
 def settings() -> dict:
-    load_dotenv(os.path.join(BASE_DIR, ".env"))
+    load_dotenv(os.path.join(DATA_DIR, ".env"))
     try:
         port = int(_env("PORT", "8000"))
         if not 1 <= port <= 65535:

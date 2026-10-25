@@ -11,9 +11,9 @@ import sys
 import threading
 from logging.handlers import RotatingFileHandler
 
-from common import BASE_DIR
+from common import DATA_DIR
 
-LOG_DIR = os.path.join(BASE_DIR, "logs")
+LOG_DIR = os.path.join(DATA_DIR, "logs")
 MAX_BYTES = 1_000_000
 KEEP = 3
 

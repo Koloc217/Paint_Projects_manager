@@ -215,7 +215,7 @@ python -m pytest                      # all tests, about 2 seconds
 python -m pytest tests/test_tasks.py  # one file
 ```
 
-The tests run a copy of the code in a temporary folder with an empty database: they never see or change the real
+The tests use an empty temporary data folder (`PROJECT_HUB_DATA_DIR`): they never see or change the real
 `tracker.db`, `config.json`, photos or `.env` (the bot token). Covered: projects and tokens, tasks, the trash,
 pipeline templates, status codes and the migration of old values, translation completeness.
 
@@ -226,6 +226,20 @@ PROJECT_HUB_TEST_DB=/path/to/tracker.db python -m pytest tests/test_real_db.py
 ```
 
 In PowerShell: `$env:PROJECT_HUB_TEST_DB="C:\path\tracker.db"; python -m pytest tests/test_real_db.py`.
+
+### Data folder and the IDE
+
+All data (`tracker.db`, `config.json`, `.env`, `auth.json`, `photos/`, `logs/`) lives next to the code. The
+`PROJECT_HUB_DATA_DIR` environment variable moves it to another folder; the tests and the IDE run do that.
+`tools/deploy.sh` expects the data next to the code.
+
+IntelliJ IDEA (with the Python plugin) or PyCharm: File → Open → the project folder, pick a Python interpreter
+(Settings → Project → Python Interpreter, preferably a separate venv) and run `pip install -r requirements-dev.txt`.
+Two shared run configurations from the `.run/` folder appear in the run list:
+
+- **Tests: all** — every test, with debugging (breakpoints in the code work);
+- **Project Hub (dev data)** — the app on separate data in `.devdata/`. There is no `.env` there, so the bot
+  does not start and does not interfere with the production bot on the Pi.
 
 ## Known limitations
 

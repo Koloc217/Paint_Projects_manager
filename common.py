@@ -20,11 +20,13 @@ try:
 except ImportError:
     msvcrt = None
 
-from database import Project, Task, Adjustment
+from database import Project, Task, Adjustment, DATA_DIR
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
-CONFIG_LOCK_FILE = os.path.join(BASE_DIR, ".config.lock")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))     # the code: templates, static, locales.json, scripts
+# DATA_DIR (from database.py): tracker.db, config.json, .env, auth.json, photos/, logs/ and service files.
+# Next to the code unless PROJECT_HUB_DATA_DIR says otherwise.
+CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
+CONFIG_LOCK_FILE = os.path.join(DATA_DIR, ".config.lock")
 
 # ---------------------------------------------------------------------------
 # Canonical values: technical codes stored in the database and used in the logic and the bot's callback_data.
@@ -384,7 +386,7 @@ def edit_config():
 def save_config(cfg: dict) -> None:
     """Atomic write: a temporary file first, then os.replace. To change settings, use edit_config():
     it takes the lock, so concurrent changes are not lost."""
-    fd, tmp_path = tempfile.mkstemp(dir=BASE_DIR, prefix=".config.", suffix=".tmp")
+    fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix=".config.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=4, ensure_ascii=False)

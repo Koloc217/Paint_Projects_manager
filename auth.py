@@ -34,10 +34,10 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 
-from common import BASE_DIR
+from common import DATA_DIR
 from i18n import tr, get_lang, table_for
 
-AUTH_FILE = os.path.join(BASE_DIR, "auth.json")
+AUTH_FILE = os.path.join(DATA_DIR, "auth.json")
 COOKIE_NAME = "ph_session"
 SESSION_TTL_SEC = 14 * 24 * 3600
 DEFAULT_USER = "admin"
@@ -77,7 +77,7 @@ def _default_state() -> dict:
 
 
 def _write(state: dict) -> None:
-    fd, tmp = tempfile.mkstemp(dir=BASE_DIR, prefix=".auth.", suffix=".tmp")
+    fd, tmp = tempfile.mkstemp(dir=DATA_DIR, prefix=".auth.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)

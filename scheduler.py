@@ -13,11 +13,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, time as dtime
 
 import logs
-from common import BASE_DIR, DAY_KEYS, load_config, normalize_schedule
+from common import BASE_DIR, DATA_DIR, DAY_KEYS, load_config, normalize_schedule
 
 JOB_TIMEOUT_SEC = 180
 TICK_SEC = 20
-STATE_FILE = os.path.join(BASE_DIR, "scheduler_state.json")
+STATE_FILE = os.path.join(DATA_DIR, "scheduler_state.json")
 HEARTBEAT_SEC = 300          # how often "the app is running" is recorded (to find missed runs)
 CATCHUP_DELAY_SEC = 15       # after start-up, wait until the web app and the bot are up
 STAMP_FMT = "%Y-%m-%d %H:%M"
@@ -124,7 +124,7 @@ def load_state() -> dict:
 
 def save_state(alive: datetime, fired: dict) -> None:
     """Atomic write, like config.json."""
-    fd, tmp_path = tempfile.mkstemp(dir=BASE_DIR, prefix=".sched.", suffix=".tmp")
+    fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix=".sched.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump({"alive": alive.strftime(ALIVE_FMT), "fired": fired}, f, ensure_ascii=False)

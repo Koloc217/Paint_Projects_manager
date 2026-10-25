@@ -15,9 +15,9 @@ from urllib.parse import urlsplit
 import httpx
 from dotenv import load_dotenv
 
-from common import BASE_DIR, config_value, load_config, edit_config
+from common import DATA_DIR, config_value, load_config, edit_config
 
-load_dotenv(os.path.join(BASE_DIR, ".env"))
+load_dotenv(os.path.join(DATA_DIR, ".env"))
 
 SCHEMES = ("http", "https", "socks5", "socks5h")
 MAX_URL_LEN = 500
