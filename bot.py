@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, Reference, ensure_schema
 import progress
 import tgclean
+import activity
 import ics
 from common import (
     BASE_DIR, esc, to_tokens, clip_lines, short_text, TG_ALERT_LIMIT, MAX_TASK_NAME_LEN, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
@@ -828,7 +829,7 @@ def build_share(project_id: str):
         recipe = (proj.paint_notes or "").strip()
         extra = None
         if recipe:
-            title = f"🖌 {tr('bot.share_recipe')}:"
+            title = f"📝 {tr('bot.share_recipe')}:"
             if head_len + len(title) + len(recipe) + 4 <= CAPTION_MAX:
                 caption = f"{head}\n\n<b>{title}</b>\n{esc(recipe)}"
             else:                                                  # a long recipe goes as its own message
@@ -1730,7 +1731,12 @@ async def handle_foreign_message(chat: dict, text: str):
 
 
 async def process_update(item: dict):
-    """One Telegram update: a message or a button press."""
+    """One Telegram update: a message or a button press. Journal events from here are marked as made in the bot."""
+    with activity.source("bot"):
+        await _process_update(item)
+
+
+async def _process_update(item: dict):
     if "callback_query" in item:
         cb = item["callback_query"]
         cb_chat_id = ((cb.get("message") or {}).get("chat") or {}).get("id")

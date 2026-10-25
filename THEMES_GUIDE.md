@@ -76,7 +76,7 @@
 | `--chart-text` | подписи оси X и легенда | `#e6d5b8` |
 | `--chart-muted` | подписи оси Y | `#b9a47a` |
 | `--chart-grid` | линии сетки | `rgba(133, 103, 53, 0.35)` |
-| `--chart-stage-1` … `--chart-stage-6` | столбцы «Воронка стадий»: без стадии, печать, шлифовка, сборка, грунт, покрас | `#5a4627` … |
+| `--chart-stage-1` … `--chart-stage-7` | столбцы «Воронка стадий»: без стадии, печать, шлифовка, сборка, грунт, покрас, доводка | `#5a4627` … |
 | `--chart-series-1` | «Закрыто задач» | `#c9a227` |
 | `--chart-series-2` | «Завершено проектов» | `#8b1a1a` |
 | `--chart-border` | контур столбцов (`transparent` без контура) | `#f3e5ab` |
@@ -131,6 +131,7 @@ body.theme-neon {
     --chart-stage-4: #ff4fd8;
     --chart-stage-5: #9b6bff;
     --chart-stage-6: #4fffb0;
+    --chart-stage-7: #ffb04f;
     --chart-series-1: #4fd1ff;
     --chart-series-2: #ff4fd8;
     --chart-border: transparent;

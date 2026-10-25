@@ -1016,7 +1016,7 @@ function getPriorityColor(priority) {
 // the paint recipe and the project's task names.
 const searchQuery = { active: '', hall: '' };
 const STATUS_TR = { 'В планах': 'status.planned', 'В работе': 'status.in_work', 'На паузе': 'status.on_hold', 'Закончен': 'status.finished' };
-const STAGE_TR = { 'Печать': 'stage.printing', 'Шлифовка': 'stage.sanding', 'Сборка': 'stage.assembly', 'Грунт': 'stage.priming', 'Покрас': 'stage.painting' };
+const STAGE_TR = { 'Печать': 'stage.printing', 'Шлифовка': 'stage.sanding', 'Сборка': 'stage.assembly', 'Грунт': 'stage.priming', 'Покрас': 'stage.painting', 'Доводка': 'stage.finishing' };
 
 function normSearch(s) { return String(s == null ? '' : s).toLowerCase().replace(/ё/g, 'е'); }
 
@@ -1073,7 +1073,7 @@ function renderProjects() {
                     <div class="flex items-center gap-2 mb-3 flex-wrap">
                         ${p['Token Reward'] > 0 ? `<span class="text-[10px] text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">+${p['Token Reward']}</span>` : ''}
                         <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${getPriorityColor(p.Priority)}">${esc(p.Priority)}</span>
-                        ${hasPaintNotes ? `<span class="text-[10px] bg-pink-500/10 border border-pink-500/30 text-pink-300 px-1.5 py-0.5 rounded" title="${tr('recipe.exists')}">🎨</span>` : ''}
+                        ${hasPaintNotes ? `<span class="text-[10px] bg-pink-500/10 border border-pink-500/30 text-pink-300 px-1.5 py-0.5 rounded" title="${tr('recipe.exists')}">📝</span>` : ''}
                         ${(p.Refs && p.Refs.length) ? `<span class="text-[10px] bg-sky-500/10 border border-sky-500/30 text-sky-300 px-1.5 py-0.5 rounded" title="${tr('ref.title')}">🖼 ${p.Refs.length}</span>` : ''}
                         <div class="flex items-center gap-2 text-[11px] bg-slate-900/50 px-2 py-0.5 rounded-md border border-slate-700/50 ml-auto">
                             <span class="flex items-center gap-1 text-emerald-400" title="${tr('common.completed')}">
@@ -1105,6 +1105,7 @@ function renderProjects() {
                     <option value="Сборка" ${p.Stage === 'Сборка' ? 'selected' : ''}>${tr('stage.assembly')}</option>
                     <option value="Грунт" ${p.Stage === 'Грунт' ? 'selected' : ''}>${tr('stage.priming')}</option>
                     <option value="Покрас" ${p.Stage === 'Покрас' ? 'selected' : ''}>${tr('stage.painting')}</option>
+                    <option value="Доводка" ${p.Stage === 'Доводка' ? 'selected' : ''}>${tr('stage.finishing')}</option>
                 </select>
             </div>
         </div>`;
@@ -1198,7 +1199,7 @@ function renderAllTasks() {
 function chartTheme() {
     const css = getComputedStyle(document.body);
     const v = (name, fallback) => (css.getPropertyValue(name).trim() || fallback);
-    const stageDefaults = ['#475569', '#6366f1', '#f59e0b', '#06b6d4', '#a855f7', '#10b981'];
+    const stageDefaults = ['#475569', '#6366f1', '#f59e0b', '#06b6d4', '#a855f7', '#10b981', '#f472b6'];
     return {
         font: v('--chart-font', 'sans-serif'),
         text: v('--chart-text', '#cbd5e1'),
@@ -1223,7 +1224,7 @@ function renderAnalytics() {
     document.getElementById('statEarnedTokens').innerText = `+${earnedTokensTotal}`;
     document.getElementById('statTaskRate').innerText = `${rate}%`;
 
-    const stages = ['—', 'Печать', 'Шлифовка', 'Сборка', 'Грунт', 'Покрас'];
+    const stages = ['—', 'Печать', 'Шлифовка', 'Сборка', 'Грунт', 'Покрас', 'Доводка'];
     const stageCounts = stages.map(st => activeProjs.filter(p => (p.Stage || '—') === st).length);
 
     const ct = chartTheme();
@@ -1235,7 +1236,7 @@ function renderAnalytics() {
     stageChartInstance = new Chart(ctxStage, {
         type: 'bar',
         data: {
-            labels: ['stage.none', 'stage.printing', 'stage.sanding', 'stage.assembly', 'stage.priming', 'stage.painting'].map(s => tr(s)),
+            labels: ['stage.none', 'stage.printing', 'stage.sanding', 'stage.assembly', 'stage.priming', 'stage.painting', 'stage.finishing'].map(s => tr(s)),
             datasets: [{
                 label: tr('analytics.active_projects'),
                 data: stageCounts,
@@ -1334,7 +1335,7 @@ function renderHall() {
     hallContainer.innerHTML = hallProjs.map(p => {
         const pTasks = projectTasks(p.ID);
         const notesHtml = p.PaintNotes && p.PaintNotes.trim()
-            ? `<div class="mt-3 p-2.5 bg-slate-900/90 border border-amber-500/20 rounded-lg text-xs text-slate-300 font-mono whitespace-pre-wrap"><span class="text-amber-400 font-bold block mb-1">🎨 ${tr('recipe.title')}:</span>${esc(p.PaintNotes)}</div>`
+            ? `<div class="mt-3 p-2.5 bg-slate-900/90 border border-amber-500/20 rounded-lg text-xs text-slate-300 font-mono whitespace-pre-wrap"><span class="text-amber-400 font-bold block mb-1">📝 ${tr('recipe.title')}:</span>${esc(p.PaintNotes)}</div>`
             : `<div class="mt-3 text-xs text-slate-500 italic">${tr('recipe.empty')}</div>`;
 
         return `

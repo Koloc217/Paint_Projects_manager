@@ -41,7 +41,7 @@ TASK_IN_PROGRESS = "В процессе"
 TASK_STATUSES = (TASK_NOT_STARTED, TASK_IN_PROGRESS, STATUS_FINISHED)
 
 NO_STAGE = "—"
-STAGES = (NO_STAGE, "Печать", "Шлифовка", "Сборка", "Грунт", "Покрас")
+STAGES = (NO_STAGE, "Печать", "Шлифовка", "Сборка", "Грунт", "Покрас", "Доводка")   # Доводка: finishing touches before completion
 PRIORITIES = ("Low", "Medium", "High", "Critical")
 
 # Every spelling of "finished" that older versions could have written

@@ -19,6 +19,7 @@
     --chart-stage-4: #06b6d4;       /* Assembly */
     --chart-stage-5: #a855f7;       /* Priming */
     --chart-stage-6: #10b981;       /* Painting */
+    --chart-stage-7: #f472b6;       /* Finishing */
     --chart-series-1: #6366f1;      /* "Tasks closed" */
     --chart-series-2: #10b981;      /* "Projects completed" */
     --chart-border: transparent;    /* bar outline */
@@ -67,6 +68,7 @@ body.theme-cyberpunk {
     --chart-stage-4: #ff2bd6;
     --chart-stage-5: #9d4dff;
     --chart-stage-6: #00ff9d;
+    --chart-stage-7: #ff8a00;
     --chart-series-1: #00f0ff;
     --chart-series-2: #00ff9d;
     --chart-border: #030708;
@@ -280,6 +282,7 @@ body.theme-warhammer {
     --chart-stage-4: #3f7f7a;
     --chart-stage-5: #7a3b8f;
     --chart-stage-6: #8b1a1a;
+    --chart-stage-7: #c9a45e;
     --chart-series-1: #c9a227;
     --chart-series-2: #8b1a1a;
     --chart-border: #f3e5ab;
@@ -664,6 +667,7 @@ body.theme-scp {
     --chart-stage-4: #84cc16;
     --chart-stage-5: #38bdf8;
     --chart-stage-6: #dc2626;
+    --chart-stage-7: #facc15;
     --chart-series-1: #d97706;
     --chart-series-2: #dc2626;
     --chart-border: #141413;
@@ -870,6 +874,7 @@ body.theme-workbench {
     --chart-stage-4: #a3e635;
     --chart-stage-5: #cbd5e1;
     --chart-stage-6: #fb7185;
+    --chart-stage-7: #a3e635;
     --chart-series-1: #f59e0b;
     --chart-series-2: #a3e635;
     --chart-border: #16241d;
@@ -1045,6 +1050,7 @@ body.theme-synthwave {
     --chart-stage-4: #ff007f;
     --chart-stage-5: #8338ec;
     --chart-stage-6: #06d6a0;
+    --chart-stage-7: #ffbe0b;
     --chart-series-1: #00f0ff;
     --chart-series-2: #ff007f;
     --chart-border: #120624;
@@ -1208,6 +1214,7 @@ body.theme-ff7 {
     --chart-stage-4: #38bdf8;
     --chart-stage-5: #c084fc;
     --chart-stage-6: #f87171;
+    --chart-stage-7: #facc15;
     --chart-series-1: #4ade80;
     --chart-series-2: #facc15;
     --chart-border: #ffffff;
@@ -1357,6 +1364,7 @@ body.theme-tamiya {
     --chart-stage-4: #fb923c;
     --chart-stage-5: #e2e8f0;
     --chart-stage-6: #ef4444;
+    --chart-stage-7: #22c55e;
     --chart-series-1: #38bdf8;
     --chart-series-2: #ef4444;
     --chart-border: #f5f2eb;
@@ -1526,6 +1534,7 @@ body.theme-pcb {
     --chart-stage-4: #10b981;
     --chart-stage-5: #38bdf8;
     --chart-stage-6: #ef4444;
+    --chart-stage-7: #facc15;
     --chart-series-1: #d4af37;
     --chart-series-2: #10b981;
     --chart-border: #081c12;

@@ -35,7 +35,7 @@ VALUE_KEYS = {
     "Закончен": "status.finished", "Не начато": "status.not_started", "В процессе": "status.in_progress",
     "Выполнено": "status.done",
     "Печать": "stage.printing", "Шлифовка": "stage.sanding", "Сборка": "stage.assembly",
-    "Грунт": "stage.priming", "Покрас": "stage.painting", "Без стадии": "stage.none",
+    "Грунт": "stage.priming", "Покрас": "stage.painting", "Доводка": "stage.finishing", "Без стадии": "stage.none",
     "Пн": "day.mon", "Вт": "day.tue", "Ср": "day.wed", "Чт": "day.thu",
     "Пт": "day.fri", "Сб": "day.sat", "Вс": "day.sun",
 }
