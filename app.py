@@ -194,6 +194,7 @@ class ProjectEdit(BaseModel):
 
 class ProjectRename(BaseModel):
     name: str
+    priority: Optional[str] = None      # None: leave the priority as is
 
 class PhotoUpload(BaseModel):
     image: str  # data:image/jpeg;base64,... (the browser resizes and converts to JPEG)
@@ -233,7 +234,7 @@ class ConfigUpdate(BaseModel):
     dev_mode: bool
     project_cost: float = 10        # a whole number, checked by parse_token_field
     delete_keeps_balance: bool = True
-    calendar_enabled: Optional[bool] = None     # None: an older page without the field, keep the setting
+    calendar_export: Optional[bool] = None      # None: an older page without the field, keep the setting
     allow_postpone: bool = True
     stagnation_alert: bool = True
     stagnation_days: int = 10
@@ -295,7 +296,7 @@ def index(request: Request):
     return templates.TemplateResponse(
         request=request, name="index.html",
         context={"lang": lang, "i18n": table_for(lang), "date_format": load_config()["DATE_FORMAT"],
-                 "calendar_enabled": ics.enabled()},
+                 "calendar_export": ics.enabled()},
     )
 
 @app.get("/api/data")
@@ -356,7 +357,7 @@ def get_data(db: Session = Depends(get_db)):
         "dev_mode": config.get("DEV_MODE", False),
         "project_cost": to_tokens(config.get("PROJECT_COST", 10), 10),
         "delete_keeps_balance": config.get("DELETE_KEEPS_BALANCE", True),
-        "calendar_enabled": bool(config.get("CALENDAR_ENABLED")),
+        "calendar_export": bool(config.get("CALENDAR_EXPORT")),
         "notify_settings": config.get("NOTIFY", DEFAULT_NOTIFY_SETTINGS),
         "schedule_settings": config.get("SCHEDULE", DEFAULT_SCHEDULE),
         "language": get_lang(),
@@ -391,8 +392,8 @@ def update_config_route(data: ConfigUpdate):
         cfg["DEV_MODE"] = data.dev_mode
         cfg["PROJECT_COST"] = project_cost
         cfg["DELETE_KEEPS_BALANCE"] = data.delete_keeps_balance
-        if data.calendar_enabled is not None:
-            cfg["CALENDAR_ENABLED"] = data.calendar_enabled
+        if data.calendar_export is not None:
+            cfg["CALENDAR_EXPORT"] = data.calendar_export
         if data.language is not None:
             cfg["LANGUAGE"] = normalize_lang(data.language)
         if data.date_format is not None:
@@ -671,16 +672,20 @@ def edit_project(project_id: str, data: ProjectEdit, db: Session = Depends(get_d
 
 @app.post("/api/projects/{project_id}/rename")
 def rename_project(project_id: str, data: ProjectRename, db: Session = Depends(get_db)):
-    """Renaming is always allowed, regardless of DEV_MODE."""
+    """Name and priority: always allowed, regardless of DEV_MODE (the deadline needs DEV_MODE, see /edit)."""
     name, err = validate_name(data.name)
     if err:
         return {"status": "error", "message": err}
+    if data.priority is not None and data.priority not in PRIORITIES:
+        return {"status": "error", "message": tr("err.bad_value")}
     proj = get_project(db, project_id)
     if not proj:
         return {"status": "error", "message": tr("err.project_not_found")}
-    # updated_at is left alone: a rename is not progress on the project
+    # updated_at is left alone: renaming or reprioritizing is not progress on the project
     # (otherwise it would reset the stagnation detector).
     proj.name = name
+    if data.priority is not None:
+        proj.priority = data.priority
     db.commit()
     return {"status": "ok", "name": name}
 

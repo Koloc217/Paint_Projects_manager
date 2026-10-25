@@ -512,15 +512,12 @@ function showToast(message, type = 'error') {
     }, 4000);
 }
 
-let calendarEnabled = false;      // the calendar is an option (Settings → General), off by default
-
 function switchTab(tab) {
-    if (tab === 'calendar' && !calendarEnabled) tab = 'dashboard';
     ['dashboard', 'allTasks', 'calendar', 'feed', 'analytics'].forEach(t => {
         document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
-        document.getElementById(`tab-btn-${t}`).className = (t === 'calendar' && !calendarEnabled ? 'hidden ' : '') + (t === tab
+        document.getElementById(`tab-btn-${t}`).className = t === tab
             ? 'px-3.5 py-1.5 text-sm font-medium rounded-md bg-slate-700 text-white transition-colors shadow-sm'
-            : 'px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors');
+            : 'px-3.5 py-1.5 text-sm font-medium rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors';
     });
     if (tab === 'analytics') renderAnalytics();
     if (tab === 'feed') renderFeed();
@@ -615,14 +612,6 @@ function sortTasks(tasksList) {
 
 // Several loads can overlap (window focus + an action); only the newest response is applied,
 // otherwise an older answer arriving late would overwrite fresher data.
-// Shows or hides the Calendar tab; if it was open while the option was turned off, goes back to the dashboard
-function applyCalendarEnabled(on) {
-    calendarEnabled = on;
-    const onCalendar = !document.getElementById('view-calendar').classList.contains('hidden');
-    document.getElementById('tab-btn-calendar').classList.toggle('hidden', !on);
-    if (!on && onCalendar) switchTab('dashboard');
-}
-
 let loadSeq = 0;
 async function loadData() {
     const seq = ++loadSeq;
@@ -640,7 +629,7 @@ async function loadData() {
         notifySettings = data.notify_settings || {};
         scheduleSettings = data.schedule_settings || {};
         deleteKeepsBalance = data.delete_keeps_balance ?? true;
-        applyCalendarEnabled(!!data.calendar_enabled);
+        applyCalendarExport(!!data.calendar_export);
         languagesList = data.languages || [];
         trashItems = data.trash || [];
         trashDays = data.trash_days || 30;
@@ -953,7 +942,7 @@ function openSettingsModal(tab = 'general') {
     document.getElementById('cfgDevMode').checked = isDevMode;
     document.getElementById('cfgProjectCost').value = projectCost;
     document.getElementById('cfgDeleteKeepsBalance').checked = deleteKeepsBalance;
-    document.getElementById('cfgCalendarEnabled').checked = calendarEnabled;
+    document.getElementById('cfgCalendarExport').checked = calendarExport;
     document.getElementById('cfgAllowPostpone').checked = notifySettings.allow_postpone ?? true;
     document.getElementById('cfgStagnationAlert').checked = notifySettings.stagnation_alert ?? true;
     document.getElementById('cfgStagnationDays').value = notifySettings.stagnation_days ?? 10;
@@ -978,7 +967,7 @@ async function saveSettings() {
         dev_mode: document.getElementById('cfgDevMode').checked,
         project_cost: isNaN(costVal) ? 10 : costVal,
         delete_keeps_balance: document.getElementById('cfgDeleteKeepsBalance').checked,
-        calendar_enabled: document.getElementById('cfgCalendarEnabled').checked,
+        calendar_export: document.getElementById('cfgCalendarExport').checked,
         allow_postpone: document.getElementById('cfgAllowPostpone').checked,
         stagnation_alert: document.getElementById('cfgStagnationAlert').checked,
         stagnation_days: parseInt(document.getElementById('cfgStagnationDays').value) || 10,
@@ -1601,9 +1590,8 @@ function openEditModal(id) {
     if(!p) return;
     document.getElementById('epId').value = p.ID; document.getElementById('epName').value = p.Name;
     document.getElementById('epPriority').value = p.Priority; document.getElementById('epEstimate').value = p.Estimate || '';
-    // Priority and deadline are editable in DEV MODE only; the name always.
+    // Name and priority are always editable; the deadline in DEV MODE only.
     document.getElementById('epDevFields').classList.toggle('hidden', !isDevMode);
-    document.getElementById('epTitle').innerText = isDevMode ? tr('project.edit') : tr('project.rename');
     openModal('editProjectModal');
 }
 
@@ -1618,13 +1606,13 @@ async function saveProjectEdit() {
         body = { name: name, priority: document.getElementById('epPriority').value, estimate: document.getElementById('epEstimate').value || null };
     } else {
         url = `/api/projects/${id}/rename`;
-        body = { name: name };
+        body = { name: name, priority: document.getElementById('epPriority').value };
     }
     const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
     const result = await res.json();
     if(result.status === "error") return showToast(result.message || tr('err.save_failed'), "error");
     closeModal('editProjectModal');
-    showToast(isDevMode ? tr('toast.project_updated') : tr('toast.project_renamed'), "success");
+    showToast(tr('toast.project_updated'), "success");
     loadData();
 }
 

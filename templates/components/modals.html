@@ -44,10 +44,10 @@
 
                     <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
                         <div>
-                            <div class="font-semibold text-white">{{ tr('settings.calendar') }}</div>
-                            <div class="text-xs text-slate-400">{{ tr('settings.calendar_hint') }}</div>
+                            <div class="font-semibold text-white">{{ tr('settings.calendar_export') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.calendar_export_hint') }}</div>
                         </div>
-                        <input type="checkbox" id="cfgCalendarEnabled" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                        <input type="checkbox" id="cfgCalendarExport" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
                     </label>
 
                     <div class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700">
@@ -445,11 +445,11 @@
             <div class="space-y-3">
                 <input type="hidden" id="epId">
                 <input id="epName" maxlength="120" placeholder="{{ tr('project.name') }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
-                <div id="epDevFields" class="space-y-3">
                 <select id="epPriority" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
                     <option value="Low">🟢 Low</option><option value="Medium">🟡 Medium</option>
                     <option value="High">🟠 High</option><option value="Critical">🔴 Critical</option>
                 </select>
+                <div id="epDevFields" class="space-y-3">
                 <input id="epEstimate" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
                 </div>
             </div>

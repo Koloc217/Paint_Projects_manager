@@ -59,6 +59,7 @@ COMMANDS = [                         # (command, description key)
     ("projects", "bot.cmd_all_desc"),
     ("task", "bot.cmd_task_desc"),
     ("photo", "bot.cmd_photo_desc"),
+    ("myphotos", "bot.cmd_myphotos_desc"),
     ("calendar", "bot.cmd_calendar_desc"),
     ("stats", "bot.cmd_stats_desc"),
     ("help", "bot.cmd_help_desc"),
@@ -326,9 +327,12 @@ def build_project_card(proj, tasks, tokens, total_active_count=1, is_focus=True)
     keyboard.append([{"text": f"🎨 {tr('bot.change_stage')} ({tv(stage_str)})", "callback_data": f"stage_menu:{proj.id}"},
                      {"text": f"➕ {tr('bot.btn_add_task')}", "callback_data": f"tk_new:{proj.id}"}])
     photos_count = _count_photos(proj.id)
+    refs_count = _count_refs(proj.id)
     media_row = []
     if photos_count:
         media_row.append({"text": f"📷 {tr('bot.btn_photos', n=photos_count)}", "callback_data": f"ph_v:{proj.id}:0"})
+    if refs_count:
+        media_row.append({"text": f"🖼 {tr('bot.btn_refs', n=refs_count)}", "callback_data": f"rf_v:{proj.id}:0"})
     media_row.append({"text": f"📤 {tr('bot.btn_share')}", "callback_data": f"share:{proj.id}"})
     keyboard.append(media_row)
     if total_active_count > 1:
@@ -550,6 +554,22 @@ def _count_photos(project_id: str) -> int:
         db.close()
 
 
+def _ref_rows(db, project_id: str) -> list:
+    """References of a project in the card's order, only those whose file is on disk."""
+    rows = db.query(Reference).filter(Reference.project_id == project_id).order_by(Reference.position, Reference.id).all()
+    return [r for r in rows if os.path.exists(os.path.join(SHARE_REFS_DIR, os.path.basename(r.filename)))]
+
+
+def _count_refs(project_id: str) -> int:
+    db = SessionLocal()
+    try:
+        return len(_ref_rows(db, project_id))
+    except Exception:
+        return 0
+    finally:
+        db.close()
+
+
 def _sync_tg_download(file_id: str) -> bytes:
     """Downloads a file by file_id (getFile + download) through the same connection as the rest of the bot."""
     client = _http_client()
@@ -604,12 +624,13 @@ def _active_projects(db):
 
 
 async def save_telegram_photos(project_id: str, file_ids: list, note: str):
-    """Downloads the files and saves them as progress photos. Returns (saved ids, project name, stage, error)."""
+    """Downloads the files and saves them as progress photos.
+    Returns (saved ids, project name, stage, error, number of photos NOT saved)."""
     db = SessionLocal()
     try:
         proj = db.query(Project).filter(Project.id == project_id).first()
         if not proj:
-            return [], "", "", tr("err.project_not_found")
+            return [], "", "", tr("err.project_not_found"), len(file_ids)
         saved, error = [], None
         for fid in file_ids:
             try:
@@ -621,9 +642,15 @@ async def save_telegram_photos(project_id: str, file_ids: list, note: str):
             except Exception as e:
                 print(f"[BOT ERROR] Could not fetch the photo: {safe_error(e)}")
                 error = tr("bot.photo_download_failed")
-        return saved, proj.name, getattr(proj, "stage", "—") or "—", error
+        return saved, proj.name, getattr(proj, "stage", "—") or "—", error, len(file_ids) - len(saved)
     finally:
         db.close()
+
+
+def not_added_text(failed: int, total: int, error: str = None) -> str:
+    """Warning that some or all photos did not make it into the project, with the reason when known."""
+    head = tr("bot.photo_not_added") if failed >= total else tr("bot.photo_not_added_some", n=failed, total=total)
+    return f"⚠️ {head}" + (f": {error}" if error else "")
 
 
 def _saved_view(name: str, stage: str, ids: list, project_id: str):
@@ -637,6 +664,16 @@ def _saved_view(name: str, stage: str, ids: list, project_id: str):
 
 
 async def handle_photo_message(chat_id: int, msg: dict):
+    """A photo from the chat: any unexpected failure is reported, so a photo never disappears silently."""
+    try:
+        await _handle_photo_message(chat_id, msg)
+    except Exception as e:
+        print(f"[BOT ERROR] photo message: {safe_error(e)}")
+        traceback.print_exc()
+        await send_message(chat_id, not_added_text(1, 1))
+
+
+async def _handle_photo_message(chat_id: int, msg: dict):
     found = _extract_image(msg)
     if not found or not found[0]:
         return
@@ -651,9 +688,14 @@ async def handle_photo_message(chat_id: int, msg: dict):
     entry = _photo_groups.get(group) if group else None
     if entry:                                           # the next photo of the same album
         if entry.get("project"):
-            await save_telegram_photos(entry["project"], [file_id], note)   # silently: this album was already answered
+            # this album was already answered: success stays quiet, a failure is reported
+            ids, _, _, error, failed = await save_telegram_photos(entry["project"], [file_id], note)
+            if failed:
+                await send_message(chat_id, not_added_text(1, 1, error))
         elif entry["token"] in _pending_photos:
             _pending_photos[entry["token"]]["files"].append(file_id)
+        else:                                           # the project question was cancelled or has expired
+            await send_message(chat_id, not_added_text(1, 1, tr("bot.photo_expired")))
         return
 
     db = SessionLocal()
@@ -669,12 +711,12 @@ async def handle_photo_message(chat_id: int, msg: dict):
         pid = active[0][0]
         if group:
             _photo_groups[group] = {"token": None, "project": pid, "ts": time.time()}
-        ids, name, stage, error = await save_telegram_photos(pid, [file_id], note)
+        ids, name, stage, error, failed = await save_telegram_photos(pid, [file_id], note)
         if ids:
             text, markup = _saved_view(name, stage, ids, pid)
             await send_message(chat_id, text, markup)
-        if error:
-            await send_message(chat_id, f"⚠️ {error}")
+        if failed:
+            await send_message(chat_id, not_added_text(failed, 1, error))
         return
 
     token = uuid.uuid4().hex[:8]
@@ -691,19 +733,21 @@ async def handle_photo_choice(cb_id: str, chat_id: int, message_id: int, token: 
     pending = _pending_photos.pop(token, None)
     if not pending:
         await answer_callback(cb_id, tr("bot.photo_expired"), show_alert=True)
+        await edit_message_text(chat_id, message_id, not_added_text(1, 1, tr("bot.photo_expired")))
         return
     for g, v in list(_photo_groups.items()):
         if v.get("token") == token:
             v["project"], v["token"] = project_id, None
     await answer_callback(cb_id)
-    ids, name, stage, error = await save_telegram_photos(project_id, pending["files"], pending["caption"])
+    total = len(pending["files"])
+    ids, name, stage, error, failed = await save_telegram_photos(project_id, pending["files"], pending["caption"])
     if ids:
         text, markup = _saved_view(name, stage, ids, project_id)
-        if error:
-            text += f"\n⚠️ {error}"
+        if failed:
+            text += "\n" + not_added_text(failed, total, error)
         await edit_message_text(chat_id, message_id, text, markup)
     else:
-        await edit_message_text(chat_id, message_id, f"⚠️ {error or tr('bot.photo_download_failed')}")
+        await edit_message_text(chat_id, message_id, not_added_text(total, total, error or tr("bot.photo_download_failed")))
 
 
 # ----- sharing a project: an album to forward -----
@@ -845,7 +889,10 @@ def _photo_view(scope: str, index: int):
                 {"text": "▶", "callback_data": f"ph_v:{scope}:{(index - 1) % total}"},
             ]
         keyboard = [nav] if nav else []
-        keyboard.append([{"text": f"🗑 {tr('bot.btn_delete')}", "callback_data": f"ph_d:{scope}:{index}"}])
+        last_row = [{"text": f"🗑 {tr('bot.btn_delete')}", "callback_data": f"ph_d:{scope}:{index}"}]
+        if scope != "*":                                       # one project's photos: a way back to /myphotos
+            last_row.append({"text": f"◀ {tr('bot.btn_back')}", "callback_data": f"mp_p:{scope}"})
+        keyboard.append(last_row)
         path = os.path.join(progress.PROGRESS_DIR, os.path.basename(row.filename))
         return {"path": path, "caption": "\n".join(lines), "markup": {"inline_keyboard": keyboard},
                 "index": index, "total": total, "id": row.id}
@@ -906,6 +953,26 @@ async def handle_photo_callback(cb: dict, data: str) -> bool:
 
     if action == "noop":
         await answer_callback(cb_id)
+    elif action == "mp_list":
+        await answer_callback(cb_id)
+        view_text, markup = await asyncio.to_thread(build_myphotos_projects)
+        await _show_text(chat_id, msg, view_text, markup)
+    elif action == "mp_p" and len(parts) == 2:
+        await answer_callback(cb_id)
+        view_text, markup = await asyncio.to_thread(build_myphotos_kinds, parts[1])
+        await _show_text(chat_id, msg, view_text, markup)
+    elif action == "rf_v" and len(parts) == 3 and parts[2].lstrip("-").isdigit():
+        index = int(parts[2])
+        if msg.get("photo"):                                   # flip through in the same message
+            await answer_callback(cb_id)
+            await edit_ref_view(chat_id, message_id, parts[1], index)
+        elif await send_ref_view(chat_id, parts[1], index):
+            await answer_callback(cb_id)
+        else:
+            await answer_callback(cb_id, tr("bot.refs_none"), show_alert=True)
+    elif action == "rf_o" and len(parts) == 3 and parts[2].isdigit():
+        await answer_callback(cb_id)
+        await send_ref_original(chat_id, parts[1], int(parts[2]))
     elif action == "ph_to" and len(parts) == 3:
         await handle_photo_choice(cb_id, chat_id, message_id, parts[1], parts[2])
     elif action == "ph_cancel" and len(parts) == 2:
@@ -954,6 +1021,162 @@ async def handle_photo_callback(cb: dict, data: str) -> bool:
     else:
         return False
     return True
+
+
+# ----- /myphotos: pick a project, then progress photos or paint references -----
+
+def _project_media_counts(db):
+    """[(project, progress count, refs count)] for live projects that have anything to show; active ones first."""
+    out = []
+    for p in live_projects(db).all():
+        photos = progress.count_photos(db, p.id)
+        refs = len(_ref_rows(db, p.id))
+        if photos or refs:
+            out.append((p, photos, refs))
+    out.sort(key=lambda x: (status_done(x[0].status), x[0].name.lower()))
+    return out
+
+
+def build_myphotos_projects():
+    db = SessionLocal()
+    try:
+        items = _project_media_counts(db)
+    finally:
+        db.close()
+    if not items:
+        return tr("bot.myphotos_empty"), None
+    keyboard = []
+    for p, photos, refs in items[:PROJECT_BUTTONS_MAX]:
+        mark = "🏆" if status_done(p.status) else "🎨"
+        counts = " · ".join(x for x in (f"📷{photos}" if photos else "", f"🖼{refs}" if refs else "") if x)
+        keyboard.append([{"text": f"{mark} {short_text(p.name, 48)} ({counts})", "callback_data": f"mp_p:{p.id}"}])
+    text = f"🖼 <b>{tr('bot.myphotos_title')}</b>\n{tr('bot.myphotos_pick_project')}"
+    if len(items) > PROJECT_BUTTONS_MAX:
+        text += "\n" + more_line(len(items) - PROJECT_BUTTONS_MAX)
+    return text, {"inline_keyboard": keyboard}
+
+
+def build_myphotos_kinds(project_id: str):
+    db = SessionLocal()
+    try:
+        proj = _live_project(db, project_id)
+        if not proj:
+            return tr("err.project_not_found"), {"inline_keyboard": [[{"text": f"◀ {tr('bot.btn_back_projects')}", "callback_data": "mp_list"}]]}
+        photos = progress.count_photos(db, proj.id)
+        refs = len(_ref_rows(db, proj.id))
+        name = proj.name
+    finally:
+        db.close()
+    row = []
+    if photos:
+        row.append({"text": f"📷 {tr('bot.btn_progress', n=photos)}", "callback_data": f"ph_v:{project_id}:0"})
+    if refs:
+        row.append({"text": f"🖼 {tr('bot.btn_refs', n=refs)}", "callback_data": f"rf_v:{project_id}:0"})
+    keyboard = [row] if row else []
+    keyboard.append([{"text": f"◀ {tr('bot.btn_back_projects')}", "callback_data": "mp_list"}])
+    text = f"🎨 <b>{esc(name)}</b>\n" + (tr("bot.myphotos_pick_kind") if row else tr("bot.myphotos_project_empty"))
+    return text, {"inline_keyboard": keyboard}
+
+
+async def _show_text(chat_id: int, msg: dict, text: str, markup):
+    """Text menus: edited in place, but a photo message cannot become text, so a new message is sent instead."""
+    if msg.get("photo"):
+        await send_message(chat_id, text, markup)
+    else:
+        await edit_message_text(chat_id, msg.get("message_id"), text, markup)
+
+
+def _ref_view(project_id: str, index: int):
+    """Reference number index (in the card's order) as a dict (path, caption, markup, ...), or None."""
+    db = SessionLocal()
+    try:
+        proj = _live_project(db, project_id)
+        rows = _ref_rows(db, project_id) if proj else []
+        if not rows:
+            return None
+        total = len(rows)
+        index = index % total
+        row = rows[index]
+        path = os.path.join(SHARE_REFS_DIR, os.path.basename(row.filename))
+        thumb = os.path.join(SHARE_REFS_DIR, os.path.basename(row.thumb)) if row.thumb else ""
+        send = _share_file(path, thumb)
+        if not send:
+            return None
+        caption = f"<b>{esc(proj.name)}</b> · {tr('bot.ref_caption', n=index + 1, total=total)}"
+        if send != path:
+            caption += f"\n<i>{tr('bot.ref_preview_note')}</i>"
+        keyboard = []
+        if total > 1:
+            keyboard.append([
+                {"text": "◀", "callback_data": f"rf_v:{project_id}:{(index - 1) % total}"},
+                {"text": f"{index + 1}/{total}", "callback_data": "noop"},
+                {"text": "▶", "callback_data": f"rf_v:{project_id}:{(index + 1) % total}"},
+            ])
+        keyboard.append([{"text": f"📎 {tr('bot.btn_original')}", "callback_data": f"rf_o:{project_id}:{row.id}"},
+                         {"text": f"◀ {tr('bot.btn_back')}", "callback_data": f"mp_p:{project_id}"}])
+        return {"path": send, "caption": caption, "markup": {"inline_keyboard": keyboard}, "index": index, "total": total}
+    finally:
+        db.close()
+
+
+async def send_ref_view(chat_id: int, project_id: str, index: int = 0) -> bool:
+    view = await asyncio.to_thread(_ref_view, project_id, index)
+    if not view:
+        return False
+    try:
+        res = await tg_upload("sendPhoto", {
+            "chat_id": str(chat_id), "caption": view["caption"], "parse_mode": "HTML",
+            "reply_markup": json.dumps(view["markup"]),
+        }, {"photo": (os.path.basename(view["path"]), await asyncio.to_thread(_read_bytes, view["path"]))})
+        if not res.get("ok"):
+            print(f"[BOT ERROR] Telegram rejected sendPhoto (reference): {res.get('description')}")
+            await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
+    except Exception as e:
+        print(f"[BOT ERROR] sendPhoto (reference) failed: {safe_error(e)}")
+        await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
+    return True
+
+
+async def edit_ref_view(chat_id: int, message_id: int, project_id: str, index: int):
+    view = await asyncio.to_thread(_ref_view, project_id, index)
+    if not view:
+        await tg_request("POST", "editMessageCaption", payload={
+            "chat_id": chat_id, "message_id": message_id, "caption": tr("bot.refs_none"),
+            "reply_markup": {"inline_keyboard": []}})
+        return
+    media = {"type": "photo", "media": "attach://photo", "caption": view["caption"], "parse_mode": "HTML"}
+    try:
+        res = await tg_upload("editMessageMedia", {
+            "chat_id": str(chat_id), "message_id": str(message_id),
+            "media": json.dumps(media), "reply_markup": json.dumps(view["markup"]),
+        }, {"photo": (os.path.basename(view["path"]), await asyncio.to_thread(_read_bytes, view["path"]))})
+        if not res.get("ok") and "not modified" not in str(res.get("description", "")):
+            print(f"[BOT ERROR] Telegram rejected editMessageMedia (reference): {res.get('description')}")
+    except Exception as e:
+        print(f"[BOT ERROR] editMessageMedia (reference) failed: {safe_error(e)}")
+
+
+async def send_ref_original(chat_id: int, project_id: str, ref_id: int):
+    """The reference file exactly as stored (any size up to the 25 MB upload limit), as a document."""
+    db = SessionLocal()
+    try:
+        row = db.query(Reference).filter(Reference.id == ref_id, Reference.project_id == project_id).first()
+        path = os.path.join(SHARE_REFS_DIR, os.path.basename(row.filename)) if row else ""
+    finally:
+        db.close()
+    if not path or not os.path.exists(path):
+        await send_message(chat_id, tr("bot.refs_none"))
+        return
+    try:
+        res = await tg_upload("sendDocument", {"chat_id": str(chat_id)},
+                              {"document": (os.path.basename(path), await asyncio.to_thread(_read_bytes, path))},
+                              timeout_sec=180.0)
+        if not res.get("ok"):
+            print(f"[BOT ERROR] Telegram rejected sendDocument (reference): {res.get('description')}")
+            await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
+    except Exception as e:
+        print(f"[BOT ERROR] sendDocument (reference) failed: {safe_error(e)}")
+        await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
 
 
 # ==================== TASK BUILDER ====================
@@ -1230,7 +1453,8 @@ async def handle_callback(cb: dict):
             traceback.print_exc()
             return
 
-    if data == "noop" or data.split(":")[0] in ("ph_to", "ph_cancel", "ph_undo", "ph_v", "ph_d", "ph_dy"):
+    if data == "noop" or data.split(":")[0] in ("ph_to", "ph_cancel", "ph_undo", "ph_v", "ph_d", "ph_dy",
+                                                        "mp_list", "mp_p", "rf_v", "rf_o"):
         try:
             if await handle_photo_callback(cb, data):
                 return
@@ -1447,6 +1671,9 @@ async def process_update(item: dict):
         await start_task_constructor(chat_id, None, rest[:MAX_TASK_NAME] if rest else None)
     elif text.startswith("/projects"):
         view_text, markup = await asyncio.to_thread(build_all_projects_view)
+        await send_message(chat_id, view_text, markup)
+    elif text.startswith("/myphotos"):
+        view_text, markup = await asyncio.to_thread(build_myphotos_projects)
         await send_message(chat_id, view_text, markup)
     elif text.startswith("/photo"):
         if not await send_photo_view(chat_id, "*", 0):

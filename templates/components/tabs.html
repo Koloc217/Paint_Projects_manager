@@ -29,7 +29,7 @@
                 <button onclick="calShift(-1)" class="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg" title="{{ tr('calendar.prev') }}">&#8249;</button>
                 <button onclick="calToday()" class="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg">{{ tr('calendar.today') }}</button>
                 <button onclick="calShift(1)" class="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg" title="{{ tr('calendar.next') }}">&#8250;</button>
-                <button onclick="openCalendarExport()" class="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 rounded-lg" title="{{ tr('calexp.button_hint') }}">{{ tr('calexp.button') }}</button>
+                <button id="calExportBtn" onclick="openCalendarExport()" class="{{ '' if calendar_export else 'hidden ' }}px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 rounded-lg" title="{{ tr('calexp.button_hint') }}">{{ tr('calexp.button') }}</button>
             </div>
         </div>
         <div>
