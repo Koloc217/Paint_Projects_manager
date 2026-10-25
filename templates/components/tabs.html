@@ -42,7 +42,13 @@
     <!-- TAB: PROGRESS PHOTO FEED -->
     <main id="view-feed" class="hidden max-w-[1200px] mx-auto p-4 md:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <h2 class="text-lg font-medium text-slate-100">{{ tr('feed.title') }}</h2>
+            <div class="flex flex-wrap items-center gap-3">
+                <h2 id="feedTitle" class="text-lg font-medium text-slate-100">{{ tr('feed.title') }}</h2>
+                <div class="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
+                    <button type="button" id="feedModeBtn-photos" onclick="setFeedMode('photos')" class="px-3 py-1 text-sm font-medium rounded-md bg-slate-700 text-white">{{ tr('journal.tab_photos') }}</button>
+                    <button type="button" id="feedModeBtn-journal" onclick="setFeedMode('journal')" class="px-3 py-1 text-sm font-medium rounded-md text-slate-400 hover:text-white">{{ tr('journal.tab_journal') }}</button>
+                </div>
+            </div>
             <select id="feedProject" onchange="onFeedFilter(this.value)" class="text-sm bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-3 py-1.5 outline-none"></select>
         </div>
         <div id="feedList"></div>

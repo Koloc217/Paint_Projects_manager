@@ -1,7 +1,7 @@
 // ---------- Progress (WIP) photos: the block in the project card and the shared "Feed" ----------
 const PROGRESS_STAGE_KEYS = {
     '—': 'stage.none', 'Печать': 'stage.printing', 'Шлифовка': 'stage.sanding',
-    'Сборка': 'stage.assembly', 'Грунт': 'stage.priming', 'Покрас': 'stage.painting',
+    'Сборка': 'stage.assembly', 'Грунт': 'stage.priming', 'Покрас': 'stage.painting', 'Доводка': 'stage.finishing',
 };
 const PROGRESS_MAX_SIDE = 1600;
 const PROGRESS_MAX_FILES = 10;      // per upload
@@ -147,9 +147,94 @@ function onFeedFilter(value) {
     renderFeed();
 }
 
+// ----- Feed tab: "Photos" (progress photos) or "Journal" (what happened to projects and tasks, activity.py) -----
+let feedMode = 'photos';
+try { if (localStorage.getItem('ph_feed_mode') === 'journal') feedMode = 'journal'; } catch (e) { /* no storage: photos */ }
+let journalItems = [];
+let journalMore = false;
+let journalSeq = 0;
+
+function setFeedMode(mode) {
+    feedMode = mode === 'journal' ? 'journal' : 'photos';
+    try { localStorage.setItem('ph_feed_mode', feedMode); } catch (e) { /* not remembered, that is all */ }
+    renderFeed();
+}
+
+function syncFeedModeButtons() {
+    ['photos', 'journal'].forEach(m => {
+        document.getElementById(`feedModeBtn-${m}`).className = 'px-3 py-1 text-sm font-medium rounded-md ' +
+            (m === feedMode ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white');
+    });
+    document.getElementById('feedTitle').innerText = feedMode === 'journal' ? tr('journal.title') : tr('feed.title');
+}
+
+async function loadJournal(append = false) {
+    const seq = ++journalSeq;
+    const offset = append ? journalItems.length : 0;
+    try {
+        const res = await fetch(`/api/activity?project=${encodeURIComponent(feedFilter)}&offset=${offset}`);
+        const data = await res.json();
+        if (seq !== journalSeq) return;                 // a newer request (filter change) won
+        journalItems = append ? journalItems.concat(data.items || []) : (data.items || []);
+        journalMore = !!data.more;
+    } catch (e) {
+        if (seq !== journalSeq) return;
+        if (!append) journalItems = [];
+        journalMore = false;
+    }
+    drawJournal();
+}
+
+function renderJournal() {
+    const sel = document.getElementById('feedProject');
+    if (feedFilter && !currentProjects.some(p => p.ID === feedFilter)) feedFilter = '';
+    sel.innerHTML = `<option value="">${tr('feed.all_projects')}</option>` +
+        currentProjects.map(p => `<option value="${esc(p.ID)}" ${p.ID === feedFilter ? 'selected' : ''}>${esc(p.Name)}</option>`).join('');
+    loadJournal(false);
+}
+
+function drawJournal() {
+    if (feedMode !== 'journal') return;
+    const box = document.getElementById('feedList');
+    if (!journalItems.length) {
+        box.innerHTML = `<div class="text-sm text-slate-500 py-8 text-center">${tr('journal.empty')}</div>`;
+        return;
+    }
+    let html = '';
+    let day = null;
+    journalItems.forEach(ev => {
+        if (ev.date !== day) {
+            if (day !== null) html += '</div>';
+            day = ev.date;
+            html += `<h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mt-5 mb-2">${esc(formatIsoDate(day))}</h3>` +
+                '<div class="bg-slate-800 border border-slate-700/60 rounded-xl divide-y divide-slate-700/50">';
+        }
+        const project = ev.kind === 'vacation'
+            ? `<span class="text-slate-300">${tr('journal.vacation_label')}</span>`
+            : ev.open
+                ? `<button type="button" onclick="openProjectDetails('${esc(ev.project_id)}')" class="text-indigo-300 hover:text-indigo-200 hover:underline text-left">${esc(ev.project)}</button>`
+                : `<span class="text-slate-400">${esc(ev.project)}</span>`;
+        const note = ev.source === 'bot' ? tr('journal.via_bot') : (ev.source === 'history' ? tr('journal.from_history') : '');
+        html += `
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-3 py-2 text-sm">
+                <span class="w-11 shrink-0 font-mono text-xs text-slate-500">${esc(ev.time || '')}</span>
+                <span class="font-medium min-w-0 max-w-[14rem] truncate">${project}</span>
+                <span class="text-slate-200 min-w-0 flex-1 break-words">${esc(ev.text)}</span>
+                ${note ? `<span class="text-[11px] text-slate-500">${esc(note)}</span>` : ''}
+            </div>`;
+    });
+    html += '</div>';
+    if (journalMore) {
+        html += `<div class="flex justify-center mt-4"><button type="button" onclick="loadJournal(true)" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm text-white">${tr('journal.more')}</button></div>`;
+    }
+    box.innerHTML = html;
+}
+
 function renderFeed() {
     const view = document.getElementById('view-feed');
     if (!view) return;
+    syncFeedModeButtons();
+    if (feedMode === 'journal') { renderJournal(); return; }
     const all = feedAll();
     const sel = document.getElementById('feedProject');
     const withPhotos = currentProjects.filter(p => (p.Progress || []).length);

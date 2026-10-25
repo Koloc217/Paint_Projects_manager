@@ -75,7 +75,7 @@ Set in the `body.theme-<name> { ... }` rule. The defaults live in `:root` at the
 | `--chart-text` | X axis labels and the legend | `#e6d5b8` |
 | `--chart-muted` | Y axis labels | `#b9a47a` |
 | `--chart-grid` | grid lines | `rgba(133, 103, 53, 0.35)` |
-| `--chart-stage-1` … `--chart-stage-6` | "Stage funnel" bars: no stage, printing, sanding, assembly, priming, painting | `#5a4627` … |
+| `--chart-stage-1` … `--chart-stage-7` | "Stage funnel" bars: no stage, printing, sanding, assembly, priming, painting, finishing | `#5a4627` … |
 | `--chart-series-1` | "Tasks closed" | `#c9a227` |
 | `--chart-series-2` | "Projects completed" | `#8b1a1a` |
 | `--chart-border` | bar outline (`transparent` for none) | `#f3e5ab` |
@@ -130,6 +130,7 @@ body.theme-neon {
     --chart-stage-4: #ff4fd8;
     --chart-stage-5: #9b6bff;
     --chart-stage-6: #4fffb0;
+    --chart-stage-7: #ffb04f;
     --chart-series-1: #4fd1ff;
     --chart-series-2: #ff4fd8;
     --chart-border: transparent;

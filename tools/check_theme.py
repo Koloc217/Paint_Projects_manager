@@ -28,7 +28,7 @@ INDEX = os.path.join(ROOT, "static", "fonts", "fonts.css")      # local fonts, b
 
 CHART_TOKENS = [
     "--chart-font", "--chart-text", "--chart-muted", "--chart-grid",
-    "--chart-stage-1", "--chart-stage-2", "--chart-stage-3", "--chart-stage-4", "--chart-stage-5", "--chart-stage-6",
+    "--chart-stage-1", "--chart-stage-2", "--chart-stage-3", "--chart-stage-4", "--chart-stage-5", "--chart-stage-6", "--chart-stage-7",
     "--chart-series-1", "--chart-series-2", "--chart-border", "--chart-border-width", "--chart-radius",
 ]
 ID_RE = re.compile(r"^theme-[a-z0-9]+(-[a-z0-9]+)*$")

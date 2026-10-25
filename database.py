@@ -94,6 +94,22 @@ class ProgressPhoto(Base):
     created_at = Column(DateTime, default=datetime.now)
 
 
+class Activity(Base):
+    """Project journal: what happened and when (status, stage, tasks, deadlines). Written by activity.py.
+    Names are copied at the time of the event, so the journal stays readable after renames or erasing."""
+    __tablename__ = "activity"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_at = Column(DateTime, default=datetime.now, index=True)
+    project_id = Column(String, index=True)
+    project_name = Column(String, default="")
+    task_id = Column(String, nullable=True)
+    task_name = Column(String, default="")
+    kind = Column(String, nullable=False)        # see activity.KINDS
+    old = Column(String, default="")
+    new = Column(String, default="")
+    source = Column(String, default="web")       # web | bot | history (restored from dates)
+
+
 class TgMessage(Base):
     """Messages in the bot chat that the bot may delete later (/clear, digest cleanup, see tgclean.py).
     The Bot API cannot list a chat's history, so the bot remembers what it sent and received."""

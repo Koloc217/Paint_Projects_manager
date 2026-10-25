@@ -49,6 +49,7 @@ and starting a new project costs tokens. The goal is to finish what you start in
 | `storage.py` | Used space: app, database, photos, logs (folder walk, Windows and Linux) |
 | `pipeline.py` | Pipeline templates: built-in defaults, storage and validation in `config.json` |
 | `vacation.py` | Vacation: moving deadlines, state, ending early |
+| `activity.py` | Activity journal: events recorded on database writes, restoring the past, texts |
 | `tgclean.py` | Bot chat cleanup: message tracking, `/clear`, automatic removal of old digests |
 | `ics.py` | Deadlines in iCalendar format: a file and a subscription for a phone calendar |
 | `tgproxy.py` | Optional proxy for Telegram: where the address comes from, validation, password masking, connection check |
@@ -90,12 +91,12 @@ indexes on `tasks.project_id` and `projects.deleted_at` in older databases (`CRE
 | `id` | `PRJ-XXXXXX` |
 | `name` | name (up to 120 characters, not empty) |
 | `status` | `В планах` (Planned), `В работе` (In progress), `На паузе` (On hold), `Закончен` (Finished) |
-| `stage` | `—`, `Печать` (Printing), `Шлифовка` (Sanding), `Сборка` (Assembly), `Грунт` (Priming), `Покрас` (Painting) |
+| `stage` | `—`, `Печать` (Printing), `Шлифовка` (Sanding), `Сборка` (Assembly), `Грунт` (Priming), `Покрас` (Painting), `Доводка` (Finishing: final touches before the project is done) |
 | `priority` | `Low`, `Medium`, `High`, `Critical` |
 | `estimate` | project deadline |
 | `token` | tokens spent to start it (0 in DEV MODE), a whole number |
 | `token_reward` | reward for finishing, a whole number; shown only on the project card in the list |
-| `paint_notes` | paint notebook with recipes |
+| `paint_notes` | project notes (paint recipes and anything else) |
 | `photo` | file name of the photo in `photos/` |
 | `updated_at` | last "progress" on the project (for the stagnation detector) |
 | `completed_at` | when the project was finished |
@@ -110,6 +111,9 @@ indexes on `tasks.project_id` and `projects.deleted_at` in older databases (`CRE
 time), `note` (caption), `source` (`web` or `telegram`), `created_at`. Files live in `photos/progress/`.
 
 **`adjustments`** — balance adjustments (deleted projects): `amount`, `reason`, `created_at`.
+
+**`activity`** — the activity journal: `created_at`, `project_id`, `project_name`, `task_id`, `task_name` (names at the
+time of the event), `kind`, `old`, `new`, `source` (`web`, `bot`, `history`).
 
 **`tg_messages`** — messages in the bot chat that may be deleted (`/clear`, digest cleanup): `chat_id`, `message_id`,
 `kind` (`bot`, `user`, `digest`, `report`), `created_at`. Rows older than 48 hours are dropped, except the latest digest.
@@ -146,7 +150,7 @@ Tokens are whole numbers: a reward and the start cost are accepted only as whole
   trash and charged again on restore.
 - **Editing.** The name and priority can always be changed. The project deadline only in DEV MODE.
 - **What counts as "progress"** (`updated_at`): changing status and stage, creating a task, changing a task status,
-  changing the paint notebook text (saving it unchanged does not count), applying a pipeline template, closing or
+  changing the notes text (saving it unchanged does not count), applying a pipeline template, closing or
   postponing a task from the bot, an edit in DEV MODE. Renaming, changing the priority, photos and references do not count.
 
 ### DEV MODE
@@ -162,7 +166,7 @@ deadline, and allows creating projects without tokens.
   deadlines, tasks without a date at the end).
   - **Project search:** a field above the list. Several space-separated words, all of them must match. Case and ё/е do
     not matter. Searches the name, id, priority, status, stage (both the stored Russian value and its translation),
-    the paint recipe and the project's task names. The counter shows "found / total", Esc clears the field, the filter
+    the notes text and the project's task names. The counter shows "found / total", Esc clears the field, the filter
     survives data refreshes. Runs in the browser; nothing is sent to the server.
 - **All tasks.** Tasks grouped by active project.
 - **Calendar.** A month grid (with the `mdy` date format the week starts on Sunday, otherwise on Monday): deadlines of open tasks
@@ -179,14 +183,21 @@ deadline, and allows creating projects without tokens.
     duplicated. "New address" replaces the token and the old address stops working. An iPhone subscribes directly
     (`webcal://`); Android needs the ICSx⁵ app, since Google Calendar cannot reach a home server.
 - **Feed.** All progress photos by day, newest first, with a project filter. A click opens the photo full screen with a
-  caption (project, date, stage, note) and arrow navigation.
+  caption (project, date, stage, note) and arrow navigation. A "Photos / Journal" switch (remembered in the browser):
+  the **Journal** (`activity.py`) shows by day what happened to projects: creation, status and stage changes, new
+  tasks, task status and deadline changes, trash and restore, vacation. Time, project (a click opens the card) and a
+  "via the bot" note for actions from Telegram. Project filter, 200 events per page, "Show more". Events are written
+  in one place, right before changes reach the database, so the web UI, the bot and templates are covered alike. Not
+  recorded: tasks closed together with their project, deadlines moved by a vacation (one "Vacation" event instead),
+  renames, notes, photos and priority. On first start the journal restores the past from completion dates of
+  projects and tasks (marked "restored from the date", without a time).
 - **Hall of Fame & Analytics.** Four figures (projects finished, tasks closed, tokens earned, overall task progress), a
   stage funnel chart for active projects, a chart of tasks and projects closed over 6 months, and an archive of finished
-  projects (reward, number of tasks, finish date, paint recipe, a "Return to work" button). The archive has its own
+  projects (reward, number of tasks, finish date, notes, a "Return to work" button). The archive has its own
   search with the same rules; typing does not redraw the charts.
 
 ### Project card in the list
-Photo on the left; on the right the name, badges (reward, priority, 🎨 if there is a recipe, 🖼 N for the number of
+Photo on the left; on the right the name, badges (reward, priority, 📝 if there are notes, 🖼 N for the number of
 references, counters of closed and open tasks) and the deadline: "Due soon!" when 3 days or less are left, "Overdue" after
 the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, and delete (with a confirmation dialog).
 
@@ -198,10 +209,10 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
 ### Open project card
 - Header: photo (change and remove), the name with a pencil (name and priority; in DEV MODE also the deadline),
   an "open in a new tab" button, "Pipeline template", "+ Task".
-- **Sub-tabs** (only in the compact card over the dashboard): "Tasks" — the paint notebook and tasks,
+- **Sub-tabs** (only in the compact card over the dashboard): "Tasks" — the notes and tasks,
   "Photos" — references and progress (the number of images next to the name). The open sub-tab is kept while the card
   is open; opening another project switches back to "Tasks". The separate tab (`/?card=`) has no sub-tabs.
-- **Paint notebook:** saved automatically when the field loses focus, and with the button.
+- **Project notes** (paint recipes, ideas, anything): saved automatically when the field loses focus, and with the "Save" button.
 - **Paint references:** up to 20 images (JPEG, PNG, WebP, GIF up to 25 MB). Originals are stored unchanged; the browser
   makes small previews for the grid. Full-screen viewer with arrows. The order is changed by dragging the tiles (on a
   computer); it is saved and used by the viewer.
@@ -255,7 +266,7 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
 ### Data refresh and input
 - The page reloads the data after every action and when the window gets focus again. If requests overlap, only the
   newest answer is applied.
-- Text being typed in the paint notebook is not overwritten by such a refresh: the field is updated only when it has no
+- Text being typed in the notes is not overwritten by such a refresh: the field is updated only when it has no
   unsaved edits.
 
 ### Photos
@@ -264,7 +275,7 @@ the server by the file content; the file name is generated by the server.
 
 ### Other
 - **Card in a separate tab:** the `/?card=<id>` address shows only the project card, full page width: on a wide screen
-  the recipe and tasks are on the left, references and progress photos with large previews on the right (styles in
+  the notes and tasks are on the left, references and progress photos with large previews on the right (styles in
   `static/card-tab.css`).
 - **Data refresh** when the window gets focus again (at most once every 3 seconds), so several tabs stay in sync.
 - **Keys:** Esc closes the top window, Enter confirms a form, arrows in the image viewer.
@@ -417,8 +428,8 @@ is unknown to it.
 "Start" and "Done" on a task, "Change stage" (stage menu), "All active projects", navigation between projects.
 
 **"📤 Share"** in a project card sends an album to forward: cover, the 5 latest progress photos and the references
-(10 at most, the Telegram limit), with the name, stage and paint recipe in the caption. Tasks, tokens and deadlines
-are left out. A long recipe comes as a separate message; big originals (over 5 MB), GIF and WebP go as previews.
+(10 at most, the Telegram limit), with the name, stage and notes in the caption. Tasks, tokens and deadlines
+are left out. Long notes come as a separate message; big originals (over 5 MB), GIF and WebP go as previews.
 A forwarded album gives no access to the data: the bot answers only the bound chat.
 From a push: close the task and "+2d" — **postponing the deadline**: the date moves by 2 days from the later of two dates
 (the current deadline or today). If postponing is turned off in the settings (`allow_postpone`), a button from an old
@@ -576,6 +587,7 @@ Responses look like `{"status": "ok"}` or `{"status": "error", "message": "..."}
 | `GET /api/calendar.ics` | deadlines as an `.ics` file (download) |
 | `GET`, `POST /api/calendar/feed` | subscription state; turn it on or off (`enabled`), replace the address (`new_token`) |
 | `GET /cal/<token>.ics` | deadline subscription; no login, a wrong token or a disabled subscription gives 404 |
+| `GET /api/activity` | journal: `project` (filter), `offset`; 200 events per page, `more` tells if there are more |
 | `GET /api/storage` | used space by category (bytes and number of files) |
 | `GET /api/telegram` | link state: whether a chat is linked, the chat ID or the pairing code |
 | `POST /api/telegram/unlink`, `/api/telegram/code` | unlink the chat; create a new code |
@@ -589,7 +601,7 @@ Responses look like `{"status": "ok"}` or `{"status": "error", "message": "..."}
 | `DELETE /api/projects/{id}` | move a project to the trash |
 | `POST /api/projects/{id}/restore`, `DELETE /api/trash/{id}`, `DELETE /api/trash` | restore from the trash, erase for good, empty the trash |
 | `POST /api/projects/{id}/progress`, `PATCH`, `DELETE …/progress/{photo_id}` | add a progress photo (`image`, `thumb`, `note`), edit the caption, delete |
-| `POST /api/projects/{id}/notes`, `/template` | paint notebook; pipeline template (`kind`: template id, optional `steps` with deadlines) |
+| `POST /api/projects/{id}/notes`, `/template` | project notes; pipeline template (`kind`: template id, optional `steps` with deadlines) |
 | `GET`, `POST /api/pipeline-templates` | templates in the interface language (with `project_id`: which steps the project already has); save or reset templates |
 | `POST /api/vacation`, `/api/vacation/cancel` | start a vacation of N days (1–30); end it |
 | `POST /api/tasks`, `/api/tasks/{id}/edit`, `DELETE /api/tasks/{id}` | tasks |
