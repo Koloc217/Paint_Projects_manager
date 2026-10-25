@@ -98,6 +98,8 @@ DEFAULT_CONFIG = {
     "DATE_FORMAT": "dmy",
     # how many days a deleted project stays in the trash before it is erased for good
     "TRASH_DAYS": 30,
+    # deadline calendar (the Calendar tab, the .ics file, /calendar in the bot, the subscription): an option, off by default
+    "CALENDAR_ENABLED": False,
     # calendar subscription (/cal/<token>.ics): off by default; the token is generated when it is turned on
     "ICS_FEED": {"enabled": False, "token": ""},
 }
@@ -244,6 +246,7 @@ def _normalize_config(cfg: dict) -> dict:
     days = cfg.get("TRASH_DAYS")
     if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= 3650:
         cfg["TRASH_DAYS"] = DEFAULT_CONFIG["TRASH_DAYS"]
+    cfg["CALENDAR_ENABLED"] = cfg.get("CALENDAR_ENABLED") is True
     feed = cfg.get("ICS_FEED")
     if not isinstance(feed, dict) or not isinstance(feed.get("token", ""), str):
         cfg["ICS_FEED"] = dict(DEFAULT_CONFIG["ICS_FEED"])

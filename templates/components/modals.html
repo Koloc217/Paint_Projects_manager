@@ -42,6 +42,14 @@
                         <input type="checkbox" id="cfgDeleteKeepsBalance" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
                     </label>
 
+                    <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                        <div>
+                            <div class="font-semibold text-white">{{ tr('settings.calendar') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.calendar_hint') }}</div>
+                        </div>
+                        <input type="checkbox" id="cfgCalendarEnabled" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                    </label>
+
                     <div class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700">
                         <div>
                             <div class="text-white font-semibold">{{ tr('settings.language') }}</div>
@@ -346,7 +354,7 @@
                             <div>
                                 <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">{{ tr('bot.commands') }}</div>
                                 <ul class="space-y-1">
-                                    {% for name, key in bot_help.commands %}
+                                    {% for name, key in bot_help().commands %}
                                     <li><code class="font-mono text-indigo-300">/{{ name }}</code> — {{ tr(key) }}</li>
                                     {% endfor %}
                                 </ul>
@@ -354,13 +362,13 @@
                             <div>
                                 <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">📷 {{ tr('bot.help_photo_title') }}</div>
                                 <ul class="space-y-1.5 list-disc pl-4 marker:text-slate-600">
-                                    {% for key in bot_help.photos %}<li>{{ tr(key) }}</li>{% endfor %}
+                                    {% for key in bot_help().photos %}<li>{{ tr(key) }}</li>{% endfor %}
                                 </ul>
                             </div>
                             <div>
                                 <div class="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">{{ tr('bot.help_features_title') }}</div>
                                 <ul class="space-y-1.5 list-disc pl-4 marker:text-slate-600">
-                                    {% for key in bot_help.features %}<li>{{ tr(key) }}</li>{% endfor %}
+                                    {% for key in bot_help().features %}<li>{{ tr(key) }}</li>{% endfor %}
                                 </ul>
                             </div>
                         </div>
