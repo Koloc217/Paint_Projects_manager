@@ -157,7 +157,7 @@ body.theme-neon button.bg-indigo-600 { background: #7a2cff !important; }
 2. Open the app, pick the theme in the dropdown in the header and go through the screens:
    - dashboard: project cards with every kind of deadline (normal, due soon, overdue, closed);
    - the "Upcoming tasks" column and the "All tasks" tab;
-   - the "Calendar" and "Feed" (progress photos) tabs; the calendar is off by default, turn it on in Settings → General;
+   - the "Calendar" and "Feed" (progress photos) tabs;
    - the "Hall of Fame & Analytics" tab: both charts and the cards of finished projects;
    - the project card (modal): tasks, photos, references, paint recipe, pipeline template choice; the trash window;
    - the "New project" and "New task" windows, the delete confirmation, toasts;

@@ -233,7 +233,7 @@ class ConfigUpdate(BaseModel):
     dev_mode: bool
     project_cost: float = 10        # a whole number, checked by parse_token_field
     delete_keeps_balance: bool = True
-    calendar_enabled: Optional[bool] = None     # None: an older page without the field, keep the setting
+    calendar_export: Optional[bool] = None      # None: an older page without the field, keep the setting
     allow_postpone: bool = True
     stagnation_alert: bool = True
     stagnation_days: int = 10
@@ -295,7 +295,7 @@ def index(request: Request):
     return templates.TemplateResponse(
         request=request, name="index.html",
         context={"lang": lang, "i18n": table_for(lang), "date_format": load_config()["DATE_FORMAT"],
-                 "calendar_enabled": ics.enabled()},
+                 "calendar_export": ics.enabled()},
     )
 
 @app.get("/api/data")
@@ -356,7 +356,7 @@ def get_data(db: Session = Depends(get_db)):
         "dev_mode": config.get("DEV_MODE", False),
         "project_cost": to_tokens(config.get("PROJECT_COST", 10), 10),
         "delete_keeps_balance": config.get("DELETE_KEEPS_BALANCE", True),
-        "calendar_enabled": bool(config.get("CALENDAR_ENABLED")),
+        "calendar_export": bool(config.get("CALENDAR_EXPORT")),
         "notify_settings": config.get("NOTIFY", DEFAULT_NOTIFY_SETTINGS),
         "schedule_settings": config.get("SCHEDULE", DEFAULT_SCHEDULE),
         "language": get_lang(),
@@ -391,8 +391,8 @@ def update_config_route(data: ConfigUpdate):
         cfg["DEV_MODE"] = data.dev_mode
         cfg["PROJECT_COST"] = project_cost
         cfg["DELETE_KEEPS_BALANCE"] = data.delete_keeps_balance
-        if data.calendar_enabled is not None:
-            cfg["CALENDAR_ENABLED"] = data.calendar_enabled
+        if data.calendar_export is not None:
+            cfg["CALENDAR_EXPORT"] = data.calendar_export
         if data.language is not None:
             cfg["LANGUAGE"] = normalize_lang(data.language)
         if data.date_format is not None:

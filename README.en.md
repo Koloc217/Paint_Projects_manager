@@ -19,9 +19,9 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - References: images attached to a project, with a full-screen viewer.
 - Progress photos: shots taken along the way, with date and stage; a timeline in the project card and a shared "Feed" tab.
 - Trash: a deleted project stays in the trash for 30 days and can be restored.
-- Deadline calendar (an option, off by default: Settings → General → Deadline calendar): a month grid with task and
-  project deadlines. Deadlines can go to a phone calendar as an `.ics` file (the "To phone" button or `/calendar` in the
-  bot) or as a subscription that updates by itself.
+- Deadline calendar: a month grid with task and project deadlines.
+- Deadlines to a phone calendar (an option, off by default: Settings → General → Deadlines to phone calendar): as an
+  `.ics` file (the "To phone" button on the Calendar tab or `/calendar` in the bot) or as a subscription that updates by itself.
 - Paint notebook: recipes and painting notes right in the project card.
 - Pipeline templates: "3D print" (7 steps) and "kit model" (5 steps) by default; they can be edited in the settings
   and you can add your own. Before the tasks are created, a deadline window opens: every step gets its own date,
@@ -38,7 +38,7 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - Linked to one chat with a pairing code; the bot answers only that chat.
 - Commands and buttons: project list, the current task, closing and postponing tasks, changing status and stage.
 - `/help` lists all commands and features. `/task` (or the "Task" button) creates a task step by step: project, name, deadline.
-- `/calendar` sends the deadlines as an `.ics` file for a phone calendar (when the calendar is on in the settings).
+- `/calendar` sends the deadlines as an `.ics` file for a phone calendar (when calendar export is on in the settings).
 - Photos: send the bot a picture (the caption becomes the note) and it lands in the project timeline. `/photo` shows
   the latest photos and lets you flip through them.
 - Evening digest, Friday plan, monthly report, stagnation warning.
@@ -169,7 +169,7 @@ Password login does not break installation: `/sw.js` and `/manifest.webmanifest`
 | What | Where |
 |---|---|
 | Secrets (bot token, proxy, backup URL), HTTPS and port | `.env` (template: `.env.example`) |
-| Language, date format, project cost, calendar, schedule, notifications | Settings in the UI, stored in `config.json` |
+| Language, date format, project cost, deadlines to phone calendar, schedule, notifications | Settings in the UI, stored in `config.json` |
 | Password | Settings → Access; reset from the console: `python auth.py reset` |
 | Theme background images | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` ship with the repository, `wh40k_bg.jpg` you add yourself (without an image the theme draws its own background), see [static/backgrounds/README.en.md](static/backgrounds/README.en.md) |
 
