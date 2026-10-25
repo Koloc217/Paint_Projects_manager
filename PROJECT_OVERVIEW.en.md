@@ -360,6 +360,7 @@ All user text is escaped before sending (HTML mode).
 | `/help` | commands and features of the bot; the list comes from the `COMMANDS` and `FEATURES` registry in `bot.py`, which also builds the "/" menu in Telegram |
 | `/task [name]` | task builder: project, name, deadline (buttons "Today", "Tomorrow", "In 3 days", "In a week", "Project deadline", "Pick a date", "No deadline"); a date can be typed in the format from the settings |
 | `/photo` | the latest progress photo across all projects; ◀ ▶ buttons flip through, "Delete" asks for confirmation |
+| `/myphotos` | pick a project (only those with photos or references are listed, finished ones too), then "Progress" or "References" |
 | `/calendar` | deadlines as an `.ics` file: open it on a phone to add them to the calendar. Only while the calendar is on; otherwise the command is not in the menu or `/help` |
 | `/stats` | statistics of the current month: tasks closed, projects finished, tokens earned, balance |
 | `/test_notify` | starts a test notification |
@@ -381,8 +382,15 @@ must be added to the `COMMANDS` or `FEATURES` registry, then `/help` updates its
   project the photo is saved right away; with several, the bot asks with buttons which project it belongs to (there is
   "Cancel"). An album of several photos gets one question. After saving there are "Project photos" and "Undo" buttons
   (the latter deletes the photos just saved).
-- **Viewing.** `/photo` or the "Photos (N)" button in a project card. Flipping happens in the same message
-  (`editMessageMedia`), newest first.
+- **When a photo is not saved**, the bot always says so: "Photo not added" with the reason, and "Photos not added: N of
+  M" for an album. This covers album photos arriving after the answer, a "which project" question that was cancelled or
+  has expired, and any unexpected error while handling the photo.
+- **Viewing progress photos.** `/photo`, `/myphotos` → project → "Progress", or the "Photos (N)" button in a project
+  card. Flipping happens in the same message (`editMessageMedia`), newest first. One project's photos have a "Back"
+  button to the type choice.
+- **Viewing references.** `/myphotos` → project → "References", or the "References (N)" button in a project card. Same
+  order as in the card, ◀ ▶ flip through. JPEG and PNG up to 5 MB are sent as they are, others as a smaller copy;
+  "📎 Original" sends the uncompressed file as a document. References are added and removed only in the app.
 - Photos waiting for an answer are kept in memory for one hour; after a bot restart the "which project" question
   expires and the photo has to be sent again.
 

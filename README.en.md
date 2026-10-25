@@ -40,7 +40,8 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - `/help` lists all commands and features. `/task` (or the "Task" button) creates a task step by step: project, name, deadline.
 - `/calendar` sends the deadlines as an `.ics` file for a phone calendar (when the calendar is on in the settings).
 - Photos: send the bot a picture (the caption becomes the note) and it lands in the project timeline. `/photo` shows
-  the latest photos and lets you flip through them.
+  the latest photos and lets you flip through them. `/myphotos`: pick a project, then its progress photos or paint
+  references. If a photo could not be saved, the bot tells you.
 - Evening digest, Friday plan, monthly report, stagnation warning.
 - The schedule is set per weekday in the UI.
 
