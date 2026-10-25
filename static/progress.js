@@ -169,12 +169,12 @@ function renderFeed() {
         if (d !== day) {
             if (day !== null) html += '</div>';
             day = d;
-            html += `<h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mt-5 mb-2">${esc(formatIsoDate(d))}</h3><div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">`;
+            html += `<h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mt-5 mb-2">${esc(formatIsoDate(d))}</h3><div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-2.5">`;
         }
         html += `
             <div class="relative aspect-square rounded-lg overflow-hidden border border-slate-700 bg-slate-950 cursor-pointer hover:border-fuchsia-400 transition-colors" onclick="openFeedPhoto(${i})">
                 <img src="${esc(x.ph.Thumb)}" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover">
-                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-4 pb-1 text-[10px] leading-tight text-white/90">
+                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-5 pb-1.5 text-xs leading-tight text-white/90">
                     <div class="truncate">${esc(x.name)}</div>
                     ${x.ph.Stage && x.ph.Stage !== '—' ? `<div class="truncate text-white/60">${esc(progressStageLabel(x.ph.Stage))}</div>` : ''}
                 </div>

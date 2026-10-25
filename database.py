@@ -94,6 +94,17 @@ class ProgressPhoto(Base):
     created_at = Column(DateTime, default=datetime.now)
 
 
+class TgMessage(Base):
+    """Messages in the bot chat that the bot may delete later (/clear, digest cleanup, see tgclean.py).
+    The Bot API cannot list a chat's history, so the bot remembers what it sent and received."""
+    __tablename__ = "tg_messages"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    chat_id = Column(String, nullable=False)
+    message_id = Column(Integer, nullable=False)
+    kind = Column(String, default="bot")         # bot | user | digest | report
+    created_at = Column(DateTime, default=datetime.now, index=True)
+
+
 class Adjustment(Base):
     """Token balance adjustments (for example, when a project is deleted)."""
     __tablename__ = "adjustments"

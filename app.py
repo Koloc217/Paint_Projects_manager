@@ -235,6 +235,7 @@ class ConfigUpdate(BaseModel):
     project_cost: float = 10        # a whole number, checked by parse_token_field
     delete_keeps_balance: bool = True
     calendar_export: Optional[bool] = None      # None: an older page without the field, keep the setting
+    tg_cleanup: Optional[str] = None            # keep_46h | latest_only | off; None keeps the setting
     allow_postpone: bool = True
     stagnation_alert: bool = True
     stagnation_days: int = 10
@@ -358,6 +359,7 @@ def get_data(db: Session = Depends(get_db)):
         "project_cost": to_tokens(config.get("PROJECT_COST", 10), 10),
         "delete_keeps_balance": config.get("DELETE_KEEPS_BALANCE", True),
         "calendar_export": bool(config.get("CALENDAR_EXPORT")),
+        "tg_cleanup": config.get("TG_CLEANUP", "keep_46h"),
         "notify_settings": config.get("NOTIFY", DEFAULT_NOTIFY_SETTINGS),
         "schedule_settings": config.get("SCHEDULE", DEFAULT_SCHEDULE),
         "language": get_lang(),
@@ -379,6 +381,8 @@ def update_config_route(data: ConfigUpdate):
         return {"status": "error", "message": tr("err.bad_time_backup")}
     if data.language is not None and normalize_lang(data.language) is None:
         return {"status": "error", "message": tr("err.unknown_language")}
+    if data.tg_cleanup is not None and data.tg_cleanup not in ("keep_46h", "latest_only", "off"):
+        return {"status": "error", "message": tr("err.bad_value")}
     if data.date_format is not None and data.date_format not in DATE_FORMATS:
         return {"status": "error", "message": tr("err.bad_date_format")}
     project_cost, err = parse_token_field(data.project_cost)
@@ -392,6 +396,8 @@ def update_config_route(data: ConfigUpdate):
         cfg["DEV_MODE"] = data.dev_mode
         cfg["PROJECT_COST"] = project_cost
         cfg["DELETE_KEEPS_BALANCE"] = data.delete_keeps_balance
+        if data.tg_cleanup is not None:
+            cfg["TG_CLEANUP"] = data.tg_cleanup
         if data.calendar_export is not None:
             cfg["CALENDAR_EXPORT"] = data.calendar_export
         if data.language is not None:

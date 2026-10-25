@@ -11,6 +11,7 @@ from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, Reference, ensure_schema
 import progress
+import tgclean
 import ics
 from common import (
     BASE_DIR, esc, to_tokens, clip_lines, short_text, TG_ALERT_LIMIT, MAX_TASK_NAME_LEN, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
@@ -62,6 +63,7 @@ COMMANDS = [                         # (command, description key)
     ("myphotos", "bot.cmd_myphotos_desc"),
     ("calendar", "bot.cmd_calendar_desc"),
     ("stats", "bot.cmd_stats_desc"),
+    ("clear", "bot.cmd_clear_desc"),
     ("help", "bot.cmd_help_desc"),
     ("test_notify", "bot.cmd_test_desc"),
 ]
@@ -70,6 +72,7 @@ FEATURES = [                         # features without a command: text keys
     "bot.feat_share",
     "bot.feat_push",
     "bot.feat_postpone",
+    "bot.feat_cleanup",
 ]
 
 
@@ -179,6 +182,10 @@ def safe_error(e) -> str:
     return text.replace(BOT_TOKEN, "***") if BOT_TOKEN else text
 
 
+# Every message the bot sends is remembered so /clear and the digest cleanup can delete it later (tgclean.py)
+TRACKED_ENDPOINTS = ("sendMessage", "sendPhoto", "sendDocument", "sendMediaGroup")
+
+
 def _sync_tg_request(method: str, endpoint: str, payload: dict = None, params: dict = None, timeout_sec: float = 20.0):
     """Blocking request to the Bot API (run in a worker thread by tg_request)."""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}"
@@ -188,7 +195,10 @@ def _sync_tg_request(method: str, endpoint: str, payload: dict = None, params: d
         resp = client.get(url, params=params, timeout=timeout)
     else:
         resp = client.post(url, json=payload, timeout=timeout)
-    return resp.json()
+    result = resp.json()
+    if endpoint in TRACKED_ENDPOINTS:
+        tgclean.record((payload or {}).get("chat_id"), tgclean.ids_from_result(result), "bot")
+    return result
 
 async def tg_request(method: str, endpoint: str, payload: dict = None, params: dict = None, timeout_sec: float = 20.0):
     """Non-blocking wrapper with a HARD limit against hangs."""
@@ -210,8 +220,10 @@ async def send_message(chat_id: int, text: str, reply_markup: dict = None):
         res = await tg_request("POST", "sendMessage", payload=payload)
         if not res.get("ok"):
             print(f"[BOT ERROR] Telegram rejected sendMessage: {res.get('description')}")
+        return res
     except Exception as e:
         print(f"[BOT ERROR] send_message failed: {safe_error(e)}")
+        return {}
 
 async def edit_message_text(chat_id: int, message_id: int, text: str, reply_markup: dict = None):
     payload = {
@@ -590,8 +602,11 @@ async def download_file(file_id: str) -> bytes:
 
 def _sync_tg_upload(endpoint: str, data: dict, files: dict, timeout_sec: float = 60.0):
     """A request with files (multipart): sendPhoto, sendMediaGroup and editMessageMedia."""
-    return _http_client().post(f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}", data=data, files=files,
-                               timeout=httpx.Timeout(timeout_sec, connect=10.0)).json()
+    result = _http_client().post(f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}", data=data, files=files,
+                                 timeout=httpx.Timeout(timeout_sec, connect=10.0)).json()
+    if endpoint in TRACKED_ENDPOINTS:
+        tgclean.record(data.get("chat_id"), tgclean.ids_from_result(result), "bot")
+    return result
 
 
 async def tg_upload(endpoint: str, data: dict, files: dict, timeout_sec: float = 60.0):
@@ -1179,6 +1194,85 @@ async def send_ref_original(chat_id: int, project_id: str, ref_id: int):
         await send_message(chat_id, f"⚠️ {tr('bot.photo_send_failed')}")
 
 
+# ==================== CHAT CLEANUP (/clear and digests, see tgclean.py) ====================
+
+CLEAR_NOTE_SEC = 5                     # how long "Chat cleared" stays before it removes itself
+CLEANUP_EVERY_SEC = 600                # digest cleanup check; keep_46h needs it well inside the 2-hour window
+_cleanup_state = {"last": 0.0}
+
+
+async def delete_messages(chat_id, ids: list) -> int:
+    """Deletes messages in batches of 100. Returns how many were sent for deletion without an error;
+    Telegram skips messages that are already gone or too old."""
+    done = 0
+    for batch in tgclean.batches(list(ids)):
+        try:
+            res = await tg_request("POST", "deleteMessages", payload={"chat_id": chat_id, "message_ids": batch})
+            if res.get("ok"):
+                done += len(batch)
+            else:
+                print(f"[BOT] deleteMessages: {res.get('description')}")
+        except Exception as e:
+            print(f"[BOT] deleteMessages failed: {safe_error(e)}")
+    await asyncio.to_thread(tgclean.forget, chat_id, ids)       # either deleted or not deletable any more
+    return done
+
+
+async def _delete_later(chat_id, message_id, delay: float):
+    await asyncio.sleep(delay)
+    await delete_messages(chat_id, [message_id])
+
+
+async def send_self_destructing(chat_id, text: str, delay: float = CLEAR_NOTE_SEC):
+    res = await send_message(chat_id, text)
+    ids = tgclean.ids_from_result(res)
+    if ids:
+        asyncio.create_task(_delete_later(chat_id, ids[0], delay))
+
+
+async def start_clear(chat_id: int):
+    """/clear: asks first. Only messages younger than 48 hours that the bot knows about can be removed."""
+    plan = await asyncio.to_thread(tgclean.clear_plan, chat_id)
+    n = len(plan["all"])
+    if n <= 1:                                           # only the /clear message itself
+        await delete_messages(chat_id, plan["all"])
+        await send_self_destructing(chat_id, f"🧹 {tr('bot.clear_nothing')}")
+        return
+    rows = [[{"text": f"🗑 {tr('bot.clear_all', n=n)}", "callback_data": "clr:all"}]]
+    if plan["has_digest"]:
+        rows.append([{"text": f"📌 {tr('bot.clear_keep_last', n=len(plan['keep_last']))}", "callback_data": "clr:keep"}])
+    rows.append([{"text": f"✖ {tr('common.cancel')}", "callback_data": "clr:no"}])
+    await send_message(chat_id, f"🧹 <b>{tr('bot.clear_title')}</b>\n{tr('bot.clear_question', n=n)}\n"
+                                f"<i>{tr('bot.clear_limit_note')}</i>", {"inline_keyboard": rows})
+
+
+async def handle_clear_callback(cb_id: str, chat_id: int, message_id: int, data: str):
+    action = data.split(":", 1)[1] if ":" in data else ""
+    await answer_callback(cb_id)
+    if action == "no":
+        await delete_messages(chat_id, [message_id])
+        return
+    plan = await asyncio.to_thread(tgclean.clear_plan, chat_id)
+    ids = plan["keep_last"] if action == "keep" else plan["all"]
+    ids = sorted(set(ids) | {message_id})                 # the question itself goes too
+    await delete_messages(chat_id, ids)
+    await send_self_destructing(chat_id, f"🧹 {tr('bot.clear_done')}")
+
+
+async def cleanup_digests():
+    """Digest cleanup by the TG_CLEANUP mode (runs from the polling loop every few minutes)."""
+    cfg = load_config()
+    chat_id = cfg.get("TG_CHAT_ID")
+    try:
+        if chat_id:
+            ids = await asyncio.to_thread(tgclean.digest_candidates, chat_id)
+            if ids:
+                await delete_messages(chat_id, ids)
+        await asyncio.to_thread(tgclean.prune)
+    except Exception as e:
+        print(f"[BOT] digest cleanup failed: {safe_error(e)}")
+
+
 # ==================== TASK BUILDER ====================
 # /task or the "Task" button: project -> name -> deadline -> created. The draft lives in memory for one hour.
 
@@ -1444,6 +1538,14 @@ async def handle_callback(cb: dict):
     message_id = msg.get("message_id")
     now = datetime.now()
 
+    if data.split(":")[0] == "clr":
+        try:
+            await handle_clear_callback(cb_id, chat_id, message_id, data)
+        except Exception as e:
+            print(f"[CALLBACK ERROR]: {safe_error(e)}")
+            traceback.print_exc()
+        return
+
     if data.split(":")[0] in ("tk_new", "tk_p", "tk_d", "tk_x"):
         try:
             if await handle_task_callback(cb, data):
@@ -1649,6 +1751,7 @@ async def process_update(item: dict):
     if not is_owner(chat_id):
         await handle_foreign_message(chat, text)
         return
+    await asyncio.to_thread(tgclean.record, chat_id, [msg.get("message_id")], "user")
 
     if has_image:
         await handle_photo_message(chat_id, msg)
@@ -1683,6 +1786,8 @@ async def process_update(item: dict):
             await send_calendar(chat_id)
         else:
             await send_message(chat_id, tr("bot.calendar_off"))
+    elif text.startswith("/clear"):
+        await start_clear(chat_id)
     elif text.startswith("/stats"):
         await send_message(chat_id, await asyncio.to_thread(build_current_month_stats))
     elif text.startswith("/test_notify"):
@@ -1737,6 +1842,9 @@ async def start_bot_polling():
                 break
 
             await sync_menu_commands()          # cheap when nothing changed: compares with what was sent
+            if time.time() - _cleanup_state["last"] >= CLEANUP_EVERY_SEC:
+                _cleanup_state["last"] = time.time()
+                await cleanup_digests()
             try:
                 data = await tg_request("GET", "getUpdates", params={"offset": offset, "timeout": 10}, timeout_sec=20.0)
             except asyncio.CancelledError:

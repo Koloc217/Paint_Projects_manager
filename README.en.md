@@ -43,6 +43,8 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
   the latest photos and lets you flip through them. `/myphotos`: pick a project, then its progress photos or paint
   references. If a photo could not be saved, the bot tells you.
 - Evening digest, Friday plan, monthly report, stagnation warning.
+- The chat stays tidy: old digests remove themselves (the latest stays; mode in Settings → Telegram), and `/clear` wipes
+  the whole chat for the last 48 hours (Telegram does not let a bot delete anything older).
 - The schedule is set per weekday in the UI.
 
 **Look and language**
