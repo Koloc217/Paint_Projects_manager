@@ -13,7 +13,7 @@ from i18n import translate, tr, DEFAULT_LANG, available_languages
 MAX_TEMPLATES = 20
 MAX_STEPS = 30
 MAX_NAME_LEN = 60
-MAX_STEP_LEN = 120
+MAX_STEP_LEN = 120       # = MAX_TASK_NAME_LEN in common.py: a step becomes a task
 ID_RE = re.compile(r"^[a-z0-9_-]{1,32}$")
 
 DEFAULT_TEMPLATES = [

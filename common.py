@@ -1,4 +1,5 @@
 """Shared helpers: config file, canonical values, escaping, token balance, Telegram chat pairing."""
+import contextlib
 import copy
 import html
 import hmac
@@ -10,10 +11,20 @@ import threading
 import time
 from datetime import datetime
 
+try:
+    import fcntl          # Linux / Raspberry Pi
+except ImportError:
+    fcntl = None
+try:
+    import msvcrt         # Windows
+except ImportError:
+    msvcrt = None
+
 from database import Project, Task, Adjustment
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
+CONFIG_LOCK_FILE = os.path.join(BASE_DIR, ".config.lock")
 
 # ---------------------------------------------------------------------------
 # Canonical values. They are stored in the database in Russian (old data and the bot's callback_data rely
@@ -92,6 +103,23 @@ DEFAULT_CONFIG = {
 DATE_FORMATS = {"dmy": "%d.%m.%Y", "mdy": "%m/%d/%Y"}
 
 
+MAX_TOKENS = 1_000_000          # upper bound for a reward or a start cost
+
+
+def to_tokens(value, default=0) -> int:
+    """A token amount as a whole number. Old data and configs may hold floats (15.0, 2.5): they are rounded;
+    anything that is not a finite number (None, NaN, Infinity, text) becomes default."""
+    if isinstance(value, bool):
+        return default
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    if number != number or number in (float("inf"), float("-inf")):
+        return default
+    return int(round(number))
+
+
 def is_done(status) -> bool:
     return str(status).lower().strip() in DONE_STATUSES
 
@@ -121,6 +149,39 @@ def detect_image_ext(raw: bytes):
     return None
 
 
+# Name limits shared by the web app, the bot and the templates. A task name has to fit, with a short phrase around it,
+# into a pop-up answer to a button (200 characters), see TG_ALERT_LIMIT.
+MAX_PROJECT_NAME_LEN = 120
+MAX_TASK_NAME_LEN = 120
+
+TG_TEXT_LIMIT = 4096        # Telegram rejects longer messages entirely (characters after the HTML markup is parsed)
+TG_ALERT_LIMIT = 200        # text of a pop-up answer to a button (answerCallbackQuery)
+TG_SAFE_LIMIT = 3900        # what we aim for: the limit minus room for the "…and N more" line and counting slack
+
+
+def clip_lines(lines, limit: int = TG_SAFE_LIMIT, more=None) -> list:
+    """Keeps whole lines while the text stays within limit. Each line must be complete HTML on its own (tags opened
+    and closed in the same line), then cutting between lines never breaks the markup. The cut part is replaced by one
+    line from more(n) (n = number of dropped non-empty lines). Length is counted with the tags, so it is an upper bound."""
+    out, used = [], 0
+    for i, line in enumerate(lines):
+        cost = len(line) + 1
+        if used + cost > limit:
+            rest = sum(1 for x in lines[i:] if x.strip())
+            if rest and more:
+                out.append(more(rest))
+            return out
+        out.append(line)
+        used += cost
+    return out
+
+
+def short_text(value, n: int) -> str:
+    """At most n characters, with "…" when cut."""
+    value = "" if value is None else str(value)
+    return value if len(value) <= n else value[:max(n - 1, 0)].rstrip() + "…"
+
+
 def esc(value) -> str:
     """Escapes text for Telegram parse_mode=HTML (&, <, >)."""
     return html.escape("" if value is None else str(value), quote=False)
@@ -130,8 +191,8 @@ def esc(value) -> str:
 # config.json
 #   The file is read on almost every request and by every bot update, so the parsed content is cached and
 #   re-read only when the file changes on disk (mtime/size). Other processes (notify.py, backup.py) write it
-#   with save_config as well, which replaces the file atomically, so the cache notices their changes too.
-#   Callers get their own deep copy and may modify it freely before save_config().
+#   with edit_config as well, which replaces the file atomically, so the cache notices their changes too.
+#   Callers get their own deep copy. Changes go through edit_config() (a lock against lost concurrent updates).
 # ---------------------------------------------------------------------------
 _config_lock = threading.Lock()
 _config_cache = {"stamp": None, "data": None}
@@ -176,6 +237,8 @@ def _normalize_config(cfg: dict) -> dict:
     cfg["LANGUAGE"] = LEGACY_LANGUAGES.get(cfg.get("LANGUAGE"), cfg.get("LANGUAGE"))
     if cfg.get("DATE_FORMAT") not in DATE_FORMATS:
         cfg["DATE_FORMAT"] = DEFAULT_CONFIG["DATE_FORMAT"]
+    for key in ("PROJECT_COST", "INITIAL_TOKENS"):        # tokens are whole numbers
+        cfg[key] = to_tokens(cfg.get(key), DEFAULT_CONFIG[key])
     days = cfg.get("TRASH_DAYS")
     if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= 3650:
         cfg["TRASH_DAYS"] = DEFAULT_CONFIG["TRASH_DAYS"]
@@ -211,8 +274,73 @@ def fmt_date(d) -> str:
     return d.strftime(DATE_FORMATS.get(config_value("DATE_FORMAT"), DATE_FORMATS["dmy"]))
 
 
+class FileLock:
+    """Exclusive lock on a file between processes: fcntl on Linux, msvcrt on Windows."""
+
+    def __init__(self, path):
+        self.path = path
+        self.f = None
+
+    def __enter__(self):
+        self.f = open(self.path, "a+")
+        if fcntl:
+            fcntl.flock(self.f, fcntl.LOCK_EX)        # a second process waits here
+        elif msvcrt:
+            self.f.seek(0)
+            while True:
+                try:
+                    msvcrt.locking(self.f.fileno(), msvcrt.LK_LOCK, 1)   # retries for ~10 s, then raises OSError
+                    break
+                except OSError:
+                    continue
+        return self
+
+    def __exit__(self, *exc):
+        try:
+            if fcntl:
+                fcntl.flock(self.f, fcntl.LOCK_UN)
+            elif msvcrt:
+                self.f.seek(0)
+                msvcrt.locking(self.f.fileno(), msvcrt.LK_UNLCK, 1)
+        finally:
+            self.f.close()
+
+
+# Writers of config.json: the web app (several worker threads), the bot and the notify/backup scripts. Every change is
+# "read, modify, write"; without a lock two of them at the same moment (saving the settings while the bot binds a chat)
+# would each write their own copy and one change would be lost. The thread lock covers one process, the file lock the
+# others; nesting in the same thread is allowed (the file lock is taken only by the outermost level).
+_edit_lock = threading.RLock()
+_edit_depth = threading.local()
+
+
+@contextlib.contextmanager
+def edit_config():
+    """Read-modify-write of config.json under a lock:
+
+        with edit_config() as cfg:
+            cfg["KEY"] = value
+
+    The file is written on exit only if something changed (and not at all if the block raises)."""
+    with _edit_lock:
+        depth = getattr(_edit_depth, "n", 0)
+        file_lock = FileLock(CONFIG_LOCK_FILE) if depth == 0 else contextlib.nullcontext()
+        with file_lock:
+            _edit_depth.n = depth + 1
+            try:
+                _config_cache["stamp"] = None      # another process may have written the file a moment ago
+                cfg = load_config()
+                before = copy.deepcopy(cfg)
+                yield cfg
+                if cfg != before:
+                    save_config(cfg)
+            finally:
+                _edit_depth.n = depth
+
+
 def save_config(cfg: dict) -> None:
-    """Atomic write: a temporary file first, then os.replace."""
+    """Atomic write: a temporary file first, then os.replace. To change settings, use edit_config():
+    it takes the lock, so concurrent changes are not lost."""
     fd, tmp_path = tempfile.mkstemp(dir=BASE_DIR, prefix=".config.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -240,7 +368,7 @@ def compute_balance(db, config=None):
 
     balance = initial tokens + rewards of finished projects
               - start cost of all projects + adjustments (deleted projects).
-    Only the three needed columns are read, without building ORM objects.
+    Only the three needed columns are read, without building ORM objects. Tokens are whole numbers.
     """
     if config is None:
         config = load_config()
@@ -250,11 +378,11 @@ def compute_balance(db, config=None):
     # with DELETE_KEEPS_BALANCE a project in the trash may still come back, so its contribution is kept for now
     earned = spent = 0
     for status, token, reward in q:
-        spent += token or 0
+        spent += to_tokens(token)
         if is_done(status):
-            earned += reward or 0
-    adjustments = sum(amount or 0 for (amount,) in db.query(Adjustment.amount))
-    return config.get("INITIAL_TOKENS", 0) + earned - spent + adjustments, earned
+            earned += to_tokens(reward)
+    adjustments = sum(to_tokens(amount) for (amount,) in db.query(Adjustment.amount))
+    return to_tokens(config.get("INITIAL_TOKENS", 0)) + earned - spent + adjustments, earned
 
 
 # ---------------------------------------------------------------------------
@@ -286,24 +414,24 @@ def format_pairing_code(code) -> str:
 
 def ensure_pairing_code():
     """Pairing code for an unbound bot (created on first use). None if a chat is already bound."""
-    cfg = load_config()
-    if is_chat_bound(cfg):
+    if is_chat_bound():
         return None
-    code = cfg.get("TG_PAIRING_CODE")
-    if not code:
-        code = _new_code()
-        cfg["TG_PAIRING_CODE"] = code
-        save_config(cfg)
-    return code
+    with edit_config() as cfg:
+        if is_chat_bound(cfg):
+            return None
+        code = cfg.get("TG_PAIRING_CODE")
+        if not code:
+            code = _new_code()
+            cfg["TG_PAIRING_CODE"] = code
+        return code
 
 
 def new_pairing_code():
-    cfg = load_config()
-    if is_chat_bound(cfg):
-        return None
-    cfg["TG_PAIRING_CODE"] = _new_code()
-    save_config(cfg)
-    return cfg["TG_PAIRING_CODE"]
+    with edit_config() as cfg:
+        if is_chat_bound(cfg):
+            return None
+        cfg["TG_PAIRING_CODE"] = _new_code()
+        return cfg["TG_PAIRING_CODE"]
 
 
 def check_pairing_code(text) -> bool:
@@ -315,15 +443,13 @@ def check_pairing_code(text) -> bool:
 
 
 def bind_chat(chat_id) -> None:
-    cfg = load_config()
-    cfg["TG_CHAT_ID"] = chat_id
-    cfg.pop("TG_PAIRING_CODE", None)           # the code is single-use
-    save_config(cfg)
+    with edit_config() as cfg:
+        cfg["TG_CHAT_ID"] = chat_id
+        cfg.pop("TG_PAIRING_CODE", None)           # the code is single-use
 
 
 def unlink_chat() -> str:
-    cfg = load_config()
-    cfg.pop("TG_CHAT_ID", None)
-    cfg["TG_PAIRING_CODE"] = _new_code()
-    save_config(cfg)
-    return cfg["TG_PAIRING_CODE"]
+    with edit_config() as cfg:
+        cfg.pop("TG_CHAT_ID", None)
+        cfg["TG_PAIRING_CODE"] = _new_code()
+        return cfg["TG_PAIRING_CODE"]

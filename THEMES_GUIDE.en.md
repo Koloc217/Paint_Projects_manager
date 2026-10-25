@@ -10,7 +10,7 @@ borders, background, charts); the markup, texts and app logic stay untouched.
 - A theme is a class on `<body>` shaped `theme-<name>` (for example `theme-neon`). The standard look has no class.
 - All markup is built from Tailwind classes (`bg-slate-800`, `text-slate-400`, `bg-indigo-600`...), so a theme overrides
   **those same classes** with selectors like `body.theme-<name> .bg-slate-800 { ... !important }`.
-  `!important` is required: Tailwind is loaded from a CDN and adds its styles after the theme.
+  `!important` is required: without it Tailwind rules of the same selector strength may override the theme.
 - Charts (Chart.js) are drawn on a canvas and do not see CSS. So their colors and font come from the **CSS variables
   `--chart-*`** that the theme sets in its block (section 4). The app redraws the charts when the theme changes.
 - The chosen theme is remembered in the browser (`localStorage`, key `ph_skin`). The login page applies the theme class too.
@@ -32,8 +32,10 @@ borders, background, charts); the markup, texts and app logic stay untouched.
    { id: 'theme-neon', label: () => '🌈 Neon' },
    ```
 
-3. **Fonts** (if you need non-system ones): add the family to the Google Fonts link in `templates/index.html`
-   (`&family=Font+Name:wght@400;700`). The font **must include Cyrillic**: the default interface language is Russian.
+3. **Fonts** (if you need non-system ones): fonts are stored in the app, no internet needed. Add the family with its
+   weights to `FONTS` in `tools/build_assets.py` (a [Fontsource](https://fontsource.org) package name, for example
+   `"russo-one": (400,)`), run `python tools/build_assets.py` (needs Node.js) and commit `static/fonts/`.
+   The font **must include Cyrillic**: the default interface language is Russian.
    Images (background, textures) go into `static/backgrounds/` and are referenced with a relative path
    `url('backgrounds/name.jpg')` (relative to `themes.css`). External image links are not used.
 
@@ -181,7 +183,7 @@ Copy the text below, add a description of the style and attach a screenshot of t
 (as an example) and this file.
 
 ```
-You are making a UI theme for a web app (FastAPI + Tailwind CDN, dark interface, Russian and English UI).
+You are making a UI theme for a web app (FastAPI + Tailwind, dark interface, Russian and English UI).
 Theme style: <DESCRIBE THE STYLE, COLORS, MOOD, FONTS>.
 Theme name: theme-<name> (lowercase Latin letters/digits/hyphens).
 
@@ -193,7 +195,7 @@ Output exactly three code blocks and nothing else, except one line of explanatio
    Every selector starts with body.theme-<name>; every property has !important (except --variables); all 15 --chart-*
    tokens are set; body has background-color and color; fonts must include Cyrillic.
 2) One line for the THEMES registry in static/app.js: { id: 'theme-<name>', label: () => '<emoji> <Title>' },
-3) The &family=... string for the Google Fonts link in templates/index.html (if web fonts are needed), or the word "none".
+3) The web fonts with weights as Fontsource package names (for example "russo-one": (400,)), or the word "none".
 
 Do not: change the layout or sizes, hide elements, use external images or @import, touch selectors without the theme
 prefix. Dates in the plates look like 21.03.2027; do not give plates a fixed width.

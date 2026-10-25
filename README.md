@@ -60,7 +60,10 @@
 
 ## Стек
 
-Python 3.10+, FastAPI, SQLAlchemy + SQLite, Jinja2, httpx, Tailwind (CDN), Chart.js, Telegram Bot API.
+Python 3.10+, FastAPI, SQLAlchemy + SQLite, Jinja2, httpx, Tailwind, Chart.js, Telegram Bot API.
+
+Интерфейс не зависит от интернета: Tailwind CSS, Chart.js и шрифты тем лежат в `static/vendor/` и `static/fonts/`.
+После новых классов Tailwind в шаблонах или JS: `python tools/build_assets.py css` (нужен Node.js, только там, где собираете).
 
 ## Запуск
 
@@ -139,7 +142,7 @@ HTTPS=1
 - **Android (Chrome):** если страница открыта по доверенному HTTPS, в настройках появится кнопка «Установить»
   (или Chrome сам предложит установку). Иначе: меню ⋮ → «Добавить на главный экран».
 
-**Что зависит от HTTPS.** Service worker (офлайн-заглушка «Нет связи», кэш библиотек с CDN, полноценная установка в
+**Что зависит от HTTPS.** Service worker (офлайн-заглушка «Нет связи», кэш файлов интерфейса, полноценная установка в
 Chrome) браузер включает только на `https` с сертификатом, которому устройство доверяет, или на `localhost`.
 По обычному `http` в домашней сети значок добавить можно, но в Android это будет ярлык, открывающийся во вкладке
 браузера. Чтобы телефон доверял сертификату:
@@ -179,7 +182,8 @@ static/dropzone.js, dropzone.css                        перетаскиван
 static/themes.css, mobile.css, card-tab.css          темы, телефонная вёрстка, карточка во вкладке
 static/sw.js, manifest.webmanifest, pwa.js, icons/, offline.html   PWA: service worker, манифест, установка, иконки, заглушка
 static/backgrounds/                                  фоновые картинки тем
-tools/                                               check_locales.py, check_theme.py, deploy.sh, clean.sh
+static/vendor/, static/fonts/                        Tailwind CSS, Chart.js и шрифты (собираются tools/build_assets.py)
+tools/                                               check_locales.py, check_theme.py, build_assets.py, deploy.sh, clean.sh
 logs/                                                app.log, notify.log, backup.log (создаётся сам)
 PLANS.md                                             отложенные идеи и решения
 ```
@@ -189,6 +193,7 @@ PLANS.md                                             отложенные иде
 ```bash
 python tools/check_locales.py      # ключи переводов: что используется, что пропущено
 python tools/check_theme.py        # все темы из реестра (или одна: theme-имя)
+python tools/build_assets.py css   # пересобрать Tailwind CSS после новых классов (без css: ещё шрифты и Chart.js)
 ```
 
 ## Известные ограничения
@@ -198,8 +203,7 @@ python tools/check_theme.py        # все темы из реестра (или
   покажет предупреждение. Автоматического продления сертификата нет.
 - Перенаправления с HTTP на HTTPS нет: порт один, и на нём работает либо HTTP, либо HTTPS.
 - Бэкап не включает фото, референсы и фото прогресса.
-- PWA без доверенного HTTPS работает урезанно (ярлык вместо приложения, без офлайн-заглушки). Tailwind и Chart.js
-  грузятся с CDN, поэтому первый запуск на телефоне требует интернета (дальше они берутся из кэша service worker).
+- PWA без доверенного HTTPS работает урезанно (ярлык вместо приложения, без офлайн-заглушки).
 - Догон пропущенных запусков ограничен: пуши в пределах 3 часов того же дня, бэкап в пределах суток, только последний запуск.
 - База в режиме WAL: файл `tracker.db` на ходу копировать нельзя (остановите приложение или используйте `sqlite3 tracker.db ".backup копия.db"`).
 - Названия задач из шаблона сохраняются на языке, который был активен при создании.

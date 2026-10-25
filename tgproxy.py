@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 import httpx
 from dotenv import load_dotenv
 
-from common import BASE_DIR, config_value, load_config, save_config
+from common import BASE_DIR, config_value, load_config, edit_config
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
@@ -114,16 +114,15 @@ def resolve_new_url(new_url: Optional[str], cfg: dict) -> Optional[str]:
 
 def save(enabled: bool, new_url: Optional[str]) -> Optional[str]:
     """Saves the setting to config.json. Returns an error code or None."""
-    cfg = load_config()
-    url = resolve_new_url(new_url, cfg)
-    if enabled and not url:
-        return "no_url"
-    if url:
-        err = validate(url)
-        if err:
-            return err
-    cfg["TG_PROXY"] = {"enabled": bool(enabled), "url": url or ""}
-    save_config(cfg)
+    with edit_config() as cfg:
+        url = resolve_new_url(new_url, cfg)
+        if enabled and not url:
+            return "no_url"
+        if url:
+            err = validate(url)
+            if err:
+                return err
+        cfg["TG_PROXY"] = {"enabled": bool(enabled), "url": url or ""}
     return None
 
 

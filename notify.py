@@ -6,21 +6,12 @@ from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, ensure_schema
 from common import (
-    BASE_DIR, esc, load_config, compute_balance, live_projects, live_tasks,
-    is_done, STATUS_IN_WORK, STATUS_ON_HOLD, NO_STAGE,
+    BASE_DIR, esc, to_tokens, load_config, compute_balance, live_projects, live_tasks,
+    is_done, STATUS_IN_WORK, STATUS_ON_HOLD, NO_STAGE, FileLock, clip_lines,
 )
 from i18n import tr, tv
 import tgproxy
 import vacation
-
-try:
-    import fcntl          # Linux / Raspberry Pi
-except ImportError:
-    fcntl = None
-try:
-    import msvcrt         # Windows
-except ImportError:
-    msvcrt = None
 
 # Duplicate protection: the automatic digest goes out at most once per MIN_GAP_SEC, even if two sources start it
 # at the same time (an old cron entry + the built-in scheduler, two copies of the app).
@@ -28,6 +19,7 @@ STATE_FILE = os.path.join(BASE_DIR, ".notify_state.json")
 LOCK_FILE = os.path.join(BASE_DIR, ".notify.lock")
 MIN_GAP_SEC = 600
 MAX_BUTTONS = 4           # task buttons under the message, so the push stays readable
+MAX_SECTION_ITEMS = 12    # lines per section (overdue, burning, ...); the rest becomes "…and N more"
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -52,37 +44,10 @@ def send_tg_message(chat_id, text, reply_markup=None) -> bool:
     return True
 
 
-class _FileLock:
-    """Exclusive lock on a file between processes: fcntl on Linux, msvcrt on Windows."""
-
-    def __init__(self, path):
-        self.path = path
-        self.f = None
-
-    def __enter__(self):
-        self.f = open(self.path, "a+")
-        if fcntl:
-            fcntl.flock(self.f, fcntl.LOCK_EX)        # a second process waits here
-        elif msvcrt:
-            self.f.seek(0)
-            msvcrt.locking(self.f.fileno(), msvcrt.LK_LOCK, 1)   # retries for ~10 s, then raises OSError
-        return self
-
-    def __exit__(self, *exc):
-        try:
-            if fcntl:
-                fcntl.flock(self.f, fcntl.LOCK_UN)
-            elif msvcrt:
-                self.f.seek(0)
-                msvcrt.locking(self.f.fileno(), msvcrt.LK_UNLCK, 1)
-        finally:
-            self.f.close()
-
-
 def claim_run_slot(source, now=None, state_file=STATE_FILE, lock_file=LOCK_FILE, min_gap=MIN_GAP_SEC):
     """Atomically "takes" the digest slot. Returns (may_send, previous_run)."""
     now = now or datetime.now()
-    with _FileLock(lock_file):
+    with FileLock(lock_file):
         prev = None
         try:
             with open(state_file, "r", encoding="utf-8") as f:
@@ -101,6 +66,20 @@ def claim_run_slot(source, now=None, state_file=STATE_FILE, lock_file=LOCK_FILE,
             json.dump({"last_run": now.isoformat(timespec="seconds"), "source": source, "pid": os.getpid()}, f)
         os.replace(tmp, state_file)
         return True, prev if isinstance(prev, dict) else None
+
+
+def more_line(n: int) -> str:
+    return f"<i>… {tr('common.and_more', n=n)}</i>"
+
+
+def section(title: str, items: list) -> list:
+    """A digest section: the title, at most MAX_SECTION_ITEMS lines and an empty line after it."""
+    if not items:
+        return []
+    shown = items[:MAX_SECTION_ITEMS]
+    if len(items) > len(shown):
+        shown.append(more_line(len(items) - len(shown)))
+    return [title, *shown, ""]
 
 
 def to_date(val):
@@ -131,7 +110,7 @@ def build_monthly_report(db, now, config):
     projects = live_projects(db).filter(Project.completed_at >= last_month_start,
                                         Project.completed_at <= last_month_end).all()
     closed_projs = [p for p in projects if is_done(p.status)]
-    earned_month = sum((p.token_reward or 0) for p in closed_projs)
+    earned_month = sum(to_tokens(p.token_reward) for p in closed_projs)
 
     balance, _ = compute_balance(db, config)
 
@@ -144,10 +123,9 @@ def build_monthly_report(db, now, config):
         f"🏦 {tr('notify.current_balance')}: <b>{balance} {tr('common.tokens')}</b>"
     ]
     if closed_projs:
-        lines.append(f"\n<b>{tr('notify.completed_projects')}:</b>")
-        for p in closed_projs:
-            lines.append(f"• {esc(p.name)} (+{p.token_reward})")
-    return "\n".join(lines)
+        lines.append("")
+        lines += section(f"<b>{tr('notify.completed_projects')}:</b>", [f"• {esc(p.name)}" for p in closed_projs])
+    return "\n".join(clip_lines(lines, more=more_line)).rstrip()
 
 
 def main() -> int:
@@ -240,15 +218,20 @@ def main() -> int:
                         stagnant.append(f"🕸 <b>{esc(p.name)}</b> [{esc(tv(p.stage))}] — {tr('notify.idle_for')} <b>{idle_days} {tr('common.days_short')}</b>")
 
         # 3. Friday plan for the weekend: up to three open tasks of every project "in work", nearest deadline first
+        # ... and projects "in work" without a single open task: there is nothing to plan for them, worth a look
         friday_plan = []
-        if (is_friday or is_test) and notify_cfg.get("friday_digest", True):
+        no_tasks = []
+        weekly = (is_friday or is_test) and notify_cfg.get("friday_digest", True)
+        if weekly:
             for p in projects.values():
                 if p.status == STATUS_IN_WORK:
                     p_tasks = [t for t in tasks if t.project_id == p.id and not is_done(t.status)]
                     for t in p_tasks[:3]:
                         friday_plan.append(f"🛠 <b>{esc(p.name)}</b>: {esc(t.task_name)} ({esc(tv(t.status))})")
+                    if not p_tasks:
+                        no_tasks.append(f"📭 <b>{esc(p.name)}</b>")
 
-        if not overdue and not burning and not stagnant and not (is_friday and friday_plan):
+        if not overdue and not burning and not stagnant and not (weekly and (friday_plan or no_tasks)):
             if is_test:
                 sent_ok &= send_tg_message(chat_id, f"✅ <b>[{tr('notify.test_title')}]</b>\n{tr('notify.test_ok')}")
             else:
@@ -261,23 +244,16 @@ def main() -> int:
                     sent_ok &= send_tg_message(chat_id, f"✅ <b>{tr('notify.all_on_track')}</b>\n{tr('notify.no_urgent_no_projects')}")
             return 0 if sent_ok else 1
 
-        msg_lines = [f"🚨 <b>{tr('notify.evening_summary')}:</b>\n"]
-        if overdue:
-            msg_lines.append(f"<b>{tr('deadline.overdue')}:</b>")
-            msg_lines.extend(overdue)
-            msg_lines.append("")
-        if burning:
-            msg_lines.append(f"<b>{tr('notify.burning')}:</b>")
-            msg_lines.extend(burning)
-            msg_lines.append("")
-        if stagnant:
-            msg_lines.append(f"<b>{tr('notify.stagnation')}:</b>")
-            msg_lines.extend(stagnant)
-            msg_lines.append("")
-        if (is_friday or is_test) and friday_plan:
-            msg_lines.append(f"🍻 <b>{tr('notify.weekend_plan')}:</b>")
-            msg_lines.extend(friday_plan)
-            msg_lines.append("")
+        msg_lines = [f"🚨 <b>{tr('notify.evening_summary')}:</b>", ""]
+        msg_lines += section(f"<b>{tr('deadline.overdue')}:</b>", overdue)
+        msg_lines += section(f"<b>{tr('notify.burning')}:</b>", burning)
+        msg_lines += section(f"<b>{tr('notify.stagnation')}:</b>", stagnant)
+        if weekly:
+            msg_lines += section(f"🍻 <b>{tr('notify.weekend_plan')}:</b>", friday_plan)
+            msg_lines += section(f"<b>{tr('notify.no_open_tasks')}:</b>", no_tasks)
+        # Each section is capped, but many projects together could still pass Telegram's limit: then the message
+        # would not arrive at all, so the tail is cut by whole lines
+        msg_lines = clip_lines(msg_lines, more=more_line)
 
         # Inline buttons: close the task + move it by 2 days (the bot comments on repeated postponing)
         keyboard = []

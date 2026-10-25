@@ -13,7 +13,7 @@ A theme in themes.css must sit between markers:
 Errors (exit code 1): the theme is not registered or has no markers, a selector does not start with body.<id>,
 one of the --chart-* tokens is missing, external links (http/https, @import, @font-face), unbalanced braces,
 @keyframes without the <id>- prefix.
-Warnings: low contrast of charts and text, properties without !important (the Tailwind CDN may override them),
+Warnings: low contrast of charts and text, properties without !important (Tailwind may override them),
 layout properties (sizes, margins, positioning), which have to be checked by eye.
 Details and requirements: THEMES_GUIDE.md
 """
@@ -24,7 +24,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSS = os.path.join(ROOT, "static", "themes.css")
 APP_JS = os.path.join(ROOT, "static", "app.js")
-INDEX = os.path.join(ROOT, "templates", "index.html")
+INDEX = os.path.join(ROOT, "static", "fonts", "fonts.css")      # local fonts, built by tools/build_assets.py
 
 CHART_TOKENS = [
     "--chart-font", "--chart-text", "--chart-muted", "--chart-grid",
@@ -150,7 +150,7 @@ def check(tid, css, fonts_html):
         return errors, warnings
     block = strip_comments(block)
     if re.search(r"@import|@font-face|url\(\s*['\"]?\s*(https?:)?//", block, re.I):
-        errors.append("внешние подключения запрещены (@import, @font-face, url(http...)); шрифты — только ссылкой в index.html, картинки — файлами в static/backgrounds/")
+        errors.append("внешние подключения запрещены (@import, @font-face, url(http...)); шрифты — через FONTS в tools/build_assets.py, картинки — файлами в static/backgrounds/")
     rules, brace_errors = parse_rules(block)
     errors.extend(brace_errors)
     prefix = f"body.{tid}"
@@ -198,7 +198,7 @@ def check(tid, css, fonts_html):
     else:
         warnings.append("фон body задан не одним #hex-цветом: контраст текста автоматически не проверен")
     if non_important:
-        warnings.append(f"{non_important} свойств без !important: Tailwind CDN подключается позже и может их перебить — проверьте на странице")
+        warnings.append(f"{non_important} свойств без !important: Tailwind может их перебить — проверьте на странице")
     if layout_hits:
         hits = ", ".join(f"{k}×{v}" for k, v in sorted(layout_hits.items()))
         warnings.append(f"свойства раскладки ({hits}): тема должна менять оформление, а не вёрстку; проверьте глазами на всех экранах")
@@ -213,8 +213,9 @@ def check(tid, css, fonts_html):
                 if fam and not fam.startswith("var(") and fam.lower() not in generic:
                     wanted.add(fam)
     for fam in sorted(wanted):
-        if fam.replace(" ", "+") not in fonts_html and fam not in fonts_html:
-            warnings.append(f"шрифт «{fam}» не найден в ссылке Google Fonts в templates/index.html (если он не системный, браузер подставит запасной)")
+        if f"font-family: '{fam}'" not in fonts_html:
+            warnings.append(f"шрифт «{fam}» не найден в static/fonts/fonts.css: добавьте его в FONTS в tools/build_assets.py "
+                            f"и запустите python tools/build_assets.py (если он не системный, браузер подставит запасной)")
     return errors, warnings
 
 
