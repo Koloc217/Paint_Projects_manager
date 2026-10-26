@@ -219,3 +219,8 @@ python tools/build_assets.py css   # rebuild Tailwind CSS after new classes (wit
 - The database runs in WAL mode: do not copy `tracker.db` while the app is running (stop the app or use
   `sqlite3 tracker.db ".backup copy.db"`).
 - Task names created from a template are stored in the language that was active at creation time.
+
+## License
+
+This project is licensed under the [GNU GPL v3.0](LICENSE). You are free to use, modify and redistribute it, but any
+modified version you distribute must stay open source under the same license.
