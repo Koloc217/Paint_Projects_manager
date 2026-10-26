@@ -1,4 +1,4 @@
-// ---------- Deadline calendar: a month grid with task and project deadlines ----------
+// ---------- Calendar: a month grid with task and project deadlines and added progress photos ----------
 let calMonth = null;          // first day of the month on screen
 let calSelected = null;       // selected day, 'YYYY-MM-DD'
 
@@ -32,10 +32,48 @@ function calItemsByDay() {
         const done = calIsDone(t.Status);
         add(t.Deadline, { kind: 'task', id: t.ID, projectId: p.ID, name: t.Task, projectName: p.Name, done, overdue: !done && t.Deadline < today });
     });
+    // Progress photos: one event per project per day (finished projects too: it is history, not a deadline).
+    // Only progress photos, never paint references.
+    currentProjects.forEach(p => {
+        const perDay = {};
+        (p.Progress || []).forEach((ph, i) => {
+            const day = (ph.At || '').slice(0, 10);
+            if (day) (perDay[day] = perDay[day] || []).push(i);
+        });
+        Object.entries(perDay).forEach(([day, idx]) => {
+            add(day, { kind: 'photo', id: p.ID + ':' + day, projectId: p.ID, name: p.Name, projectName: p.Name,
+                       done: false, overdue: false, photos: idx });
+        });
+    });
+    // Deadlines first (the grid shows only three chips), then photos
+    Object.values(map).forEach(list => list.sort((a, b) => (a.kind === 'photo') - (b.kind === 'photo')));
     return map;
 }
 
+// The photos of one calendar event, in upload order
+function calPhotos(item) {
+    const p = currentProjects.find(x => x.ID === item.projectId);
+    if (!p || !p.Progress) return [];
+    return item.photos.map(i => p.Progress[i]).filter(Boolean);
+}
+
+// Opens only this project's progress photos of this day (no references)
+function calOpenPhotos(projectId, day, index = 0) {
+    const item = (calItemsByDay()[day] || []).find(it => it.kind === 'photo' && it.projectId === projectId);
+    if (!item) return;
+    const photos = calPhotos(item);
+    if (!photos.length) return;
+    openLightbox(photos.map(ph => ({ url: ph.Url, caption: progressCaption(ph, item.projectName) })), index);
+}
+
+function calChipText(item) {
+    if (item.kind !== 'photo') return item.name;
+    const n = item.photos.length;
+    return n > 1 ? tr('calendar.photo_chip_many', { n, name: item.name }) : tr('calendar.photo_chip', { name: item.name });
+}
+
 function calChipClass(item) {
+    if (item.kind === 'photo') return 'bg-fuchsia-500/20 text-fuchsia-200';
     if (item.done) return 'bg-slate-700/40 text-slate-500 line-through';
     if (item.overdue) return 'bg-red-500/20 text-red-300';
     return item.kind === 'project' ? 'bg-amber-500/20 text-amber-300' : 'bg-indigo-500/20 text-indigo-200';
@@ -43,6 +81,7 @@ function calChipClass(item) {
 
 // Dot color in the day list: the same colors as the chips in the grid
 function calDotClass(item) {
+    if (item.kind === 'photo') return 'bg-fuchsia-400';
     if (item.done) return 'bg-slate-500';
     if (item.overdue) return 'bg-red-400';
     return item.kind === 'project' ? 'bg-amber-400' : 'bg-indigo-400';
@@ -94,7 +133,7 @@ function renderCalendar() {
         const list = items[iso] || [];
         const inMonth = d.getMonth() === calMonth.getMonth();
         const shown = list.slice(0, 3);
-        const chips = shown.map(it => `<div class="truncate text-[10px] leading-tight rounded px-1 py-0.5 ${calChipClass(it)}" title="${esc(it.projectName)}: ${esc(it.name)}">${esc(it.name)}</div>`).join('');
+        const chips = shown.map(it => `<div class="truncate text-[10px] leading-tight rounded px-1 py-0.5 ${calChipClass(it)}" title="${esc(it.kind === 'photo' ? calChipText(it) : it.projectName + ': ' + it.name)}">${esc(calChipText(it))}</div>`).join('');
         const more = list.length > shown.length ? `<div class="text-[10px] text-slate-400">${tr('calendar.more', { n: list.length - shown.length })}</div>` : '';
         const ring = iso === calSelected ? 'ring-2 ring-indigo-400' : (iso === todayIso ? 'ring-1 ring-emerald-400/70' : '');
         cells += `
@@ -116,7 +155,7 @@ function renderCalendar() {
         panel.innerHTML = head + `<div class="text-sm text-slate-500">${tr('calendar.day_empty')}</div>`;
         return;
     }
-    panel.innerHTML = head + '<div class="space-y-1.5">' + list.map(it => `
+    panel.innerHTML = head + '<div class="space-y-1.5">' + list.map(it => it.kind === 'photo' ? calPhotoRow(it) : `
         <div onclick="openProjectDetails('${esc(it.projectId)}')" class="flex items-center gap-2 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 cursor-pointer hover:border-indigo-400/60">
             <span class="shrink-0 w-2 h-2 rounded-full ${calDotClass(it)}"></span>
             <div class="min-w-0">
@@ -124,6 +163,26 @@ function renderCalendar() {
                 ${it.kind === 'task' ? `<div class="text-[11px] text-slate-400 truncate">${esc(it.projectName)}</div>` : ''}
             </div>
         </div>`).join('') + '</div>';
+}
+
+// A "photo added" row in the day list: a click anywhere opens the photos, a thumbnail opens that photo
+function calPhotoRow(it) {
+    const photos = calPhotos(it);
+    const pid = esc(it.projectId);
+    const day = esc(calSelected);
+    const thumbs = photos.slice(0, 6).map((ph, i) => `
+        <img src="${esc(ph.Thumb)}" alt="" loading="lazy" decoding="async" onclick="event.stopPropagation(); calOpenPhotos('${pid}', '${day}', ${i})"
+             class="w-10 h-10 rounded-md object-cover border border-slate-700 hover:border-fuchsia-400 shrink-0">`).join('');
+    const more = photos.length > 6 ? `<span class="text-[11px] text-slate-400 self-center">+${photos.length - 6}</span>` : '';
+    return `
+        <div onclick="calOpenPhotos('${pid}', '${day}')" class="flex items-center gap-2 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 cursor-pointer hover:border-fuchsia-400/60">
+            <span class="shrink-0 w-2 h-2 rounded-full ${calDotClass(it)}"></span>
+            <div class="min-w-0 flex-1">
+                <div class="text-sm text-slate-100 truncate">${tr('calendar.photo_added')}${photos.length > 1 ? ' (' + photos.length + ')' : ''}</div>
+                <div class="text-[11px] text-slate-400 truncate">${esc(it.projectName)}</div>
+            </div>
+            <div class="flex gap-1 overflow-hidden">${thumbs}${more}</div>
+        </div>`;
 }
 
 // ---------- Calendar for a phone: download a .ics file or turn on a subscription address ----------
