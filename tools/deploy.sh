@@ -21,9 +21,10 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$APP_DIR"
 
 SERVICE="${SERVICE:-tracker}"
-if [[ -z "${PORT:-}" && -f "$APP_DIR/.env" ]]; then
+ENV_FILE="${PROJECT_HUB_DATA_DIR:-$APP_DIR}/.env"   # same rule as the app's DATA_DIR
+if [[ -z "${PORT:-}" && -f "$ENV_FILE" ]]; then
     # the same port the app uses: PORT=... in .env (quotes, spaces and a trailing comment are ignored)
-    PORT="$(sed -n 's/^[[:space:]]*PORT[[:space:]]*=[[:space:]]*["'\'']\{0,1\}\([0-9]\{1,5\}\).*/\1/p' "$APP_DIR/.env" | tail -n 1)"
+    PORT="$(sed -n 's/^[[:space:]]*PORT[[:space:]]*=[[:space:]]*["'\'']\{0,1\}\([0-9]\{1,5\}\).*/\1/p' "$ENV_FILE" | tail -n 1)"
 fi
 PORT="${PORT:-8000}"
 KEEP_BACKUPS="${KEEP_BACKUPS:-10}"

@@ -218,6 +218,40 @@ python tools/check_theme.py        # все темы из реестра (или
 python tools/build_assets.py css   # пересобрать Tailwind CSS после новых классов (без css: ещё шрифты и Chart.js)
 ```
 
+### Тесты
+
+```bash
+pip install -r requirements-dev.txt   # один раз: pytest
+python -m pytest                      # все тесты, около 2 секунд
+python -m pytest tests/test_tasks.py  # один файл
+```
+
+Тесты работают с пустой временной папкой данных (`PROJECT_HUB_DATA_DIR`): настоящие `tracker.db`,
+`config.json`, фото и `.env` (токен бота) они не видят и не меняют. Что покрыто: проекты и токены, задачи, корзина, шаблоны пайплайна,
+коды статусов и миграция старых значений, полнота переводов.
+
+Проверка миграции на копии своей базы (сам файл не меняется):
+
+```bash
+PROJECT_HUB_TEST_DB=/путь/к/tracker.db python -m pytest tests/test_real_db.py
+```
+
+В PowerShell: `$env:PROJECT_HUB_TEST_DB="C:\путь\tracker.db"; python -m pytest tests/test_real_db.py`.
+
+### Папка данных и IDE
+
+Все данные (`tracker.db`, `config.json`, `.env`, `auth.json`, `photos/`, `logs/`) лежат рядом с кодом. Переменная
+окружения `PROJECT_HUB_DATA_DIR` переносит их в другую папку; так делают тесты и запуск из IDE.
+`tools/deploy.sh` рассчитан на данные рядом с кодом.
+
+IntelliJ IDEA (с плагином Python) или PyCharm: File → Open → папка проекта, указать интерпретатор Python
+(Settings → Project → Python Interpreter, лучше отдельный venv) и выполнить `pip install -r requirements-dev.txt`.
+В списке запуска появятся две общие конфигурации из папки `.run/`:
+
+- **Tests: all** — все тесты, с отладкой (точки останова в коде срабатывают);
+- **Project Hub (dev data)** — приложение на отдельных данных в `.devdata/`. Там нет `.env`, поэтому бот
+  не запускается и не мешает рабочему боту на Pi.
+
 ## Известные ограничения
 
 - Один пользователь, без ролей и прав.

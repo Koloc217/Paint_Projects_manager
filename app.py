@@ -22,7 +22,7 @@ import progress
 import logs
 from i18n import tr, tv, get_lang, table_for, available_languages, normalize_lang
 from common import (
-    BASE_DIR, DEFAULT_NOTIFY_SETTINGS, DEFAULT_SCHEDULE, DAY_KEYS, DAY_LABELS,
+    BASE_DIR, DATA_DIR, DEFAULT_NOTIFY_SETTINGS, DEFAULT_SCHEDULE, DAY_KEYS, DAY_LABELS,
     PROJECT_STATUSES, TASK_STATUSES, STAGES, PRIORITIES, STATUS_PLANNED, TASK_NOT_STARTED, STATUS_FINISHED,
     NO_STAGE, normalize_value,
     is_done, load_config, edit_config, compute_balance, DATE_FORMATS, detect_image_ext, live_projects, live_tasks,
@@ -47,7 +47,7 @@ MAX_PHOTO_BYTES = 6 * 1024 * 1024
 MAX_REFS = 20
 MAX_REF_BYTES = 25 * 1024 * 1024
 MAX_THUMB_BYTES = 1536 * 1024
-PHOTOS_DIR = os.path.join(BASE_DIR, "photos")
+PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
 REFS_DIR = os.path.join(PHOTOS_DIR, "refs")
 os.makedirs(REFS_DIR, exist_ok=True)
 

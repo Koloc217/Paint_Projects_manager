@@ -5,7 +5,11 @@ from sqlalchemy import create_engine, event, Column, String, Float, DateTime, In
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "tracker.db")
+# Folder with the app's data (database, config, .env, photos, logs). Default: next to the code.
+# PROJECT_HUB_DATA_DIR moves it elsewhere (the tests point it to a temp folder). Same rule as common.DATA_DIR.
+DATA_DIR = os.path.abspath(os.environ.get("PROJECT_HUB_DATA_DIR") or BASE_DIR)
+os.makedirs(DATA_DIR, exist_ok=True)
+DB_PATH = os.path.join(DATA_DIR, "tracker.db")
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})

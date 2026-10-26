@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.abspath(os.environ.get("PROJECT_HUB_DATA_DIR") or BASE_DIR)   # same rule as database.DATA_DIR
 CERT_DIR = os.path.join(BASE_DIR, "certs")
 DEFAULT_CERT = os.path.join(CERT_DIR, "server.crt")
 DEFAULT_KEY = os.path.join(CERT_DIR, "server.key")
@@ -61,7 +62,7 @@ def parse_port(value, source: str = "PORT in .env") -> int:
 
 
 def settings() -> dict:
-    load_dotenv(os.path.join(BASE_DIR, ".env"))
+    load_dotenv(os.path.join(DATA_DIR, ".env"))
     port = parse_port(_env("PORT", str(DEFAULT_PORT)))
     host = _env("HOST", DEFAULT_HOST)
     custom = bool(_env("SSL_CERTFILE") or _env("SSL_KEYFILE"))

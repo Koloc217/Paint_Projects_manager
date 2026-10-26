@@ -7,10 +7,10 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from common import BASE_DIR, NO_STAGE, detect_image_ext
+from common import DATA_DIR, NO_STAGE, detect_image_ext
 from database import Project, ProgressPhoto
 
-PHOTOS_DIR = os.path.join(BASE_DIR, "photos")
+PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
 PROGRESS_DIR = os.path.join(PHOTOS_DIR, "progress")
 os.makedirs(PROGRESS_DIR, exist_ok=True)
 

@@ -6,7 +6,7 @@ from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
 from database import SessionLocal, Project, Task, ensure_schema
 from common import (
-    BASE_DIR, esc, to_tokens, load_config, compute_balance, live_projects, live_tasks,
+    DATA_DIR, esc, to_tokens, load_config, compute_balance, live_projects, live_tasks,
     is_done, STATUS_IN_WORK, STATUS_ON_HOLD, NO_STAGE, FileLock, clip_lines,
 )
 from i18n import tr, tv
@@ -16,13 +16,13 @@ import tgclean
 
 # Duplicate protection: the automatic digest goes out at most once per MIN_GAP_SEC, even if two sources start it
 # at the same time (an old cron entry + the built-in scheduler, two copies of the app).
-STATE_FILE = os.path.join(BASE_DIR, ".notify_state.json")
-LOCK_FILE = os.path.join(BASE_DIR, ".notify.lock")
+STATE_FILE = os.path.join(DATA_DIR, ".notify_state.json")
+LOCK_FILE = os.path.join(DATA_DIR, ".notify.lock")
 MIN_GAP_SEC = 600
 MAX_BUTTONS = 4           # task buttons under the message, so the push stays readable
 MAX_SECTION_ITEMS = 12    # lines per section (overdue, burning, ...); the rest becomes "…and N more"
 
-load_dotenv(os.path.join(BASE_DIR, ".env"))
+load_dotenv(os.path.join(DATA_DIR, ".env"))
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 

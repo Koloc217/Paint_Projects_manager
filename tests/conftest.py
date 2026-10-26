@@ -1,0 +1,71 @@
+"""Test setup: the real code with a throwaway DATA folder.
+
+The app keeps all its data in DATA_DIR: tracker.db, config.json, .env, auth.json, photos/, logs/.
+Before the app is imported, PROJECT_HUB_DATA_DIR is pointed to an empty temp folder, so the tests never read or
+change the real database, photos, settings or secrets (there is no .env there, so the bot token never loads).
+The code itself is imported from the repository, so breakpoints in the IDE work as usual.
+
+Each test starts with an empty database and a fresh config.json (see the `client` fixture).
+"""
+import json
+import os
+import shutil
+import sys
+import tempfile
+
+import pytest
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Settings every test starts from: enough tokens to create projects, no DEV_MODE.
+BASE_CONFIG = {"INITIAL_TOKENS": 100, "PROJECT_COST": 10, "DEV_MODE": False, "LANGUAGE": "ru-RU"}
+
+# Runs once, before any test module is imported.
+DATA_DIR = tempfile.mkdtemp(prefix="project-hub-test-")
+os.environ["PROJECT_HUB_DATA_DIR"] = DATA_DIR
+for secret in ("TELEGRAM_BOT_TOKEN", "PROXY_URL", "APPS_SCRIPT_URL"):
+    os.environ.pop(secret, None)        # values exported in the shell or the IDE must not reach the tests either
+if REPO not in sys.path:
+    sys.path.insert(0, REPO)
+
+import app as app_module          # noqa: E402
+import common                     # noqa: E402
+import database                   # noqa: E402
+
+assert database.DATA_DIR == os.path.abspath(DATA_DIR), "the app must use the temp data folder"
+assert os.path.dirname(database.DB_PATH) == database.DATA_DIR
+assert not os.path.exists(os.path.join(DATA_DIR, ".env"))
+
+
+def pytest_sessionfinish(session, exitstatus):
+    database.engine.dispose()
+    shutil.rmtree(DATA_DIR, ignore_errors=True)
+
+
+def write_config(**overrides) -> None:
+    """Replaces config.json of the test copy (BASE_CONFIG + overrides) and drops the config cache."""
+    with open(common.CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump({**BASE_CONFIG, **overrides}, f, ensure_ascii=False)
+    common._config_cache["stamp"] = None
+
+
+def clear_database() -> None:
+    with database.engine.begin() as conn:
+        for table in reversed(database.Base.metadata.sorted_tables):
+            conn.execute(table.delete())
+
+
+@pytest.fixture
+def client():
+    """HTTP client for the app with an empty database and default test settings.
+    The app's lifespan (bot, scheduler) is not started: TestClient is used without `with`."""
+    from fastapi.testclient import TestClient
+    clear_database()
+    write_config()
+    return TestClient(app_module.app)
+
+
+@pytest.fixture
+def config():
+    """Change settings inside a test: config(DEV_MODE=True)."""
+    return write_config

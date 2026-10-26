@@ -9,9 +9,9 @@ import httpx
 from datetime import datetime
 from dotenv import load_dotenv
 from database import SessionLocal, ensure_schema
-from common import BASE_DIR, NO_STAGE, legacy_value, live_projects, live_tasks
+from common import DATA_DIR, NO_STAGE, legacy_value, live_projects, live_tasks
 
-load_dotenv(os.path.join(BASE_DIR, ".env"))
+load_dotenv(os.path.join(DATA_DIR, ".env"))
 APPS_SCRIPT_URL = os.getenv("APPS_SCRIPT_URL")
 
 

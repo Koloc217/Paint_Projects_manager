@@ -6,11 +6,11 @@ Symlinks are not followed: only what really lies in the app folder is counted.
 """
 import os
 
-from common import BASE_DIR
+from common import BASE_DIR, DATA_DIR
 
-PHOTOS_DIR = os.path.join(BASE_DIR, "photos")
-LOGS_DIR = os.path.join(BASE_DIR, "logs")
-BACKUPS_DIR = os.path.join(BASE_DIR, "backups")      # database copies made by tools/deploy.sh
+PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
+LOGS_DIR = os.path.join(DATA_DIR, "logs")
+BACKUPS_DIR = os.path.join(DATA_DIR, "backups")      # database copies made by tools/deploy.sh
 
 # Top-level folders of the app that are counted separately, not as "app files"
 DATA_DIRS = {"photos", "logs", "backups", ".git", ".venv", "venv"}
@@ -97,6 +97,25 @@ def usage() -> dict:
                     app_files += 1
         except OSError:
             continue
+
+    # Data kept outside the code folder (PROJECT_HUB_DATA_DIR): its database and loose log files
+    if os.path.normcase(DATA_DIR) != os.path.normcase(BASE_DIR):
+        try:
+            data_entries = list(os.scandir(DATA_DIR))
+        except OSError:
+            data_entries = []
+        for entry in data_entries:
+            try:
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                if _is_db_file(entry.name):
+                    db_bytes += _file_size(entry)
+                    db_files += 1
+                elif _is_log_file(entry.name):
+                    loose_log_bytes += _file_size(entry)
+                    loose_log_files += 1
+            except OSError:
+                continue
 
     # photos: covers lie directly in photos/, references in photos/refs, progress photos in photos/progress
     refs = dir_size(os.path.join(PHOTOS_DIR, "refs"))
