@@ -2,7 +2,9 @@
 
 Settings come from .env (all optional):
   HTTPS=1                 serve over HTTPS (default: off, plain HTTP)
-  PORT=8000               port for both modes
+  PORT=8000               port for both modes (python app.py --port N overrides it)
+  HOST=0.0.0.0            address to listen on: 0.0.0.0 = all networks, 127.0.0.1 = this machine only
+                          (python app.py --host ADDR overrides it)
   TLS_NAMES=a.local,10.0.0.5   extra host names / IPs for the certificate
   SSL_CERTFILE, SSL_KEYFILE    your own certificate (paths relative to the project folder allowed)
 
@@ -45,20 +47,31 @@ def _path(value: str, default: str) -> str:
     return value if os.path.isabs(value) else os.path.join(BASE_DIR, value)
 
 
-def settings() -> dict:
-    load_dotenv(os.path.join(DATA_DIR, ".env"))
+DEFAULT_PORT = 8000
+DEFAULT_HOST = "0.0.0.0"
+
+
+def parse_port(value, source: str = "PORT in .env") -> int:
     try:
-        port = int(_env("PORT", "8000"))
+        port = int(str(value).strip())
         if not 1 <= port <= 65535:
             raise ValueError
     except ValueError:
-        raise TlsError("PORT in .env must be a number from 1 to 65535")
+        raise TlsError(f"{source} must be a number from 1 to 65535 (got {value!r})")
+    return port
+
+
+def settings() -> dict:
+    load_dotenv(os.path.join(DATA_DIR, ".env"))
+    port = parse_port(_env("PORT", str(DEFAULT_PORT)))
+    host = _env("HOST", DEFAULT_HOST)
     custom = bool(_env("SSL_CERTFILE") or _env("SSL_KEYFILE"))
     if custom and not (_env("SSL_CERTFILE") and _env("SSL_KEYFILE")):
         raise TlsError("Set both SSL_CERTFILE and SSL_KEYFILE in .env, or neither")
     return {
         "https": _env("HTTPS").lower() in TRUE_VALUES,
         "port": port,
+        "host": host,
         "cert": _path(_env("SSL_CERTFILE"), DEFAULT_CERT),
         "key": _path(_env("SSL_KEYFILE"), DEFAULT_KEY),
         "custom": custom,
@@ -137,10 +150,12 @@ def days_left(cert_path: str):
         return None
 
 
-def uvicorn_options() -> dict:
-    """Arguments for uvicorn.run: host, port and, with HTTPS=1, the certificate files."""
+def uvicorn_options(port=None, host=None) -> dict:
+    """Arguments for uvicorn.run: host, port and, with HTTPS=1, the certificate files.
+    port / host (from the command line) take priority over PORT / HOST in .env."""
     cfg = settings()
-    opts = {"host": "0.0.0.0", "port": cfg["port"]}
+    opts = {"host": host or cfg["host"],
+            "port": parse_port(port, "--port") if port is not None else cfg["port"]}
     if not cfg["https"]:
         return opts
     if cfg["custom"]:
@@ -160,7 +175,7 @@ def uvicorn_options() -> dict:
 
 def _status() -> None:
     cfg = settings()
-    print(f"HTTPS: {'on' if cfg['https'] else 'off (set HTTPS=1 in .env)'}   port: {cfg['port']}")
+    print(f"HTTPS: {'on' if cfg['https'] else 'off (set HTTPS=1 in .env)'}   address: {cfg['host']}   port: {cfg['port']}")
     print(f"certificate: {cfg['cert']}{'' if os.path.exists(cfg['cert']) else '  (missing)'}")
     if os.path.exists(cfg["cert"]):
         left = days_left(cfg["cert"])

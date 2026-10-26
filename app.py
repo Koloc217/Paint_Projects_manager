@@ -626,31 +626,34 @@ def do_action(payload: ActionPayload, db: Session = Depends(get_db)):
         if payload.status not in PROJECT_STATUSES:
             return {"status": "error", "message": tr("err.bad_value")}
         proj = get_project(db, payload.id)
-        if proj:
-            set_project_status(proj, payload.status, db, now)
-            db.commit()
+        if not proj:
+            return {"status": "error", "message": tr("err.project_not_found")}
+        set_project_status(proj, payload.status, db, now)
+        db.commit()
         return {"status": "ok"}
 
     if payload.action == "update_project_stage":
         if payload.stage not in STAGES:
             return {"status": "error", "message": tr("err.bad_value")}
         proj = get_project(db, payload.id)
-        if proj:
-            proj.stage = payload.stage
-            proj.updated_at = now
-            db.commit()
+        if not proj:
+            return {"status": "error", "message": tr("err.project_not_found")}
+        proj.stage = payload.stage
+        proj.updated_at = now
+        db.commit()
         return {"status": "ok"}
 
     if payload.action == "update_task_status":
         if payload.status not in TASK_STATUSES:
             return {"status": "error", "message": tr("err.bad_value")}
         task = db.query(Task).filter(Task.id == payload.id).first()
-        if task:
-            set_task_status(task, payload.status, now)
-            proj = get_project(db, task.project_id)
-            if proj:
-                proj.updated_at = now
-            db.commit()
+        if not task:
+            return {"status": "error", "message": tr("bot.task_not_found")}
+        set_task_status(task, payload.status, now)
+        proj = get_project(db, task.project_id)
+        if proj:
+            proj.updated_at = now
+        db.commit()
         return {"status": "ok"}
     return {"status": "unknown_action"}
 
@@ -1008,9 +1011,10 @@ def serialize_trash(db: Session, config: dict = None) -> list:
 def delete_project(project_id: str, db: Session = Depends(get_db)):
     """Deleting = moving to the trash. The project is erased for good after TRASH_DAYS days or by hand."""
     proj = get_project(db, project_id)
-    if proj:
-        proj.deleted_at = datetime.now()
-        db.commit()
+    if not proj:
+        return {"status": "error", "message": tr("err.project_not_found")}
+    proj.deleted_at = datetime.now()
+    db.commit()
     return {"status": "ok"}
 
 @app.post("/api/projects/{project_id}/restore")
@@ -1074,17 +1078,31 @@ def edit_task(task_id: str, data: TaskEdit, db: Session = Depends(get_db)):
 @app.delete("/api/tasks/{task_id}")
 def delete_task(task_id: str, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == task_id).first()
-    if task:
-        db.delete(task)
-        db.commit()
+    if not task:
+        return {"status": "error", "message": tr("bot.task_not_found")}
+    db.delete(task)
+    db.commit()
     return {"status": "ok"}
+
+def _start_args():
+    """python app.py [--port N] [--host ADDR]: override PORT / HOST from .env for this run."""
+    import argparse
+    ap = argparse.ArgumentParser(description="Project Hub: web app, Telegram bot and scheduler in one process")
+    ap.add_argument("--port", help="port of the web app (default: PORT in .env, otherwise 8000)")
+    ap.add_argument("--host", help="address to listen on (default: HOST in .env, otherwise 0.0.0.0 = all networks)")
+    return ap.parse_args()
+
 
 if __name__ == "__main__":
     import tls
+    args = _start_args()
     try:
-        options = tls.uvicorn_options()      # HTTPS=1 in .env turns on HTTPS (see tls.py)
+        options = tls.uvicorn_options(port=args.port, host=args.host)   # PORT, HOST, HTTPS in .env (see tls.py)
     except tls.TlsError as e:
-        raise SystemExit("HTTPS setup failed: " + str(e))
+        raise SystemExit("Start-up settings error: " + str(e))
     logs.setup_app_log()
-    print(f"Project Hub: {'https' if 'ssl_certfile' in options else 'http'}://0.0.0.0:{options['port']}")
+    scheme = "https" if "ssl_certfile" in options else "http"
+    shown = "localhost" if options["host"] in ("0.0.0.0", "::") else options["host"]
+    print(f"Project Hub: {scheme}://{shown}:{options['port']}  (listening on {options['host']}:{options['port']};"
+          f" change with PORT / HOST in .env or --port / --host)")
     uvicorn.run("app:app", **options)

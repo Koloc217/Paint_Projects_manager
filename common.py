@@ -315,7 +315,9 @@ def config_value(key, default=None):
 
 
 def fmt_date(d) -> str:
-    """A date (date/datetime) in the format from the settings; for the bot and notifications."""
+    """A date (date/datetime) in the format from the settings; for the bot and notifications. None -> ""."""
+    if d is None:
+        return ""
     return d.strftime(DATE_FORMATS.get(config_value("DATE_FORMAT"), DATE_FORMATS["dmy"]))
 
 
