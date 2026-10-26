@@ -772,7 +772,7 @@ async def handle_photo_choice(cb_id: str, chat_id: int, message_id: int, token: 
 # anyone; the bot answers only the bound chat, so a forwarded album gives nobody access to the data.
 SHARE_MAX_ITEMS = 10                    # Telegram limit for an album
 SHARE_PROGRESS = 5                      # the latest progress photos
-SHARE_FILE_MAX = 5 * 1024 * 1024        # bigger originals (and GIF/WebP) go as their JPEG preview
+SHARE_FILE_MAX = 5 * 1024 * 1024        # bigger originals (and GIF/WebP/AVIF) go as their JPEG preview
 SHARE_PHOTO_EXT = (".jpg", ".jpeg", ".png")
 CAPTION_MAX = 1024                      # Telegram limit for a caption (characters after markup)
 SHARE_REFS_DIR = os.path.join(progress.PHOTOS_DIR, "refs")

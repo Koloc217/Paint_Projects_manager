@@ -55,7 +55,7 @@ function pickProgressPhotos(projectId) {
     if (!projectId) return;
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = 'image/*,.avif';
     input.multiple = true;
     input.onchange = () => { if (input.files && input.files.length) uploadProgressPhotos(projectId, Array.from(input.files)); };
     input.click();

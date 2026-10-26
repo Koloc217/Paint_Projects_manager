@@ -4,6 +4,7 @@ import math
 import time
 import uuid
 import base64
+import mimetypes
 import contextlib
 import asyncio
 from datetime import datetime, timedelta
@@ -125,6 +126,9 @@ templates.env.globals["tr"] = tr          # in templates: {{ tr('common.save') }
 templates.env.globals["bot_help"] = lambda: {"commands": bot_active_commands(), "photos": BOT_PHOTO_HELP, "features": BOT_FEATURES}
 templates.env.policies["json.dumps_kwargs"] = {"ensure_ascii": False, "sort_keys": True}
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+# Python before 3.13 and Windows registries often don't know .avif: without this the photos would go out as
+# text/plain or application/octet-stream and some browsers would refuse to show them
+mimetypes.add_type("image/avif", ".avif")
 app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
 auth.setup(app, templates)               # password login: off by default (Settings → Access)
 
