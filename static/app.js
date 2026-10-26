@@ -120,8 +120,7 @@ async function uploadProjectPhoto(id, file) {
 async function removeProjectPhoto(id) {
     if (!id) return;
     if (!(await confirmDialog({ title: tr('photo.remove_title'), message: tr('photo.remove_text'), okText: tr('common.remove') }))) return;
-    await fetch(`/api/projects/${id}/photo`, { method: 'DELETE' });
-    showToast(tr('toast.photo_removed'), 'success');
+    if (await postOk(`/api/projects/${id}/photo`, undefined, 'DELETE')) showToast(tr('toast.photo_removed'), 'success');
     loadData();
 }
 
@@ -438,7 +437,7 @@ async function uploadProjectRefs(id, files, free) {
 
 async function removeProjectRef(projectId, refId) {
     if (!(await confirmDialog({ title: tr('ref.delete_title'), message: tr('confirm.delete_ref_text') }))) return;
-    await fetch(`/api/projects/${projectId}/refs/${refId}`, { method: 'DELETE' });
+    await postOk(`/api/projects/${projectId}/refs/${refId}`, undefined, 'DELETE');
     loadData();
 }
 
@@ -477,10 +476,22 @@ async function postJson(url, body, method = 'POST') {
         const res = await fetch(url, {
             method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body),
         });
-        return await res.json();
+        let data = null;
+        try { data = await res.json(); } catch (e) { /* not JSON: a proxy page, a crash */ }
+        if (!data || typeof data !== 'object') data = {};
+        // a 4xx/5xx without our {status} (FastAPI 422, a 500) must not pass for success
+        if (!res.ok && !data.status) data = { status: 'error', message: tr('err.save_failed') };
+        return data;
     } catch (e) {
         return { status: 'error', message: tr('err.save_failed') };
     }
+}
+
+// postJson for actions whose only answer is ok/error: shows the error, true on success
+async function postOk(url, body, method = 'POST') {
+    const r = await postJson(url, body, method);
+    if (r.status === 'error') { showToast(r.message || tr('err.save_failed'), 'error'); return false; }
+    return true;
 }
 
 function sendAction(body) {
@@ -645,7 +656,7 @@ async function loadData() {
         trashDays = data.trash_days || 30;
         renderVacation(data.vacation);
         
-        document.getElementById('tokenCounter').innerText = data.total_tokens + (isDevMode ? ' (DEV / MUTE)' : '');
+        document.getElementById('tokenCounter').innerText = (data.total_tokens ?? 0) + (isDevMode ? ' (DEV / MUTE)' : '');
         document.getElementById('projCostHint').innerText = isDevMode ? tr('project.free_dev') : `${tr('project.cost', { n: projectCost })} 💰`;
         renderProjects();
         renderTasks();
@@ -866,8 +877,9 @@ async function unlinkTelegram() {
         okText: tr('tg.unlink_btn')
     });
     if (!ok) return;
-    const res = await fetch('/api/telegram/unlink', { method: 'POST' });
-    renderTelegramState(await res.json());
+    const r = await postJson('/api/telegram/unlink');
+    if (r.status === 'error') return showToast(r.message || tr('err.save_failed'), 'error');
+    renderTelegramState(r);
     showToast(tr('toast.chat_unlinked'), 'success');
 }
 
@@ -924,17 +936,15 @@ async function checkTelegramProxy() {
 }
 
 async function saveTelegramProxy() {
-    const res = await fetch('/api/telegram/proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(proxyFormBody()) });
-    const data = await res.json().catch(() => ({ status: 'error' }));
+    const data = await postJson('/api/telegram/proxy', proxyFormBody());
     if (data.status !== 'ok') return showToast(data.message || tr('settings.err_save'), 'error');
     renderTelegramProxy(data);
     showToast(data.enabled ? tr('tg.proxy_saved_on') : tr('tg.proxy_saved_off'), 'success');
 }
 
 async function newTelegramCode() {
-    const res = await fetch('/api/telegram/code', { method: 'POST' });
-    const r = await res.json();
-    if (r.status === 'error') return showToast(r.message, 'error');
+    const r = await postJson('/api/telegram/code');
+    if (r.status === 'error') return showToast(r.message || tr('err.save_failed'), 'error');
     renderTelegramState(r);
     showToast(tr('tg.new_code_created'), 'success');
 }
@@ -995,8 +1005,7 @@ async function saveSettings() {
         language: document.getElementById('cfgLanguage').value,
         date_format: document.getElementById('cfgDateFormat').value
     };
-    const res = await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-    const result = await res.json();
+    const result = await postJson('/api/config', body);
     if (result.status === 'error') return showToast(result.message || tr('settings.err_save'), 'error');
     closeModal('settingsModal');
     if (body.language !== (window.APP_LANG || 'ru-RU') || body.date_format !== (window.APP_DATE_FORMAT || 'dmy')) { location.reload(); return; }   // new language: redraw the whole page
@@ -1590,11 +1599,10 @@ async function createProject() {
     if(!body.name) return showToast(tr('project.err_name_empty'));
     if (!Number.isInteger(body.token_reward) || body.token_reward < 0) return showToast(tr('project.err_reward_whole'));
 
-    const res = await fetch('/api/projects', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-    const result = await res.json();
+    const result = await postJson('/api/projects', body);
     
     if(result.status === "error") {
-        showToast(result.message, "error");
+        showToast(result.message || tr('err.save_failed'), "error");
         return;
     }
     closeModal('projectModal');
@@ -1625,8 +1633,7 @@ async function saveProjectEdit() {
         url = `/api/projects/${id}/rename`;
         body = { name: name, priority: document.getElementById('epPriority').value };
     }
-    const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-    const result = await res.json();
+    const result = await postJson(url, body);
     if(result.status === "error") return showToast(result.message || tr('err.save_failed'), "error");
     closeModal('editProjectModal');
     showToast(tr('toast.project_updated'), "success");
@@ -1687,12 +1694,12 @@ async function deleteProject(id) {
         message: `${p ? tr('confirm.delete_project_named', { name: p.Name }) : tr('confirm.delete_project_text')}\n${hint}`
     });
     if (!ok) return;
-    await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    await postOk(`/api/projects/${id}`, undefined, 'DELETE');
     loadData();
 }
 async function deleteTask(id) {
     if (!(await confirmDialog({ title: tr('task.delete_title'), message: tr('confirm.delete_task_text') }))) return;
-    await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+    await postOk(`/api/tasks/${id}`, undefined, 'DELETE');
     loadData();
 }
 

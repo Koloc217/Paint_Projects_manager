@@ -626,31 +626,34 @@ def do_action(payload: ActionPayload, db: Session = Depends(get_db)):
         if payload.status not in PROJECT_STATUSES:
             return {"status": "error", "message": tr("err.bad_value")}
         proj = get_project(db, payload.id)
-        if proj:
-            set_project_status(proj, payload.status, db, now)
-            db.commit()
+        if not proj:
+            return {"status": "error", "message": tr("err.project_not_found")}
+        set_project_status(proj, payload.status, db, now)
+        db.commit()
         return {"status": "ok"}
 
     if payload.action == "update_project_stage":
         if payload.stage not in STAGES:
             return {"status": "error", "message": tr("err.bad_value")}
         proj = get_project(db, payload.id)
-        if proj:
-            proj.stage = payload.stage
-            proj.updated_at = now
-            db.commit()
+        if not proj:
+            return {"status": "error", "message": tr("err.project_not_found")}
+        proj.stage = payload.stage
+        proj.updated_at = now
+        db.commit()
         return {"status": "ok"}
 
     if payload.action == "update_task_status":
         if payload.status not in TASK_STATUSES:
             return {"status": "error", "message": tr("err.bad_value")}
         task = db.query(Task).filter(Task.id == payload.id).first()
-        if task:
-            set_task_status(task, payload.status, now)
-            proj = get_project(db, task.project_id)
-            if proj:
-                proj.updated_at = now
-            db.commit()
+        if not task:
+            return {"status": "error", "message": tr("bot.task_not_found")}
+        set_task_status(task, payload.status, now)
+        proj = get_project(db, task.project_id)
+        if proj:
+            proj.updated_at = now
+        db.commit()
         return {"status": "ok"}
     return {"status": "unknown_action"}
 
@@ -1008,9 +1011,10 @@ def serialize_trash(db: Session, config: dict = None) -> list:
 def delete_project(project_id: str, db: Session = Depends(get_db)):
     """Deleting = moving to the trash. The project is erased for good after TRASH_DAYS days or by hand."""
     proj = get_project(db, project_id)
-    if proj:
-        proj.deleted_at = datetime.now()
-        db.commit()
+    if not proj:
+        return {"status": "error", "message": tr("err.project_not_found")}
+    proj.deleted_at = datetime.now()
+    db.commit()
     return {"status": "ok"}
 
 @app.post("/api/projects/{project_id}/restore")
@@ -1074,9 +1078,10 @@ def edit_task(task_id: str, data: TaskEdit, db: Session = Depends(get_db)):
 @app.delete("/api/tasks/{task_id}")
 def delete_task(task_id: str, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == task_id).first()
-    if task:
-        db.delete(task)
-        db.commit()
+    if not task:
+        return {"status": "error", "message": tr("bot.task_not_found")}
+    db.delete(task)
+    db.commit()
     return {"status": "ok"}
 
 def _start_args():
