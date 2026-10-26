@@ -99,7 +99,7 @@ function pickProjectPhoto(id) {
     if (!id) return;
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = 'image/*,.avif';   // .avif: Windows without the AV1 extension hides it under image/*
     input.onchange = () => { if (input.files && input.files[0]) uploadProjectPhoto(id, input.files[0]); };
     input.click();
 }
@@ -402,7 +402,7 @@ function pickProjectRefs(id) {
     if (free <= 0) return showToast(tr('ref.limit', { n: MAX_REFS }));
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/jpeg,image/png,image/webp,image/gif';
+    input.accept = 'image/jpeg,image/png,image/webp,image/gif,image/avif,.avif';
     input.multiple = true;
     input.onchange = () => { if (input.files && input.files.length) uploadProjectRefs(id, Array.from(input.files), free); };
     input.click();

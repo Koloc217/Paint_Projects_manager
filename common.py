@@ -183,7 +183,26 @@ def detect_image_ext(raw: bytes):
         return "gif"
     if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
         return "webp"
+    if _is_avif(raw):
+        return "avif"
     return None
+
+
+AVIF_BRANDS = (b"avif", b"avis")     # still image / image sequence
+
+
+def _is_avif(raw: bytes) -> bool:
+    """AVIF is an ISO BMFF file that starts with an 'ftyp' box naming avif/avis as the major or a compatible brand.
+    HEIC uses the same container with other brands (heic, mif1 without avif) and is not accepted: browsers can't show it."""
+    if len(raw) < 16 or raw[4:8] != b"ftyp":
+        return False
+    size = int.from_bytes(raw[:4], "big")
+    if size < 16 or size > min(len(raw), 4096):
+        return False
+    if raw[8:12] in AVIF_BRANDS:
+        return True
+    brands = raw[16:size]                 # after major brand (4) and minor version (4)
+    return any(brands[i:i + 4] in AVIF_BRANDS for i in range(0, len(brands) - 3, 4))
 
 
 # Name limits shared by the web app, the bot and the templates. A task name has to fit, with a short phrase around it,

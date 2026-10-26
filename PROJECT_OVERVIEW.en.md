@@ -216,7 +216,7 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
   "Photos" — references and progress (the number of images next to the name). The open sub-tab is kept while the card
   is open; opening another project switches back to "Tasks". The separate tab (`/?card=`) has no sub-tabs.
 - **Project notes** (paint recipes, ideas, anything): saved automatically when the field loses focus, and with the "Save" button.
-- **Paint references:** up to 20 images (JPEG, PNG, WebP, GIF up to 25 MB). Originals are stored unchanged; the browser
+- **Paint references:** up to 20 images (JPEG, PNG, WebP, GIF, AVIF up to 25 MB). Originals are stored unchanged; the browser
   makes small previews for the grid. Full-screen viewer with arrows. The order is changed by dragging the tiles (on a
   computer); it is saved and used by the viewer.
 - **Progress:** a timeline of the project's photos (oldest on the left, newest on the right). Every photo keeps the date
@@ -432,7 +432,7 @@ is unknown to it.
 
 **"📤 Share"** in a project card sends an album to forward: cover, the 5 latest progress photos and the references
 (10 at most, the Telegram limit), with the name, stage and notes in the caption. Tasks, tokens and deadlines
-are left out. Long notes come as a separate message; big originals (over 5 MB), GIF and WebP go as previews.
+are left out. Long notes come as a separate message; big originals (over 5 MB), GIF, WebP and AVIF go as previews.
 A forwarded album gives no access to the data: the bot answers only the bound chat.
 From a push: close the task and "+2d" — **postponing the deadline**: the date moves by 2 days from the later of two dates
 (the current deadline or today). If postponing is turned off in the settings (`allow_postpone`), a button from an old
@@ -618,7 +618,7 @@ Handlers that work with the database and files run in the FastAPI thread pool, s
 not stall the bot and the scheduler running in the same process.
 
 Uploads are sent as JSON with base64, without extra libraries for multipart. Images are checked by their content (JPEG,
-PNG, GIF, WebP); SVG and a faked extension are rejected.
+PNG, GIF, WebP, AVIF); SVG and a faked extension are rejected.
 
 ---
 

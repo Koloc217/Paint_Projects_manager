@@ -5,7 +5,9 @@
 // While files are dragged over the window, <body> gets .drop-active (all zones are outlined)
 // and the zone under the pointer gets .drop-over.
 (function () {
-    const REF_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const REF_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+    // Windows without the AV1 extension gives .avif files an empty type: fall back to the extension
+    const typeOf = (f) => f.type || (/\.avif$/i.test(f.name || '') ? 'image/avif' : '');
     let overZone = null;
 
     // A drag that starts inside the page (an image from the card, a reference tile being reordered) is not an
@@ -72,14 +74,14 @@
     function handleDrop(kind, projectId, files) {
         // an image dragged from another web page usually arrives as a link, not a file
         if (!files.length) return showToast(tr('drop.no_file'));
-        const images = files.filter(f => (f.type || '').startsWith('image/'));
+        const images = files.filter(f => typeOf(f).startsWith('image/'));
         if (!images.length) return showToast(tr('drop.not_image'), 'error');
         if (images.length < files.length) showToast(tr('drop.skipped', { n: files.length - images.length }));
 
         if (kind === 'photo') return uploadProjectPhoto(projectId, images[0]);
 
         if (kind === 'refs') {
-            const ok = images.filter(f => REF_TYPES.includes(f.type));
+            const ok = images.filter(f => REF_TYPES.includes(typeOf(f)));
             if (!ok.length) return showToast(tr('drop.ref_types'), 'error');
             const free = refsFree(projectId);
             if (free <= 0) return showToast(tr('ref.limit', { n: MAX_REFS }));
