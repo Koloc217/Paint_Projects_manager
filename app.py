@@ -1079,12 +1079,25 @@ def delete_task(task_id: str, db: Session = Depends(get_db)):
         db.commit()
     return {"status": "ok"}
 
+def _start_args():
+    """python app.py [--port N] [--host ADDR]: override PORT / HOST from .env for this run."""
+    import argparse
+    ap = argparse.ArgumentParser(description="Project Hub: web app, Telegram bot and scheduler in one process")
+    ap.add_argument("--port", help="port of the web app (default: PORT in .env, otherwise 8000)")
+    ap.add_argument("--host", help="address to listen on (default: HOST in .env, otherwise 0.0.0.0 = all networks)")
+    return ap.parse_args()
+
+
 if __name__ == "__main__":
     import tls
+    args = _start_args()
     try:
-        options = tls.uvicorn_options()      # HTTPS=1 in .env turns on HTTPS (see tls.py)
+        options = tls.uvicorn_options(port=args.port, host=args.host)   # PORT, HOST, HTTPS in .env (see tls.py)
     except tls.TlsError as e:
-        raise SystemExit("HTTPS setup failed: " + str(e))
+        raise SystemExit("Start-up settings error: " + str(e))
     logs.setup_app_log()
-    print(f"Project Hub: {'https' if 'ssl_certfile' in options else 'http'}://0.0.0.0:{options['port']}")
+    scheme = "https" if "ssl_certfile" in options else "http"
+    shown = "localhost" if options["host"] in ("0.0.0.0", "::") else options["host"]
+    print(f"Project Hub: {scheme}://{shown}:{options['port']}  (listening on {options['host']}:{options['port']};"
+          f" change with PORT / HOST in .env or --port / --host)")
     uvicorn.run("app:app", **options)
