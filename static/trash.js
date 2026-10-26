@@ -40,8 +40,8 @@ function renderTrash() {
 }
 
 async function restoreProject(id) {
-    const res = await (await fetch(`/api/projects/${encodeURIComponent(id)}/restore`, { method: 'POST' })).json();
-    if (res.status === 'error') return showToast(res.message, 'error');
+    const res = await postJson(`/api/projects/${encodeURIComponent(id)}/restore`);
+    if (res.status === 'error') return showToast(res.message || tr('err.save_failed'), 'error');
     showToast(tr('trash.restored'), 'success');
     loadData();
 }
@@ -49,7 +49,7 @@ async function restoreProject(id) {
 async function purgeProject(id) {
     const t = trashItems.find(x => x.ID === id);
     if (!(await confirmDialog({ title: tr('trash.purge_title'), message: tr('trash.purge_text', { name: t ? t.Name : '' }) }))) return;
-    await fetch(`/api/trash/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await postOk(`/api/trash/${encodeURIComponent(id)}`, undefined, 'DELETE');
     loadData();
 }
 

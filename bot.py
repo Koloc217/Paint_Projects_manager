@@ -1533,9 +1533,9 @@ async def handle_task_callback(cb: dict, data: str) -> bool:
 
 async def handle_callback(cb: dict):
     cb_id = cb["id"]
-    data = cb.get("data", "")
-    msg = cb.get("message", {})
-    chat_id = msg.get("chat", {}).get("id")
+    data = cb.get("data") or ""
+    msg = cb.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
     message_id = msg.get("message_id")
     now = datetime.now()
 
