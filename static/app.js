@@ -1278,7 +1278,11 @@ function renderAnalytics() {
     for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const label = d.toLocaleDateString(window.APP_LANG || 'ru-RU', { month: 'short', year: '2-digit' });
+        // "Oct 26" reads like a day of the month, so the year goes full and on its own line,
+        // only on the first bar and where a new year starts
+        const lang = window.APP_LANG || 'ru-RU';
+        const month = d.toLocaleDateString(lang, { month: 'short' });
+        const label = (i === 5 || d.getMonth() === 0) ? [month, String(d.getFullYear())] : month;
         months.push({ ym, label, tasks: 0, projs: 0 });
     }
 
