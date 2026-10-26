@@ -93,6 +93,20 @@ python app.py                 # web app, bot and scheduler in one process
 The UI opens at `http://<device address>:8000`. The files `tracker.db`, `config.json`, `auth.json` and the `photos/`
 folder are created on the first start and are not committed to git.
 
+### Port and address
+
+The default port is 8000. If it is taken or you want another one, set it in `.env` and restart the app:
+
+```
+PORT=8080
+HOST=0.0.0.0        # optional: 0.0.0.0 = reachable from the whole network (default), 127.0.0.1 = this machine only
+```
+
+For a single run you can skip `.env`: `python app.py --port 8080` (and `--host 127.0.0.1`); the options win over `.env`.
+On start the console prints the address and port the app listens on. HTTP and HTTPS use the same port.
+When the app runs as a systemd service, the port is also taken from `.env`: no need to edit `ExecStart`, just
+`sudo systemctl restart tracker`. `tools/deploy.sh` reads `PORT` from the same `.env`.
+
 Linking the bot: Settings → Telegram, get a code and send it to the bot from the chat you want to use.
 
 A proxy for Telegram is optional. If Telegram is not reachable directly, turn it on in the same place (Settings →
@@ -112,7 +126,7 @@ tools/deploy.sh --rollback               # go back to what was deployed before t
 The script copies the database into `backups/` (keeps the last 10), fetches the branch from GitHub, installs
 dependencies if `requirements.txt` changed, restarts the service and checks that the server answers. Data
 (`tracker.db`, `photos/`, `config.json`, `.env`) is not touched. If project files have local edits, the script stops.
-Settings through variables: `VENV` (venv path), `SERVICE` (default `tracker`), `PORT` (8000).
+Settings through variables: `VENV` (venv path), `SERVICE` (default `tracker`), `PORT` (default: from `.env`, otherwise 8000).
 Leftovers of older versions (files neither in git nor in `.gitignore`) are cleaned by `tools/clean.sh`: it shows
 the list and, after confirmation, moves them into the sibling folder `<project>-leftovers-<date>`.
 The scripts are for Linux with systemd only; on Windows update by hand: `git pull` and a restart.
@@ -128,7 +142,7 @@ HTTPS=1
 and restart the app. On the first start a self-signed certificate is created automatically
 (`certs/server.crt` and `certs/server.key`, valid for 825 days). It covers `localhost`, the device name and its network
 address, and everything listed in `TLS_NAMES` (for example `TLS_NAMES=hub.local,192.168.1.50`). The port stays the same
-(`PORT` in `.env`, 8000 by default); only the address now starts with `https://`. The `openssl` tool is required
+(`PORT` in `.env`, 8000 by default, see "Port and address"); only the address now starts with `https://`. The `openssl` tool is required
 (Raspberry Pi OS has it).
 
 - **Browser warning.** The certificate is self-signed, so every device shows "connection is not private" once.
@@ -173,7 +187,7 @@ Password login does not break installation: `/sw.js` and `/manifest.webmanifest`
 
 | What | Where |
 |---|---|
-| Secrets (bot token, proxy, backup URL), HTTPS and port | `.env` (template: `.env.example`) |
+| Port and address (`PORT`, `HOST`), secrets (bot token, proxy, backup URL), HTTPS | `.env` (template: `.env.example`), see "Port and address" |
 | Language, date format, project cost, deadlines to phone calendar, schedule, notifications | Settings in the UI, stored in `config.json` |
 | Password | Settings → Access; reset from the console: `python auth.py reset` |
 | Theme background images | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` ship with the repository, `wh40k_bg.jpg` you add yourself (without an image the theme draws its own background), see [static/backgrounds/README.en.md](static/backgrounds/README.en.md) |

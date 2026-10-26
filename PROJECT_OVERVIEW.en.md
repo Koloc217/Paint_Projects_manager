@@ -72,7 +72,7 @@ and starting a new project costs tokens. The goal is to finish what you start in
 | `static/dateinput.js` | Date inputs in the format from the settings (a wrapper over `<input type="date">`) |
 | `static/sw.js`, `static/manifest.webmanifest`, `static/pwa.js`, `static/icons/`, `static/offline.html`, `templates/components/pwa_head.html` | PWA: service worker (served as `/sw.js`), manifest, registration and install button, icons, offline page, `<head>` tags |
 | `THEMES_GUIDE.md` (`THEMES_GUIDE.en.md`), `tools/check_theme.py` | Guide for creating themes (also for AI models) and the theme check |
-| `.env` | `TELEGRAM_BOT_TOKEN`, `PROXY_URL`, `APPS_SCRIPT_URL`, `HTTPS`, `PORT`, `TLS_NAMES`, `SSL_CERTFILE`, `SSL_KEYFILE` |
+| `.env` | `TELEGRAM_BOT_TOKEN`, `PROXY_URL`, `APPS_SCRIPT_URL`, `PORT`, `HOST`, `HTTPS`, `TLS_NAMES`, `SSL_CERTFILE`, `SSL_KEYFILE` |
 | `auth.json` | Login state: password hash, session secret (created automatically, mode 600, never commit it) |
 
 ---
@@ -568,7 +568,8 @@ is renamed to `config.json.broken-<time>`, the app starts with default settings 
 the settings can be restored from the saved copy.
 
 **`.env`:** `TELEGRAM_BOT_TOKEN`, `PROXY_URL` (optional; used until a proxy is configured in the UI), `APPS_SCRIPT_URL`,
-and for HTTPS `HTTPS`, `PORT`, `TLS_NAMES`, `SSL_CERTFILE`, `SSL_KEYFILE`.
+`PORT` (web port, 8000 by default) and `HOST` (address, `0.0.0.0` by default), and for HTTPS `HTTPS`, `TLS_NAMES`,
+`SSL_CERTFILE`, `SSL_KEYFILE`. `PORT`/`HOST` can be overridden for one run: `python app.py --port N --host ADDR`.
 
 ---
 
@@ -624,7 +625,7 @@ PNG, GIF, WebP); SVG and a faked extension are rejected.
 ## 12. Security
 
 - **Password login is optional and off by default** (Settings → Access). While it is off, the web interface is open to
-  anyone who can reach port 8000. It is meant for a home network or a VPN.
+  anyone who can reach the app's port (`PORT`, 8000 by default); `HOST=127.0.0.1` hides it from the network. It is meant for a home network or a VPN.
 - **How login works** (personal variant, one user):
   - The default login is `admin`, password `123456`. Until the password is changed, everything except changing the
     password and logging out is closed. A new password must be at least 8 characters (checked in the browser; the server
@@ -667,7 +668,7 @@ PNG, GIF, WebP); SVG and a faked extension are rejected.
 
 ## 13. Operation
 
-- **Start:** `python app.py` (uvicorn, `0.0.0.0:8000`); in the current installation, the systemd service `tracker.service`.
+- **Start:** `python app.py` (uvicorn, `HOST:PORT` from `.env`, `0.0.0.0:8000` by default; `--port`, `--host` options); in the current installation, the systemd service `tracker.service`.
 - **Logs:** `logs/app.log` (bot, scheduler, errors), `logs/notify.log`, `logs/backup.log`; each has three copies `.1`–`.3`
   of 1 MB.
 - **What to copy when moving or updating:** `tracker.db`, `photos/`, `config.json`, `auth.json`, `.env`.

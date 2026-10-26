@@ -13,7 +13,7 @@
 # Settings through environment variables:
 #   VENV=/home/ops13/venv      path to the virtual environment (default: .venv in the project folder or ../venv)
 #   SERVICE=tracker            systemd service name
-#   PORT=8000                  port to check after the restart
+#   PORT=8000                  port to check after the restart (default: PORT from .env, otherwise 8000)
 #   KEEP_BACKUPS=10            how many database copies to keep
 set -euo pipefail
 
@@ -21,6 +21,10 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$APP_DIR"
 
 SERVICE="${SERVICE:-tracker}"
+if [[ -z "${PORT:-}" && -f "$APP_DIR/.env" ]]; then
+    # the same port the app uses: PORT=... in .env (quotes, spaces and a trailing comment are ignored)
+    PORT="$(sed -n 's/^[[:space:]]*PORT[[:space:]]*=[[:space:]]*["'\'']\{0,1\}\([0-9]\{1,5\}\).*/\1/p' "$APP_DIR/.env" | tail -n 1)"
+fi
 PORT="${PORT:-8000}"
 KEEP_BACKUPS="${KEEP_BACKUPS:-10}"
 if [[ -z "${VENV:-}" ]]; then
