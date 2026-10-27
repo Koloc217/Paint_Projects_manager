@@ -672,7 +672,7 @@ def not_added_text(failed: int, total: int, error: str = None) -> str:
 def _saved_view(name: str, stage: str, ids: list, project_id: str):
     suffix = f" · {esc(tv(stage))}" if stage and stage != NO_STAGE else ""
     text = f"📷 {tr('bot.photo_saved', name=esc(name), stage=suffix)}"
-    row = [{"text": f"📷 {tr('bot.btn_open_photos')}", "callback_data": f"ph_v:{project_id}:0"}]
+    row = [{"text": f"📷 {tr('bot.btn_open_photos')}", "callback_data": f"ph_v:{project_id}:-1"}]   # opens on the photo just added
     undo = "ph_undo:" + ",".join(str(i) for i in ids[:6])
     if ids:
         row.append({"text": f"↩ {tr('bot.btn_undo')}", "callback_data": undo})
@@ -880,12 +880,15 @@ async def send_project_share(chat_id: int, project_id: str):
 # ----- viewing photos -----
 
 def _photo_view(scope: str, index: int):
-    """Photo number index (newest first) in the selection, as a dict (path, caption, keyboard, index, total), or None."""
+    """Photo number index (oldest first, like the card's timeline) in the selection, as a dict
+    (path, caption, keyboard, index, total), or None. A negative index counts from the newest end (-1 = newest)."""
     db = SessionLocal()
     try:
-        rows = progress.list_photos(db, None if scope == "*" else scope)
+        rows = list(reversed(progress.list_photos(db, None if scope == "*" else scope)))
         if not rows:
             return None
+        if index < 0:
+            index += len(rows)
         index = max(0, min(index, len(rows) - 1))
         row = rows[index]
         proj = db.query(Project).filter(Project.id == row.project_id).first()
@@ -900,9 +903,9 @@ def _photo_view(scope: str, index: int):
         nav = []
         if total > 1:
             nav = [
-                {"text": "◀", "callback_data": f"ph_v:{scope}:{(index + 1) % total}"},
+                {"text": "◀", "callback_data": f"ph_v:{scope}:{(index - 1) % total}"},
                 {"text": f"{index + 1}/{total}", "callback_data": "noop"},
-                {"text": "▶", "callback_data": f"ph_v:{scope}:{(index - 1) % total}"},
+                {"text": "▶", "callback_data": f"ph_v:{scope}:{(index + 1) % total}"},
             ]
         keyboard = [nav] if nav else []
         last_row = [{"text": f"🗑 {tr('bot.btn_delete')}", "callback_data": f"ph_d:{scope}:{index}"}]
@@ -1786,7 +1789,7 @@ async def _process_update(item: dict):
         view_text, markup = await asyncio.to_thread(build_myphotos_projects)
         await send_message(chat_id, view_text, markup)
     elif text.startswith("/photo"):
-        if not await send_photo_view(chat_id, "*", 0):
+        if not await send_photo_view(chat_id, "*", -1):        # /photo: the latest photo first
             await send_message(chat_id, tr("bot.photo_none"))
     elif text.startswith("/calendar"):
         if ics.enabled():
