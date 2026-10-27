@@ -156,7 +156,8 @@
     function placePicker() {
         const r = pop.anchor.getBoundingClientRect();
         const w = pop.el.offsetWidth, h = pop.el.offsetHeight, m = 6;
-        let left = Math.min(r.left, window.innerWidth - w - m);
+        // right edge under the calendar button (the button sits at the right end of the field)
+        let left = Math.min(r.right - w, window.innerWidth - w - m);
         let top = r.bottom + 4;
         if (top + h > window.innerHeight - m && r.top - h - 4 >= m) top = r.top - h - 4;   // no room below: open above
         pop.el.style.left = Math.max(m, left) + 'px';
