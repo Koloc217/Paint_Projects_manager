@@ -33,9 +33,11 @@
         }
         .date-field > .date-btn:hover { opacity: 1; }
 
+        /* !important: themes give .bg-slate-800 (cards) position: relative, which would drop the popup below the page */
         .dp-pop {
-            position: fixed; z-index: 10000; width: 16.5rem; padding: 0.6rem;
+            position: fixed !important; z-index: 10000; width: 16.5rem; padding: 0.6rem;
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); user-select: none;
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);   /* some themes make cards translucent */
         }
         .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem; }
         .dp-title { font-weight: 600; font-size: 0.875rem; text-transform: capitalize; }
