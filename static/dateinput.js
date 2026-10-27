@@ -6,7 +6,9 @@
  * invisible store of the value:
  * - the rest of the code reads and writes `input.value` in ISO (2026-10-31) as before, nothing to change;
  * - writing `input.value = '...'` from code updates the visible field right away;
- * - the calendar button opens the system date picker of the same native field (showPicker);
+ * - the calendar button opens the app's own month grid (the system picker takes the week start from the
+ *   browser language, so English Chrome always starts on Sunday): Monday first for dmy, Sunday for mdy,
+ *   the same rule as the Calendar tab;
  * - fields added later (rows of the pipeline template window) are picked up automatically.
  */
 (function () {
@@ -30,6 +32,28 @@
             color: currentColor; opacity: 0.6; cursor: pointer;
         }
         .date-field > .date-btn:hover { opacity: 1; }
+
+        .dp-pop {
+            position: fixed; z-index: 10000; width: 16.5rem; padding: 0.6rem;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); user-select: none;
+        }
+        .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem; }
+        .dp-title { font-weight: 600; font-size: 0.875rem; text-transform: capitalize; }
+        .dp-nav { background: none; border: 0; color: inherit; opacity: 0.7; cursor: pointer;
+                  width: 1.9rem; height: 1.9rem; border-radius: 0.4rem; display: flex; align-items: center; justify-content: center; }
+        .dp-nav:hover { opacity: 1; background: rgba(148, 163, 184, 0.15); }
+        .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+        .dp-wd { font-size: 0.68rem; text-transform: uppercase; opacity: 0.55; text-align: center; padding: 0.2rem 0; }
+        .dp-day { background: none; border: 1px solid transparent; color: inherit; cursor: pointer;
+                  height: 2rem; border-radius: 0.4rem; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+        .dp-day:hover { background: rgba(148, 163, 184, 0.18); }
+        .dp-day.dp-out { opacity: 0.38; }
+        .dp-day.dp-weekend:not(.dp-sel) { color: #fda4af; }
+        .dp-day.dp-today { border-color: rgba(52, 211, 153, 0.75); }
+        .dp-day.dp-sel { background: #6366f1; color: #fff; font-weight: 600; }
+        .dp-foot { display: flex; justify-content: space-between; margin-top: 0.4rem; }
+        .dp-link { background: none; border: 0; color: #818cf8; cursor: pointer; font-size: 0.8rem; padding: 0.3rem 0.4rem; border-radius: 0.4rem; }
+        .dp-link:hover { background: rgba(148, 163, 184, 0.15); }
     `;
     document.head.appendChild(style);
 
@@ -57,6 +81,127 @@
         if (digits.length > 2) out += sep + digits.slice(2, 4);
         if (digits.length > 4) out += sep + digits.slice(4, 8);
         return out;
+    }
+
+    // ----- the month grid -----
+    let pop = null;          // the open popup: { el, native, month }
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const lang = () => window.APP_LANG || 'ru-RU';
+    const weekStart = () => (isMdy() ? 0 : 1);          // US: Sunday, otherwise Monday (as in calendar.js)
+
+    function setValue(native, iso) {
+        proto.set.call(native, iso);
+        native.dispatchEvent(new Event('input', { bubbles: true }));
+        native.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function closePicker() {
+        if (!pop) return;
+        pop.el.remove();
+        pop = null;
+        document.removeEventListener('mousedown', onOutside, true);
+        document.removeEventListener('keydown', onKey, true);
+        window.removeEventListener('resize', closePicker);
+        window.removeEventListener('scroll', onScroll, true);
+    }
+
+    function onOutside(e) {
+        if (pop && !pop.el.contains(e.target) && !pop.anchor.contains(e.target)) closePicker();
+    }
+    function onKey(e) {
+        if (e.key === 'Escape' && pop) { e.stopPropagation(); e.preventDefault(); closePicker(); }
+    }
+    function onScroll(e) {
+        if (pop && !pop.el.contains(e.target)) closePicker();
+    }
+
+    function renderPicker() {
+        const { el, native, month } = pop;
+        const sel = proto.get.call(native);
+        const today = isoOf(new Date());
+        const ws = weekStart();
+        const title = new Intl.DateTimeFormat(lang(), { month: 'long', year: 'numeric' }).format(month);
+
+        let html = `<div class="dp-head">
+                <button type="button" class="dp-nav" data-nav="-1" title="${t('date.prev_month', 'Previous month')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+                <span class="dp-title">${title}</span>
+                <button type="button" class="dp-nav" data-nav="1" title="${t('date.next_month', 'Next month')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+            </div><div class="dp-grid">`;
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(2023, 0, 1 + ((ws + i) % 7));              // January 1, 2023 was a Sunday
+            html += `<div class="dp-wd">${new Intl.DateTimeFormat(lang(), { weekday: 'short' }).format(d)}</div>`;
+        }
+        const offset = (month.getDay() - ws + 7) % 7;
+        for (let i = 0; i < 42; i++) {
+            const d = new Date(month.getFullYear(), month.getMonth(), 1 - offset + i);
+            const iso = isoOf(d);
+            const cls = ['dp-day'];
+            if (d.getMonth() !== month.getMonth()) cls.push('dp-out');
+            if (d.getDay() === 0 || d.getDay() === 6) cls.push('dp-weekend');
+            if (iso === today) cls.push('dp-today');
+            if (iso === sel) cls.push('dp-sel');
+            html += `<button type="button" class="${cls.join(' ')}" data-day="${iso}">${d.getDate()}</button>`;
+        }
+        html += `</div><div class="dp-foot">
+                <button type="button" class="dp-link" data-act="clear">${t('date.clear', 'Clear')}</button>
+                <button type="button" class="dp-link" data-act="today">${t('date.today', 'Today')}</button>
+            </div>`;
+        el.innerHTML = html;
+    }
+
+    function placePicker() {
+        const r = pop.anchor.getBoundingClientRect();
+        const w = pop.el.offsetWidth, h = pop.el.offsetHeight, m = 6;
+        let left = Math.min(r.left, window.innerWidth - w - m);
+        let top = r.bottom + 4;
+        if (top + h > window.innerHeight - m && r.top - h - 4 >= m) top = r.top - h - 4;   // no room below: open above
+        pop.el.style.left = Math.max(m, left) + 'px';
+        pop.el.style.top = Math.max(m, top) + 'px';
+    }
+
+    function openPicker(native, anchor) {
+        if (pop && pop.native === native) { closePicker(); return; }
+        closePicker();
+        const cur = proto.get.call(native);
+        const base = /^\d{4}-\d{2}-\d{2}$/.test(cur) ? new Date(cur + 'T00:00:00') : new Date();
+        const el = document.createElement('div');
+        // theme classes: every theme already restyles cards with them
+        el.className = 'dp-pop bg-slate-800 border border-slate-700 rounded-xl text-slate-200';
+        pop = { el, native, anchor, month: new Date(base.getFullYear(), base.getMonth(), 1) };
+        renderPicker();
+        document.body.appendChild(el);
+        placePicker();
+
+        // mousedown keeps the focus in the text field and stops the modal underneath from closing
+        el.addEventListener('mousedown', (e) => e.preventDefault());
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const b = e.target.closest('button');
+            if (!b) return;
+            if (b.dataset.nav) {
+                pop.month = new Date(pop.month.getFullYear(), pop.month.getMonth() + Number(b.dataset.nav), 1);
+                renderPicker();
+                placePicker();
+            } else if (b.dataset.day) {
+                setValue(native, b.dataset.day); closePicker();
+            } else if (b.dataset.act === 'today') {
+                setValue(native, isoOf(new Date())); closePicker();
+            } else if (b.dataset.act === 'clear') {
+                setValue(native, ''); closePicker();
+            }
+        });
+        el.addEventListener('wheel', (e) => {             // the wheel flips months
+            e.preventDefault();
+            pop.month = new Date(pop.month.getFullYear(), pop.month.getMonth() + (e.deltaY > 0 ? 1 : -1), 1);
+            renderPicker();
+        }, { passive: false });
+
+        document.addEventListener('mousedown', onOutside, true);
+        document.addEventListener('keydown', onKey, true);
+        window.addEventListener('resize', closePicker);
+        window.addEventListener('scroll', onScroll, true);
     }
 
     function enhance(native) {
@@ -122,14 +267,13 @@
             sync();
         });
 
-        btn.addEventListener('click', () => {
-            try {
-                if (typeof native.showPicker === 'function') { native.showPicker(); return; }
-            } catch (e) { /* old browser: fallback below */ }
-            native.style.pointerEvents = 'auto';
-            native.focus();
-            native.click();
-            native.style.pointerEvents = '';
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openPicker(native, wrap);
+        });
+        text.addEventListener('keydown', (e) => {          // Alt+Down opens the grid, as in a native field
+            if (e.altKey && e.key === 'ArrowDown') { e.preventDefault(); openPicker(native, wrap); }
         });
     }
 
