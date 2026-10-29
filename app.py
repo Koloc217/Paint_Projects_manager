@@ -456,6 +456,12 @@ async def trigger_test_notify():
     spawn_script("notify.py", ["--test"])
     return {"status": "ok"}
 
+@app.post("/api/notify/now")
+async def trigger_notify_now():
+    """The regular digest right now, as the timer would send it (ignores DEV_MODE, vacation and the slot check)."""
+    spawn_script("notify.py", ["--now", "--source=manual"])
+    return {"status": "ok"}
+
 def telegram_state() -> dict:
     cfg = load_config()
     bound = is_chat_bound(cfg)

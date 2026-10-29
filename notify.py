@@ -47,7 +47,27 @@ def send_tg_message(chat_id, text, reply_markup=None, kind="digest") -> bool:
         tgclean.record(chat_id, tgclean.ids_from_result(resp.json()), kind)
     except ValueError:
         pass
+    if kind == "digest":
+        cleanup_digests(chat_id)
     return True
+
+
+def cleanup_digests(chat_id) -> None:
+    """Removes older digests right after a new one (TG_CLEANUP mode). The bot also checks every few minutes,
+    but notify.py runs as its own process, so without this "latest only" left the old digest for up to 10 minutes."""
+    try:
+        ids = tgclean.digest_candidates(chat_id)
+        if not ids:
+            return
+        with httpx.Client(transport=tgproxy.transport(), timeout=20.0) as client:
+            for batch in tgclean.batches(ids):
+                resp = client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteMessages",
+                                   json={"chat_id": chat_id, "message_ids": batch})
+                if resp.status_code != 200:
+                    print(f"[NOTIFY] deleteMessages: Telegram returned {resp.status_code}: {resp.text[:200]}")
+        tgclean.forget(chat_id, ids)          # deleted, or too old to delete anyway
+    except Exception as e:                     # cleanup must never break sending
+        print(f"[NOTIFY] digest cleanup failed: {e.__class__.__name__}")
 
 
 def claim_run_slot(source, now=None, state_file=STATE_FILE, lock_file=LOCK_FILE, min_gap=MIN_GAP_SEC):
@@ -140,7 +160,10 @@ def main() -> int:
     chat_id = config.get("TG_CHAT_ID")
     is_test = "--test" in sys.argv
     is_monthly_flag = "--monthly" in sys.argv
-    is_force = "--force" in sys.argv
+    # --now: the "Send now" button, a regular digest exactly as the timer would send it, but on request:
+    # it ignores the silent mode (DEV_MODE), the vacation and the once-per-slot check
+    is_now = "--now" in sys.argv
+    is_force = "--force" in sys.argv or is_now
     source = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--source=")), "cron/manual")
 
     if not BOT_TOKEN:
@@ -151,12 +174,12 @@ def main() -> int:
         return 0
 
     # DEV_MODE works as a silent mode for automatic pushes
-    if not is_test and not is_monthly_flag and config.get("DEV_MODE", False):
+    if not is_test and not is_monthly_flag and not is_now and config.get("DEV_MODE", False):
         print("DEV_MODE (silent mode) is on: the automatic notification is skipped.")
         return 0
 
     # Vacation: automatic pushes (including the monthly report) are off for its duration
-    if not is_test and not is_monthly_flag and vacation.is_active(config):
+    if not is_test and not is_monthly_flag and not is_now and vacation.is_active(config):
         print(f"On vacation until {vacation.state(config)['until']}: the automatic notification is skipped.")
         return 0
 
