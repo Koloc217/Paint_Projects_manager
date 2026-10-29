@@ -406,7 +406,8 @@ must be added to the `COMMANDS` or `FEATURES` registry, then `/help` updates its
   M" for an album. This covers album photos arriving after the answer, a "which project" question that was cancelled or
   has expired, and any unexpected error while handling the photo.
 - **Viewing progress photos.** `/photo`, `/myphotos` → project → "Progress", or the "Photos (N)" button in a project
-  card. Flipping happens in the same message (`editMessageMedia`), newest first. One project's photos have a "Back"
+  card. Flipping happens in the same message (`editMessageMedia`), oldest first (No. 1 is the oldest photo, like the
+  card's timeline); `/photo` and the button after an upload open on the newest one. One project's photos have a "Back"
   button to the type choice.
 - **Viewing references.** `/myphotos` → project → "References", or the "References (N)" button in a project card. Same
   order as in the card, ◀ ▶ flip through. JPEG and PNG up to 5 MB are sent as they are, others as a smaller copy;
