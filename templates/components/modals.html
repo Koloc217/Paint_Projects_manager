@@ -1,11 +1,10 @@
    <div id="settingsModal" onclick="if(event.target === this) closeModal('settingsModal')" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[80]">
-        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-xl w-full shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-xl w-full shadow-2xl max-h-[92vh] flex flex-col">
+            <div class="shrink-0 flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
                 <h3 class="text-lg font-bold text-white">{{ tr('common.settings') }}</h3>
                 <button onclick="closeModal('settingsModal')" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
             </div>
-
-            <div class="flex gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700 mb-4 flex-wrap">
+            <div class="shrink-0 flex gap-1.5 bg-slate-900 p-1 rounded-lg border border-slate-700 mb-4 flex-wrap">
                 <button type="button" id="cfgTabBtn-general" onclick="switchSettingsTab('general')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap bg-slate-700 text-white shadow-sm transition-colors">{{ tr('settings.tab.general') }}</button>
                 <button type="button" id="cfgTabBtn-notifications" onclick="switchSettingsTab('notifications')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.notifications') }}</button>
                 <button type="button" id="cfgTabBtn-schedule" onclick="switchSettingsTab('schedule')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.schedule') }}</button>
@@ -14,6 +13,8 @@
                 <button type="button" id="cfgTabBtn-telegram" onclick="switchSettingsTab('telegram')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Telegram</button>
                 <button type="button" id="cfgTabBtn-security" onclick="switchSettingsTab('security')" class="px-3 py-1.5 text-sm font-medium rounded-md whitespace-nowrap text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">{{ tr('settings.tab.security') }}</button>
             </div>
+            <!-- Only the tab content scrolls: the header, the tab buttons and the Save/Cancel row stay in place -->
+            <div id="cfgScroll" class="flex-1 min-h-0 overflow-y-auto -mx-6 px-6 pb-6">
 
             <div class="min-h-[21rem] text-sm">
                 <!-- General -->
@@ -432,7 +433,8 @@
                 </div>
             </div>
 
-            <div class="flex justify-end items-center gap-2 mt-6 pt-4 border-t border-slate-700">
+            </div>
+            <div class="shrink-0 flex justify-end items-center gap-2 pt-4 border-t border-slate-700">
                 <button onclick="closeModal('settingsModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('common.cancel') }}</button>
                 <button onclick="saveSettings()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm font-medium text-white">{{ tr('common.save') }}</button>
             </div>

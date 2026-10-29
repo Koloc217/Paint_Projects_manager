@@ -673,6 +673,8 @@ async function loadData() {
 }
 
 function switchSettingsTab(name) {
+    const scroller = document.getElementById('cfgScroll');
+    if (scroller) scroller.scrollTop = 0;            // a new tab starts from its top
     ['general', 'notifications', 'schedule', 'templates', 'backup', 'telegram', 'security'].forEach(k => {
         document.getElementById(`cfgTab-${k}`).classList.toggle('hidden', k !== name);
         const btn = document.getElementById(`cfgTabBtn-${k}`);
