@@ -40,9 +40,10 @@
             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);   /* some themes make cards translucent */
         }
         .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem; }
-        .dp-title { font-weight: 600; font-size: 0.875rem; text-transform: capitalize; }
+        .dp-title { font-weight: 600; font-size: 0.85rem; white-space: nowrap; text-align: center; flex: 1; }
+        .dp-navs { display: flex; }
         .dp-nav { background: none; border: 0; color: inherit; opacity: 0.7; cursor: pointer;
-                  width: 1.9rem; height: 1.9rem; border-radius: 0.4rem; display: flex; align-items: center; justify-content: center; }
+                  width: 1.65rem; height: 1.9rem; border-radius: 0.4rem; display: flex; align-items: center; justify-content: center; }
         .dp-nav:hover { opacity: 1; background: rgba(148, 163, 184, 0.15); }
         .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
         .dp-wd { font-size: 0.68rem; text-transform: uppercase; opacity: 0.55; text-align: center; padding: 0.2rem 0; }
@@ -124,12 +125,16 @@
         const sel = proto.get.call(native);
         const today = isoOf(new Date());
         const ws = weekStart();
-        const title = new Intl.DateTimeFormat(lang(), { month: 'long', year: 'numeric' }).format(month);
+        const raw = new Intl.DateTimeFormat(lang(), { month: 'long', year: 'numeric' }).format(month);
+        const title = raw.charAt(0).toUpperCase() + raw.slice(1);   // 'Сентябрь 2026 г.', not 'Г.'
 
+        const nav = (step, key, fallback, path) =>
+            `<button type="button" class="dp-nav" data-nav="${step}" title="${t(key, fallback)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg></button>`;
+        // « ‹ month year › »: the outer buttons jump a whole year
         let html = `<div class="dp-head">
-                <button type="button" class="dp-nav" data-nav="-1" title="${t('date.prev_month', 'Previous month')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+                <span class="dp-navs">${nav(-12, 'date.prev_year', 'Previous year', 'm11 17-5-5 5-5M18 17l-5-5 5-5')}${nav(-1, 'date.prev_month', 'Previous month', 'm15 18-6-6 6-6')}</span>
                 <span class="dp-title">${title}</span>
-                <button type="button" class="dp-nav" data-nav="1" title="${t('date.next_month', 'Next month')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                <span class="dp-navs">${nav(1, 'date.next_month', 'Next month', 'm9 18 6-6-6-6')}${nav(12, 'date.next_year', 'Next year', 'm6 17 5-5-5-5M13 17l5-5-5-5')}</span>
             </div><div class="dp-grid">`;
         for (let i = 0; i < 7; i++) {
             const d = new Date(2023, 0, 1 + ((ws + i) % 7));              // January 1, 2023 was a Sunday
@@ -195,9 +200,11 @@
                 setValue(native, ''); closePicker();
             }
         });
-        el.addEventListener('wheel', (e) => {             // the wheel flips months
+        el.addEventListener('wheel', (e) => {             // the wheel flips months, Shift+wheel flips years
             e.preventDefault();
-            pop.month = new Date(pop.month.getFullYear(), pop.month.getMonth() + (e.deltaY > 0 ? 1 : -1), 1);
+            const delta = e.deltaY || e.deltaX;            // Shift+wheel scrolls horizontally in some browsers
+            const step = (delta > 0 ? 1 : -1) * (e.shiftKey ? 12 : 1);
+            pop.month = new Date(pop.month.getFullYear(), pop.month.getMonth() + step, 1);
             renderPicker();
         }, { passive: false });
 
@@ -247,6 +254,24 @@
         native.addEventListener('change', sync);
         native.addEventListener('input', sync);
         sync();
+
+        // A full field (dd.mm.yyyy is 10 characters = maxLength) ignores typed digits, so to fix one digit
+        // you had to select it first. Now a digit typed with no selection replaces the digit after the caret
+        // (skipping a separator), like overtype mode.
+        text.addEventListener('beforeinput', (e) => {
+            if (e.inputType !== 'insertText' || !/^\d$/.test(e.data || '')) return;
+            const v = text.value, pos = text.selectionStart;
+            if (pos !== text.selectionEnd || v.replace(/\D/g, '').length < 8) return;
+            let i = pos;
+            while (i < v.length && !/\d/.test(v[i])) i++;
+            if (i >= v.length) return;
+            e.preventDefault();
+            text.value = v.slice(0, i) + e.data + v.slice(i + 1);
+            let caret = i + 1;
+            while (caret < text.value.length && !/\d/.test(text.value[caret])) caret++;   // hop over the separator
+            text.setSelectionRange(caret, caret);
+            text.dispatchEvent(new Event('input', { bubbles: true }));
+        });
 
         text.addEventListener('input', (e) => {
             const digits = text.value.replace(/\D/g, '').slice(0, 8);
