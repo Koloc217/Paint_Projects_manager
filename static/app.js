@@ -1018,6 +1018,11 @@ async function triggerTestNotify() {
     showToast(tr('toast.test_push_sent'), "success");
 }
 
+async function triggerNotifyNow() {
+    await fetch('/api/notify/now', { method: 'POST' });
+    showToast(tr('toast.notify_now_sent'), "success");
+}
+
 function getPriorityColor(priority) {
     const p = String(priority).toLowerCase();
     if (p.includes('critical')) return 'text-red-400 bg-red-400/10 border-red-400/20';
