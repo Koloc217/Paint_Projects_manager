@@ -113,7 +113,7 @@ function renderCalendar() {
     const lang = calLang();
     const items = calItemsByDay();
     const todayIso = calIso(new Date());
-    const weekStart = window.APP_DATE_FORMAT === 'mdy' ? 0 : 1;      // US: the week starts on Sunday
+    const weekStart = 1;      // the week always starts on Monday, whatever the date format
 
     document.getElementById('calTitle').innerText = new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric' }).format(calMonth);
     const dayNames = [];

@@ -14,6 +14,7 @@ import progress
 import tgclean
 import activity
 import ics
+import spent
 from common import (
     DATA_DIR, esc, to_tokens, clip_lines, short_text, TG_ALERT_LIMIT, MAX_TASK_NAME_LEN, load_config, config_value, compute_balance, fmt_date, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
@@ -74,6 +75,7 @@ FEATURES = [                         # features without a command: text keys
     "bot.feat_push",
     "bot.feat_postpone",
     "bot.feat_cleanup",
+    "bot.feat_time",
 ]
 
 
@@ -1569,6 +1571,14 @@ async def handle_callback(cb: dict):
             traceback.print_exc()
             return
 
+    if data.split(":")[0] in ("tm", "tm_own", "tm_x"):
+        try:
+            await handle_time_callback(cb, data)
+        except Exception as e:
+            print(f"[CALLBACK ERROR]: {safe_error(e)}")
+            traceback.print_exc()
+        return
+
     db = SessionLocal()
     try:
         if data.startswith("t_done:") or data.startswith("n_done:"):
@@ -1579,7 +1589,8 @@ async def handle_callback(cb: dict):
             if not task:
                 await answer_callback(cb_id, tr("bot.task_not_found"))
                 return
-            if not status_done(task.status):           # a second press must not move the completion date
+            newly_closed = not status_done(task.status)
+            if newly_closed:                           # a second press must not move the completion date
                 task.status = STATUS_FINISHED
                 task.completed_at = now
                 task.closed_from = ""
@@ -1590,8 +1601,12 @@ async def handle_callback(cb: dict):
             else:
                 await answer_callback(cb_id, f"✅ {tr('bot.task_closed')}")
             card_project = task.project_id if from_push else (parts[2] if len(parts) > 2 else None)
+            ask_time = newly_closed and not task.spent_min
+            task_id, task_name = task.id, task.task_name
             text, markup = await asyncio.to_thread(build_current_focus_view, card_project)
             await edit_message_text(chat_id, message_id, text, markup)
+            if ask_time:
+                await ask_spent_time(chat_id, task_id, task_name)
 
         elif data.startswith("t_postpone:"):
             # Moves the deadline by +2 days from a push. The first time silently, repeated ones with a snarky
@@ -1687,6 +1702,105 @@ async def handle_callback(cb: dict):
         db.close()
 
 
+# ==================== TIME SPENT: asked right after a task is closed in the bot ====================
+# Optional (Settings: ASK_SPENT_TIME, on by default) and skippable. Quick buttons or your own value;
+# the time never affects tokens. The same value can be changed later in the web app (task editing).
+
+TIME_QUICK = (15, 30, 60, 120)
+_time_drafts = {}                 # chat_id -> {"task": task id, "message_id": the question, "ts": time}
+
+
+def _time_markup(task_id: str) -> dict:
+    quick = [{"text": spent.format_minutes(m), "callback_data": f"tm:{task_id}:{m}"} for m in TIME_QUICK]
+    return {"inline_keyboard": [quick, [
+        {"text": f"✏️ {tr('bot.time_own')}", "callback_data": f"tm_own:{task_id}"},
+        {"text": tr("bot.time_skip"), "callback_data": f"tm_x:{task_id}"},
+    ]]}
+
+
+async def ask_spent_time(chat_id: int, task_id: str, task_name: str):
+    if not config_value("ASK_SPENT_TIME", True):
+        return
+    await send_message(chat_id, f"⏱ {tr('bot.time_ask', name=esc(short_text(task_name, 80)))}", _time_markup(task_id))
+
+
+def _save_task_time(task_id: str, minutes: int):
+    """Saves the time. Returns the task name, or None if the task is gone."""
+    db = SessionLocal()
+    try:
+        task = _live_task(db, task_id)
+        if not task:
+            return None
+        spent.set_task_spent(db, task, minutes)
+        db.commit()
+        return task.task_name
+    finally:
+        db.close()
+
+
+def _time_saved_text(name: str, minutes: int) -> str:
+    return f"⏱ {tr('bot.time_saved', name=esc(short_text(name, 80)), time=spent.format_minutes(minutes))}"
+
+
+async def handle_time_callback(cb: dict, data: str):
+    cb_id = cb["id"]
+    msg = cb.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
+    message_id = msg.get("message_id")
+    parts = data.split(":")
+    kind, task_id = parts[0], (parts[1] if len(parts) > 1 else "")
+    if kind == "tm_x":
+        _time_drafts.pop(chat_id, None)
+        await answer_callback(cb_id)
+        await delete_messages(chat_id, [message_id])
+        return
+    if kind == "tm_own":
+        _time_drafts[chat_id] = {"task": task_id, "message_id": message_id, "ts": time.time()}
+        await answer_callback(cb_id)
+        await edit_message_text(chat_id, message_id, f"⏱ {tr('bot.time_type')}",
+                                {"inline_keyboard": [[{"text": tr("bot.time_skip"), "callback_data": f"tm_x:{task_id}"}]]})
+        return
+    try:
+        minutes = spent.parse_spent(parts[2] if len(parts) > 2 else "")
+    except spent.SpentError:
+        minutes = None
+    if not minutes:
+        await answer_callback(cb_id)
+        return
+    name = await asyncio.to_thread(_save_task_time, task_id, minutes)
+    if name is None:
+        await answer_callback(cb_id, tr("bot.task_not_found"))
+        await delete_messages(chat_id, [message_id])
+        return
+    _time_drafts.pop(chat_id, None)
+    await answer_callback(cb_id)
+    await edit_message_text(chat_id, message_id, _time_saved_text(name, minutes))
+
+
+async def handle_time_text(chat_id: int, text: str) -> bool:
+    """Plain text after "Own value": the time. True if the message was handled."""
+    d = _time_drafts.get(chat_id)
+    if not d:
+        return False
+    if time.time() - d["ts"] > PENDING_TTL_SEC:
+        _time_drafts.pop(chat_id, None)
+        return False
+    try:
+        minutes = spent.parse_spent(text)
+    except spent.SpentError:
+        minutes = None
+    if not minutes:
+        await send_message(chat_id, tr("time.err_parse"))
+        return True
+    _time_drafts.pop(chat_id, None)
+    name = await asyncio.to_thread(_save_task_time, d["task"], minutes)
+    if name is None:
+        await send_message(chat_id, tr("bot.task_not_found"))
+        return True
+    await edit_message_text(chat_id, d["message_id"], _time_saved_text(name, minutes))
+    return True
+
+
 def _live_project(db, project_id: str):
     """A project outside the trash, or None. Buttons of old messages stay clickable after a project is deleted:
     they must not change a project in the trash."""
@@ -1769,6 +1883,9 @@ async def _process_update(item: dict):
 
     if text.startswith("/"):
         _task_drafts.pop(chat_id, None)           # any command cancels a task draft in progress
+        _time_drafts.pop(chat_id, None)           # ... and a time being typed
+    elif await handle_time_text(chat_id, text):
+        return
     elif await handle_task_text(chat_id, text):
         return
 

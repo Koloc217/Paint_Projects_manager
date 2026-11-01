@@ -65,8 +65,17 @@ function getTimeSelect(prefix) {
 // ---------- Project photos ----------
 const PHOTO_ICON = `<svg class="__SZ__" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>`;
 
+// Phone layout (same breakpoint as mobile.css): covers come as small previews to save traffic and memory.
+// On a computer the original cover is shown as before.
+const PHONE_MQ = window.matchMedia('(max-width: 639.98px)');
+function isPhoneLayout() { return PHONE_MQ.matches; }
+
+function coverSrc(p) {
+    return (isPhoneLayout() && p.PhotoThumb) ? p.PhotoThumb : p.Photo;
+}
+
 function projectPhotoInner(p, big = true) {
-    if (p.Photo) return `<img src="${esc(p.Photo)}" alt="" class="w-full h-full object-cover" loading="lazy">`;
+    if (p.Photo) return `<img src="${esc(coverSrc(p))}" alt="" class="w-full h-full object-cover" loading="lazy" decoding="async">`;
     const icon = PHOTO_ICON.replace('__SZ__', big ? 'w-10 h-10' : 'w-7 h-7');
     const plus = big ? 'bottom-3 right-4 text-xl' : 'bottom-1 right-2 text-sm';
     return `<div class="relative w-full h-full flex items-center justify-center text-slate-500">${icon}<span class="absolute ${plus} font-bold leading-none">+</span></div>`;
@@ -106,9 +115,9 @@ function pickProjectPhoto(id) {
 
 async function uploadProjectPhoto(id, file) {
     try {
-        const dataUrl = await fileToJpegDataUrl(file);
-        const res = await fetch(`/api/projects/${id}/photo`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ image: dataUrl }) });
-        const result = await res.json();
+        // the cover plus a small preview for the phone layout (cards are 80px there)
+        const [dataUrl, thumb] = await Promise.all([fileToJpegDataUrl(file), fileToJpegDataUrl(file, 320, 0.8)]);
+        const result = await postJson(`/api/projects/${id}/photo`, { image: dataUrl, thumb });
         if (result.status === 'error') return showToast(result.message || tr('photo.err_save'), 'error');
         showToast(tr('toast.photo_updated'), 'success');
         loadData();
@@ -483,7 +492,7 @@ async function postJson(url, body, method = 'POST') {
         if (!res.ok && !data.status) data = { status: 'error', message: tr('err.save_failed') };
         return data;
     } catch (e) {
-        return { status: 'error', message: tr('err.save_failed') };
+        return { status: 'error', message: tr('err.network') };     // no answer at all: the server is unreachable
     }
 }
 
@@ -500,6 +509,22 @@ function sendAction(body) {
         loadData();
     });
 }
+
+// "No connection" while the server is unreachable: one toast per burst, not one per failed request
+let lastNetToast = 0;
+function showNetworkError(key = 'err.network') {
+    const now = Date.now();
+    if (now - lastNetToast < 8000) return;
+    lastNetToast = now;
+    showToast(tr(key), 'error');
+}
+
+// A request that failed and that no code caught (fetch rejects with TypeError on a network error):
+// the user sees that the action did not go through instead of nothing happening.
+window.addEventListener('unhandledrejection', (ev) => {
+    const r = ev.reason;
+    if (r instanceof TypeError && /fetch|network|load failed/i.test(String(r.message))) showNetworkError();
+});
 
 function showToast(message, type = 'error') {
     const container = document.getElementById('toastContainer');
@@ -631,6 +656,7 @@ function sortTasks(tasksList) {
 // Several loads can overlap (window focus + an action); only the newest response is applied,
 // otherwise an older answer arriving late would overwrite fresher data.
 let tgCleanupMode = 'keep_46h';    // digest cleanup in the bot chat (Settings → Telegram)
+let askSpentTime = true;           // the bot asks for the time spent when a task is closed (Settings → Telegram)
 
 let loadSeq = 0;
 async function loadData() {
@@ -651,6 +677,7 @@ async function loadData() {
         deleteKeepsBalance = data.delete_keeps_balance ?? true;
         applyCalendarExport(!!data.calendar_export);
         tgCleanupMode = data.tg_cleanup || 'keep_46h';
+        askSpentTime = data.ask_spent_time ?? true;
         languagesList = data.languages || [];
         trashItems = data.trash || [];
         trashDays = data.trash_days || 30;
@@ -669,7 +696,10 @@ async function loadData() {
         }
         updateProjectSelect();
         if (currentOpenProjectId) openProjectDetails(currentOpenProjectId);
-    } catch (err) { console.error('Data load failed:', err); }
+    } catch (err) {
+        console.error('Data load failed:', err);
+        if (seq === loadSeq) showNetworkError('err.load_failed');
+    }
 }
 
 function switchSettingsTab(name) {
@@ -697,7 +727,7 @@ function switchSettingsTab(name) {
 const STORAGE_LABELS = {
     app: 'storage.app', db: 'storage.db', photos: 'storage.photos', photos_covers: 'storage.photos_covers',
     photos_refs: 'storage.photos_refs', photos_progress: 'storage.photos_progress', logs: 'storage.logs',
-    backups: 'storage.backups', venv: 'storage.venv', git: 'storage.git',
+    backups: 'storage.backups', orphans: 'storage.orphans', venv: 'storage.venv', git: 'storage.git',
 };
 function formatBytes(n) {
     const units = ['storage.unit_b', 'storage.unit_kb', 'storage.unit_mb', 'storage.unit_gb', 'storage.unit_tb'];
@@ -966,6 +996,7 @@ function openSettingsModal(tab = 'general') {
     document.getElementById('cfgDeleteKeepsBalance').checked = deleteKeepsBalance;
     document.getElementById('cfgCalendarExport').checked = calendarExport;
     document.getElementById('cfgTgCleanup').value = tgCleanupMode;
+    document.getElementById('cfgAskSpentTime').checked = askSpentTime;
     document.getElementById('cfgAllowPostpone').checked = notifySettings.allow_postpone ?? true;
     document.getElementById('cfgStagnationAlert').checked = notifySettings.stagnation_alert ?? true;
     document.getElementById('cfgStagnationDays').value = notifySettings.stagnation_days ?? 10;
@@ -992,6 +1023,7 @@ async function saveSettings() {
         delete_keeps_balance: document.getElementById('cfgDeleteKeepsBalance').checked,
         calendar_export: document.getElementById('cfgCalendarExport').checked,
         tg_cleanup: document.getElementById('cfgTgCleanup').value,
+        ask_spent_time: document.getElementById('cfgAskSpentTime').checked,
         allow_postpone: document.getElementById('cfgAllowPostpone').checked,
         stagnation_alert: document.getElementById('cfgStagnationAlert').checked,
         stagnation_days: parseInt(document.getElementById('cfgStagnationDays').value) || 10,
@@ -1016,13 +1048,11 @@ async function saveSettings() {
 }
 
 async function triggerTestNotify() {
-    await fetch('/api/notify/test', { method: 'POST' });
-    showToast(tr('toast.test_push_sent'), "success");
+    if (await postOk('/api/notify/test')) showToast(tr('toast.test_push_sent'), "success");
 }
 
 async function triggerNotifyNow() {
-    await fetch('/api/notify/now', { method: 'POST' });
-    showToast(tr('toast.notify_now_sent'), "success");
+    if (await postOk('/api/notify/now')) showToast(tr('toast.notify_now_sent'), "success");
 }
 
 function getPriorityColor(priority) {
@@ -1067,6 +1097,16 @@ function renderProjects() {
     document.getElementById('projectCount').innerText = searching ? `${activeProjects.length} / ${allActive.length}` : allActive.length;
     if (searching && !activeProjects.length) {
         container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-800">${tr('search.nothing')}</div>`;
+        return;
+    }
+    if (!allActive.length) {
+        const hasDone = currentProjects.length > 0;
+        container.innerHTML = `<div class="col-span-full text-center py-10 px-4 bg-slate-800/40 rounded-2xl border border-dashed border-slate-700">
+            <div class="text-3xl mb-2">🎨</div>
+            <div class="text-slate-300 font-semibold mb-1">${tr(hasDone ? 'empty.projects_all_done' : 'empty.projects_title')}</div>
+            <div class="text-xs text-slate-500 mb-4">${tr('empty.projects_text')}</div>
+            <button onclick="openModal('projectModal')" class="text-sm px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg">+ ${tr('common.project')}</button>
+        </div>`;
         return;
     }
 
@@ -1145,6 +1185,14 @@ function renderTasks() {
         return new Date(a.Deadline) - new Date(b.Deadline);
     });
     
+    if (!activeTasks.length) {
+        const noProjects = !currentProjects.some(p => !isDoneStatus(p.Status));
+        container.innerHTML = `<div class="p-6 text-center">
+            <div class="text-sm text-slate-400 mb-3">${tr(noProjects ? 'empty.tasks_no_projects' : 'empty.tasks')}</div>
+            ${noProjects ? '' : `<button onclick="openModal('taskModal')" class="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">+ ${tr('common.task')}</button>`}
+        </div>`;
+        return;
+    }
     container.innerHTML = activeTasks.slice(0, 5).map(t => {
         const proj = currentProjects.find(p => p.ID === t['Project ID']);
         const isTaskDone = isDoneStatus(t.Status);
@@ -1199,7 +1247,7 @@ function renderAllTasks() {
             <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 group">
                 <div class="${op} flex-grow min-w-0 break-words">
                     <div class="text-xs font-mono text-slate-500 mb-1">${getDeadlineHTML(t.Deadline, true, isDone)}</div>
-                    <div class="text-sm text-slate-200 font-medium">${esc(t.Task)}</div>
+                    <div class="text-sm text-slate-200 font-medium">${esc(t.Task)}${spentBadge(t)}</div>
                 </div>
                 <div class="flex items-center gap-3 sm:ml-4">
                     <select onchange="updateTaskStatus('${t.ID}', this.value)" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1 outline-none cursor-pointer">
@@ -1348,6 +1396,11 @@ function renderAnalytics() {
 }
 
 // Hall of Fame: finished projects with search (separate from the charts, so typing does not redraw them)
+function hallSpent(p) {
+    const s = projectSpent(p);
+    return s.total ? `<span title="${esc(tr('time.coverage', { n: s.withTime, total: s.tasks }))}">⏱ ${tr('time.approx', { time: formatApproxMinutes(s.total) })}</span>` : '';
+}
+
 function renderHall() {
     const doneProjs = currentProjects.filter(p => isDoneStatus(p.Status));
     const hallSearching = searchQuery.hall.trim() !== '';
@@ -1374,6 +1427,7 @@ function renderHall() {
                 <div class="text-xs text-slate-400 flex items-center gap-3 mb-2">
                     <span>✅ ${tr('stats.tasks')}: ${pTasks.length}</span>
                     ${p.CompletedAt ? `<span>📅 ${tr('project.finish')}: ${formatIsoDate(p.CompletedAt)}</span>` : ''}
+                    ${hallSpent(p)}
                 </div>
                 ${notesHtml}
             </div>
@@ -1405,6 +1459,76 @@ function switchCardTab(tab) {
     });
 }
 
+// ---------- Time spent (optional; never affects tokens) ----------
+// Exact for a task ("1 h 30 min"), rounded for a project total: not every task has a time, so a total is an estimate.
+function formatMinutes(min) {
+    const h = Math.floor(min / 60), m = min % 60;
+    if (h && m) return tr('time.h_m', { h, m });
+    return h ? tr('time.h', { h }) : tr('time.m', { m });
+}
+
+function formatApproxMinutes(min) {
+    if (min >= 600) return tr('time.h', { h: Math.round(min / 60) });
+    return formatMinutes(min >= 10 ? Math.max(10, Math.round(min / 10) * 10) : min);
+}
+
+// The value put back into the edit field: what the server reads ("90", "1:30")
+function minutesToInput(min) {
+    const h = Math.floor(min / 60), m = min % 60;
+    return h ? `${h}:${String(m).padStart(2, '0')}` : String(m);
+}
+
+function projectSpent(project) {
+    const tasks = projectTasks(project.ID);
+    const withTime = tasks.filter(t => t.Spent);
+    const extra = project.ExtraSpent || 0;
+    const byStage = {};
+    withTime.forEach(t => { const k = t.SpentStage || 'none'; byStage[k] = (byStage[k] || 0) + t.Spent; });
+    if (extra) byStage._extra = extra;
+    return { total: withTime.reduce((a, t) => a + t.Spent, 0) + extra, withTime: withTime.length, tasks: tasks.length, extra, byStage };
+}
+
+const STAGE_ORDER = ['printing', 'sanding', 'assembly', 'priming', 'painting', 'finishing', 'none', '_extra'];
+
+function spentBadge(t) {
+    return t.Spent ? ` <span class="ml-1 text-[10px] font-normal text-slate-400 whitespace-nowrap no-underline" title="${esc(tr('time.spent'))}">⏱ ${formatMinutes(t.Spent)}</span>` : '';
+}
+
+function spentSummaryHTML(project) {
+    const s = projectSpent(project);
+    const editBtn = `<button onclick="editProjectExtraSpent('${esc(project.ID)}')" class="text-[11px] text-slate-400 hover:text-indigo-300 underline decoration-dotted underline-offset-2">${tr('time.edit_extra')}</button>`;
+    if (!s.total) {
+        return `<div class="mb-3 px-3 py-2 bg-slate-900/60 border border-slate-700/60 rounded-xl text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
+            <span>⏱ ${tr('time.none')}</span>${editBtn}</div>`;
+    }
+    const parts = STAGE_ORDER.filter(k => s.byStage[k]).map(k => {
+        const label = k === '_extra' ? tr('time.extra') : (k === 'none' || !PROGRESS_STAGE_KEYS[k] ? tr('time.no_stage') : tr(PROGRESS_STAGE_KEYS[k]));
+        return `<span class="whitespace-nowrap">${esc(label)} ${formatApproxMinutes(s.byStage[k])}</span>`;
+    });
+    return `<div class="mb-3 px-3 py-2 bg-slate-900/60 border border-slate-700/60 rounded-xl text-xs">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span class="text-slate-200">⏱ ${tr('time.spent')}: <b>${tr('time.approx', { time: formatApproxMinutes(s.total) })}</b></span>
+            ${editBtn}
+        </div>
+        <div class="text-[11px] text-slate-500 mt-1">${tr('time.coverage', { n: s.withTime, total: s.tasks })}${parts.length > 1 ? ' · ' + parts.join(' · ') : ''}</div>
+    </div>`;
+}
+
+async function editProjectExtraSpent(projectId) {
+    const p = currentProjects.find(x => x.ID === projectId);
+    if (!p) return;
+    const answer = await askDialog({
+        title: tr('time.extra_title'), message: tr('time.extra_text'),
+        input: { value: p.ExtraSpent ? minutesToInput(p.ExtraSpent) : '', placeholder: tr('time.extra_ph'), maxLength: 20 },
+        buttons: [{ value: 'save', label: tr('common.save'), primary: true }],
+    });
+    if (!answer) return;
+    const r = await postJson(`/api/projects/${encodeURIComponent(projectId)}/spent`, { extra: answer.text.trim() });
+    if (r.status === 'error') return showToast(r.message || tr('err.save_failed'), 'error');
+    showToast(tr('time.saved'), 'success');
+    loadData();
+}
+
 function openProjectDetails(projectId) {
     if (cardTabProjectId !== projectId) cardTab = 'main';
     cardTabProjectId = projectId;
@@ -1433,17 +1557,20 @@ function openProjectDetails(projectId) {
     const container = document.getElementById('pdTasks');
     
     if (pTasks.length === 0) {
-        container.innerHTML = `<p class="text-sm text-slate-500 text-center py-4">${tr('project.no_tasks_hint')}</p>`;
+        container.innerHTML = spentSummaryHTML(project) + `<div class="text-center py-4">
+            <p class="text-sm text-slate-500 mb-3">${tr('project.no_tasks_hint')}</p>
+            <button onclick="openTaskModalForProject()" class="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">+ ${tr('common.task')}</button>
+        </div>`;
     } else {
         pTasks = sortTasks(pTasks);
-        container.innerHTML = pTasks.map(t => {
+        container.innerHTML = spentSummaryHTML(project) + pTasks.map(t => {
             const isDone = isDoneStatus(t.Status);
             const op = isDone ? 'opacity-40 line-through' : '';
             return `
             <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 group mb-2">
                 <div class="${op} flex-grow min-w-0 break-words">
                     <div class="text-xs font-mono text-slate-500 mb-1">${getDeadlineHTML(t.Deadline, true, isDone)}</div>
-                    <div class="text-sm text-slate-200 font-medium">${esc(t.Task)}</div>
+                    <div class="text-sm text-slate-200 font-medium">${esc(t.Task)}${spentBadge(t)}</div>
                 </div>
                 <div class="flex gap-2 sm:ml-3 items-center">
                     <select onchange="updateTaskStatus('${t.ID}', this.value)" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1 outline-none cursor-pointer">
@@ -1656,12 +1783,17 @@ function openEditTaskModal(id) {
     if(!t) return;
     document.getElementById('etId').value = t.ID; document.getElementById('etName').value = t.Task;
     document.getElementById('etDeadline').value = t.Deadline || '';
+    document.getElementById('etSpent').value = t.Spent ? minutesToInput(t.Spent) : '';
     openModal('editTaskModal');
 }
 
 async function saveTaskEdit() {
     const id = document.getElementById('etId').value;
-    const body = { task_name: document.getElementById('etName').value.trim(), deadline: document.getElementById('etDeadline').value || null };
+    const body = {
+        task_name: document.getElementById('etName').value.trim(),
+        deadline: document.getElementById('etDeadline').value || null,
+        spent: document.getElementById('etSpent').value.trim(),      // "" clears the time
+    };
     if(!body.task_name) return showToast(tr('task.err_empty'));
     const result = await postJson(`/api/tasks/${id}/edit`, body);
     if (result.status === 'error') return showToast(result.message || tr('err.save_failed'), 'error');

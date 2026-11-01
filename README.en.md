@@ -30,6 +30,9 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
   a step can be skipped, and dates can be spread evenly up to the project deadline. Steps the project already has
   are not created again.
 - Vacation: up to 30 days without notifications; deadlines of unfinished projects and tasks move by the same amount.
+- Time spent (optional): per task when editing it (`90`, `1:30`, `1.5h`, `1h 30m`) and per project "outside tasks".
+  The project card shows "about ~N h", for how many tasks the time is given and a breakdown by stage.
+  Does not affect tokens.
 
 **Tokens and motivation**
 - Token balance: starting a project costs tokens, finishing it pays a reward.
@@ -40,6 +43,8 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - Linked to one chat with a pairing code; the bot answers only that chat.
 - Commands and buttons: project list, the current task, closing and postponing tasks, changing status and stage.
 - `/help` lists all commands and features. `/task` (or the "Task" button) creates a task step by step: project, name, deadline.
+- After a task is closed, the bot asks how long it took: buttons 15 min…2 h, your own value or "Skip"
+  (turned off in Settings → Telegram).
 - `/calendar` sends the deadlines as an `.ics` file for a phone calendar (when calendar export is on in the settings).
 - Photos: send the bot a picture (the caption becomes the note) and it lands in the project timeline. `/photo` shows
   the latest photos and lets you flip through them. `/myphotos`: pick a project, then its progress photos or paint
@@ -68,6 +73,12 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - Automatic backup of projects and tasks to Google Sheets through Apps Script. Photos are not included.
 - If the app was off when a push or a backup was due, the missed run is done after start-up.
 - SQLite in WAL mode: the web app, the bot and the scripts write to it concurrently without lock errors.
+- Versioned schema migrations (`migrations.py`, version in `PRAGMA user_version`): each step runs once, in a
+  transaction; before migrating, a copy of the database goes to `backups/tracker-before-v<N>-<date>.db` (last 5 kept).
+- Foreign keys: tasks, references and progress photos cannot point to a project that does not exist.
+- Photos no row points to are moved to `orphans/<date>/` every 6 hours and erased after 30 days (files younger
+  than an hour and files with foreign names are never touched; photos of projects in the trash are kept).
+- Restore check: `python tools/check_backup.py` (see "Checks").
 
 ## Stack
 
@@ -208,7 +219,9 @@ static/themes.css, mobile.css, card-tab.css          themes, phone layout, card 
 static/sw.js, manifest.webmanifest, pwa.js, icons/, offline.html   PWA: service worker, manifest, install, icons, offline page
 static/backgrounds/                                  theme background images
 static/vendor/, static/fonts/                        Tailwind CSS, Chart.js and fonts (built by tools/build_assets.py)
-tools/                                               check_locales.py, check_theme.py, build_assets.py, deploy.sh, clean.sh
+migrations.py, integrity.py, spent.py                schema migrations, data and photo integrity, time spent
+tools/                                               check_locales.py, check_theme.py, build_assets.py, deploy.sh, clean.sh,
+                                                     check_backup.py, check_data.py, make_thumbs.py
 logs/                                                app.log, notify.log, backup.log (created automatically)
 PLANS.md                                             postponed ideas and decisions (in Russian)
 ```
@@ -219,7 +232,18 @@ PLANS.md                                             postponed ideas and decisio
 python tools/check_locales.py      # translation keys: what is used, what is missing
 python tools/check_theme.py        # every theme in the registry (or one: theme-name)
 python tools/build_assets.py css   # rebuild Tailwind CSS after new classes (without css: also fonts and Chart.js)
+python tools/check_backup.py       # does the newest copy in backups/ restore (or: check_backup.py FILE)
+python tools/check_data.py         # rows without a project, rows without a file, files without a row (--fix: to orphans/)
+python tools/make_thumbs.py        # once: previews for older covers and Telegram photos (needs pillow)
 ```
+
+`check_backup.py` changes nothing: it copies the backup to a temp folder, checks the SQLite file, runs the migrations
+on the copy, reads it with the app's models and compares the numbers with the live database. To restore a copy that
+passed: stop the app, put the file in place of `tracker.db` (and delete `tracker.db-wal`, `tracker.db-shm`), start it.
+The Google Sheets backup is a table export, not a database, so the script does not check it.
+
+Browser caching: pages link to `/static/file?v=<stamp>`; such files and photos (`/photos/...`, every upload gets a new
+name) are kept by the browser for a year without asking again; the stamp changes by itself after an app update.
 
 ### Tests
 

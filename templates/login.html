@@ -6,9 +6,9 @@
 {% include 'components/pwa_head.html' %}
     <meta name="robots" content="noindex">
     <title>RPi5 Dashboard</title>
-    <link rel="stylesheet" href="/static/vendor/tailwind.css">
-    <link rel="stylesheet" href="/static/fonts/fonts.css">
-    <link rel="stylesheet" href="/static/themes.css">
+    <link rel="stylesheet" href="{{ static_url('vendor/tailwind.css') }}">
+    <link rel="stylesheet" href="{{ static_url('fonts/fonts.css') }}">
+    <link rel="stylesheet" href="{{ static_url('themes.css') }}">
 </head>
 <body class="bg-slate-900 text-slate-300 font-sans antialiased min-h-screen flex items-center justify-center p-4">
     <form id="authForm" class="w-full max-w-sm bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl" autocomplete="on">
@@ -50,8 +50,8 @@
         window.AUTH_USER = {{ username|tojson }};
         window.PH_MIN_PASSWORD_SERVER = {{ min_len }};
     </script>
-    <script src="/static/i18n.js"></script>
-    <script src="/static/auth.js"></script>
+    <script src="{{ static_url('i18n.js') }}"></script>
+    <script src="{{ static_url('auth.js') }}"></script>
     <script>
         (function () {
             try {

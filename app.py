@@ -39,6 +39,8 @@ import tgproxy
 import storage
 import ics
 import activity
+import integrity
+import spent
 
 ensure_schema()
 
@@ -87,8 +89,17 @@ def parse_date_field(value):
         return None, tr("err.bad_date")
 
 
+def cleanup_orphans() -> dict:
+    db = SessionLocal()
+    try:
+        return integrity.cleanup_orphan_files(db)
+    finally:
+        db.close()
+
+
 async def trash_loop():
-    """Every few hours (and right at start-up) erases projects whose time in the trash is over."""
+    """Every few hours (and right at start-up) erases projects whose time in the trash is over and moves photo
+    files no row points to into the quarantine folder (see integrity.py)."""
     while True:
         try:
             n = await asyncio.to_thread(purge_expired_trash)
@@ -96,6 +107,13 @@ async def trash_loop():
                 print(f"🗑 Erased from the trash: {n} project(s)")
         except Exception as e:
             print(f"[TRASH ERROR] {e!r}")
+        try:
+            res = await asyncio.to_thread(cleanup_orphans)
+            if res["moved"] or res["erased_days"]:
+                print(f"🧹 Photos without a project: {res['moved']} moved to orphans/, "
+                      f"{res['erased_days']} old quarantine day(s) erased")
+        except Exception as e:
+            print(f"[ORPHANS ERROR] {e!r}")
         await asyncio.sleep(6 * 3600)
 
 
@@ -125,21 +143,71 @@ templates.env.globals["tr"] = tr          # in templates: {{ tr('common.save') }
 # Bot help in Settings -> Telegram is built from the same registry as /help in bot.py, so the texts never diverge
 templates.env.globals["bot_help"] = lambda: {"commands": bot_active_commands(), "photos": BOT_PHOTO_HELP, "features": BOT_FEATURES}
 templates.env.policies["json.dumps_kwargs"] = {"ensure_ascii": False, "sort_keys": True}
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+
+
+# ---------- Browser caching of static files and photos ----------
+# /static/...?v=<stamp>  (pages link to them through static_url()): a new address after every change of the file,
+#                         so the browser keeps the file for a year and never asks again;
+# /static/... without v  (fonts and images referenced from CSS, the service worker list): kept for a day for
+#                         fonts and icons, otherwise checked with the server every time (a cheap 304 when unchanged);
+# /photos/...            every upload gets a new random file name and files are never rewritten: kept for a year.
+YEAR = "public, max-age=31536000, immutable"
+_LONG_UNVERSIONED = (".woff2", ".woff", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico")
+
+
+class CachedStatic(StaticFiles):
+    def __init__(self, *args, policy="static", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.policy = policy
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code in (200, 304):
+            if self.policy == "photos" or b"v=" in (scope.get("query_string") or b""):
+                response.headers["Cache-Control"] = YEAR
+            elif path.lower().endswith(_LONG_UNVERSIONED):
+                response.headers["Cache-Control"] = "public, max-age=86400"
+            else:
+                response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+_static_stamps = {}
+
+
+def static_url(path: str) -> str:
+    """/static/<path>?v=<stamp>: the stamp changes when the file changes (modification time and size)."""
+    full = os.path.join(BASE_DIR, "static", path)
+    try:
+        st = os.stat(full)
+        key = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return f"/static/{path}"
+    cached = _static_stamps.get(path)
+    if not cached or cached[0] != key:
+        cached = (key, format(hash(key) & 0xFFFFFFFF, "08x"))
+        _static_stamps[path] = cached
+    return f"/static/{path}?v={cached[1]}"
+
+
+templates.env.globals["static_url"] = static_url
+app.mount("/static", CachedStatic(directory=os.path.join(BASE_DIR, "static")), name="static")
 # Python before 3.13 and Windows registries often don't know .avif: without this the photos would go out as
 # text/plain or application/octet-stream and some browsers would refuse to show them
 mimetypes.add_type("image/avif", ".avif")
-app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
+app.mount("/photos", CachedStatic(directory=PHOTOS_DIR, policy="photos"), name="photos")
 auth.setup(app, templates)               # password login: off by default (Settings → Access)
 
 
 def remove_photo_file(filename):
+    """Removes a cover and its preview."""
     if not filename:
         return
-    try:
-        os.remove(os.path.join(PHOTOS_DIR, os.path.basename(filename)))
-    except OSError:
-        pass
+    for name in (os.path.basename(filename), integrity.cover_thumb_name(filename)):
+        try:
+            os.remove(os.path.join(PHOTOS_DIR, name))
+        except OSError:
+            pass
 
 
 def decode_data_url(data_url: str):
@@ -178,6 +246,14 @@ def photo_url(filename, existing: set = None):
     return f"/photos/{name}" if present else None
 
 
+def photo_thumb_url(filename, existing: set = None):
+    """URL of the cover preview (made by the browser on upload, or by tools/make_thumbs.py), else of the cover."""
+    thumb = integrity.cover_thumb_name(filename)
+    if thumb and ((thumb in existing) if existing is not None else os.path.exists(os.path.join(PHOTOS_DIR, thumb))):
+        return f"/photos/{thumb}"
+    return photo_url(filename, existing)
+
+
 def get_project(db: Session, project_id: str, include_trash=False):
     q = db.query(Project).filter(Project.id == project_id)
     if not include_trash:
@@ -210,6 +286,7 @@ class ProjectRename(BaseModel):
 
 class PhotoUpload(BaseModel):
     image: str  # data:image/jpeg;base64,... (the browser resizes and converts to JPEG)
+    thumb: Optional[str] = None    # small JPEG preview for the phone layout (the browser makes it too)
 
 class RefUpload(BaseModel):
     image: str                     # the original file as is (data URL, base64)
@@ -237,6 +314,10 @@ class TaskCreate(BaseModel):
 class TaskEdit(BaseModel):
     task_name: str
     deadline: Optional[str] = None
+    spent: Optional[str] = None        # time spent as typed ("90", "1:30", "1.5ч"); "" clears it; None: keep
+
+class ProjectSpent(BaseModel):
+    extra: Optional[str] = None        # time on the project outside its tasks, as typed; "" clears it
 
 class DaySchedule(BaseModel):
     enabled: bool = True
@@ -259,6 +340,7 @@ class ConfigUpdate(BaseModel):
     backup_time: str = DEFAULT_SCHEDULE["backup_time"]
     language: Optional[str] = None
     date_format: Optional[str] = None
+    ask_spent_time: Optional[bool] = None       # the bot asks for the time when a task is closed; None: keep
 
 class TemplateStep(BaseModel):
     index: int                         # step number in the template (from 0)
@@ -332,6 +414,8 @@ def get_data(db: Session = Depends(get_db)):
         "Token Reward": to_tokens(p.token_reward),
         "PaintNotes": p.paint_notes or "",
         "Photo": photo_url(p.photo, covers),
+        "PhotoThumb": photo_thumb_url(p.photo, covers),
+        "ExtraSpent": int(p.extra_spent_min or 0),
         "CompletedAt": iso_date(p.completed_at),
     } for p in projects]
 
@@ -361,6 +445,8 @@ def get_data(db: Session = Depends(get_db)):
         "Postponed": t.postponed or 0,
         "CompletedAt": iso_date(t.completed_at),
         "CompletedTs": t.completed_at.isoformat(timespec="seconds") if t.completed_at else None,  # sort key: newest closed first
+        "Spent": t.spent_min or None,
+        "SpentStage": t.spent_stage or "",
     } for t in tasks]
 
     return {
@@ -373,6 +459,7 @@ def get_data(db: Session = Depends(get_db)):
         "delete_keeps_balance": config.get("DELETE_KEEPS_BALANCE", True),
         "calendar_export": bool(config.get("CALENDAR_EXPORT")),
         "tg_cleanup": config.get("TG_CLEANUP", "keep_46h"),
+        "ask_spent_time": bool(config.get("ASK_SPENT_TIME", True)),
         "notify_settings": config.get("NOTIFY", DEFAULT_NOTIFY_SETTINGS),
         "schedule_settings": config.get("SCHEDULE", DEFAULT_SCHEDULE),
         "language": get_lang(),
@@ -417,6 +504,8 @@ def update_config_route(data: ConfigUpdate):
             cfg["LANGUAGE"] = normalize_lang(data.language)
         if data.date_format is not None:
             cfg["DATE_FORMAT"] = data.date_format
+        if data.ask_spent_time is not None:
+            cfg["ASK_SPENT_TIME"] = data.ask_spent_time
         cfg["NOTIFY"] = {
             "allow_postpone": data.allow_postpone,
             "stagnation_alert": data.stagnation_alert,
@@ -765,6 +854,14 @@ def set_project_photo(project_id: str, data: PhotoUpload, db: Session = Depends(
     filename = f"{proj.id}_{int(time.time())}_{uuid.uuid4().hex[:4]}.jpg"
     with open(os.path.join(PHOTOS_DIR, filename), "wb") as f:
         f.write(raw)
+    if data.thumb:
+        try:
+            thumb_raw = decode_data_url(data.thumb)
+            if thumb_raw.startswith(b"\xff\xd8\xff") and len(thumb_raw) <= MAX_THUMB_BYTES:
+                with open(os.path.join(PHOTOS_DIR, integrity.cover_thumb_name(filename)), "wb") as f:
+                    f.write(thumb_raw)
+        except ValueError:
+            pass                        # no preview: the phone layout shows the cover itself
     old = proj.photo
     proj.photo = filename
     db.commit()
@@ -981,6 +1078,7 @@ def purge_project(db: Session, proj: Project, config: dict = None) -> None:
         db.delete(r)
     progress_files = progress.delete_project_photos(db, proj.id)
     db.query(Task).filter(Task.project_id == proj.id).delete()
+    db.flush()          # the rows that belong to the project go first, then the project (foreign keys)
     db.delete(proj)
     db.commit()
     remove_photo_file(photo_name)
@@ -1080,10 +1178,31 @@ def edit_task(task_id: str, data: TaskEdit, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         return {"status": "error", "message": tr("bot.task_not_found")}
+    if data.spent is not None:
+        try:
+            minutes = spent.parse_spent(data.spent)
+        except spent.SpentError:
+            return {"status": "error", "message": tr("time.err_parse")}
+        spent.set_task_spent(db, task, minutes)
     task.task_name = name
     task.deadline = deadline
     db.commit()
     return {"status": "ok"}
+
+
+@app.post("/api/projects/{project_id}/spent")
+def set_project_spent(project_id: str, data: ProjectSpent, db: Session = Depends(get_db)):
+    """Time spent on the project outside its tasks (choosing paints, research...)."""
+    proj = get_project(db, project_id)
+    if not proj:
+        return {"status": "error", "message": tr("err.project_not_found")}
+    try:
+        minutes = spent.parse_spent(data.extra)
+    except spent.SpentError:
+        return {"status": "error", "message": tr("time.err_parse")}
+    proj.extra_spent_min = minutes or 0
+    db.commit()
+    return {"status": "ok", "extra": proj.extra_spent_min}
 
 @app.delete("/api/tasks/{task_id}")
 def delete_task(task_id: str, db: Session = Depends(get_db)):

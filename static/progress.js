@@ -127,7 +127,7 @@ async function editProgressNote(projectId, photoId) {
 
 async function removeProgressPhoto(projectId, photoId) {
     if (!(await confirmDialog({ title: tr('progress.delete_title'), message: tr('progress.delete_text') }))) return;
-    await fetch(`/api/projects/${encodeURIComponent(projectId)}/progress/${photoId}`, { method: 'DELETE' });
+    await postOk(`/api/projects/${encodeURIComponent(projectId)}/progress/${photoId}`, undefined, 'DELETE');
     loadData();
 }
 

@@ -133,6 +133,8 @@ DEFAULT_CONFIG = {
     "CALENDAR_EXPORT": False,
     # cleanup of notification digests in the bot chat (tgclean.py): keep_46h | latest_only | off
     "TG_CLEANUP": "keep_46h",
+    # the bot asks how long a task took right after it is closed there (quick buttons, can be skipped)
+    "ASK_SPENT_TIME": True,
     # calendar subscription (/cal/<token>.ics): off by default; the token is generated when it is turned on
     "ICS_FEED": {"enabled": False, "token": ""},
 }

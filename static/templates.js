@@ -182,8 +182,7 @@ async function startVacation() {
     if (!(await confirmDialog({
         title: tr('vacation.title'), message: tr('vacation.confirm', { n: days }), okText: tr('vacation.start'), danger: false,
     }))) return;
-    const res = await fetch('/api/vacation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days }) });
-    const data = await res.json().catch(() => ({ status: 'error' }));
+    const data = await postJson('/api/vacation', { days });
     if (data.status !== 'ok') return showToast(data.message || tr('settings.err_save'), 'error');
     renderVacation(data.vacation);
     showToast(tr('vacation.started', { date: formatIsoDate(data.vacation.until), p: data.projects, t: data.tasks }), 'success');
@@ -194,9 +193,8 @@ async function cancelVacation() {
     if (!(await confirmDialog({
         title: tr('vacation.cancel'), message: tr('vacation.cancel_confirm'), okText: tr('vacation.cancel'), danger: false,
     }))) return;
-    const res = await fetch('/api/vacation/cancel', { method: 'POST' });
-    const data = await res.json().catch(() => ({ status: 'error' }));
-    if (data.status !== 'ok') return showToast(tr('settings.err_save'), 'error');
+    const data = await postJson('/api/vacation/cancel');
+    if (data.status !== 'ok') return showToast(data.message || tr('settings.err_save'), 'error');
     renderVacation(data.vacation);
     showToast(tr('vacation.cancelled'), 'success');
 }

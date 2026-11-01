@@ -10,10 +10,11 @@ from common import BASE_DIR, DATA_DIR
 
 PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
 LOGS_DIR = os.path.join(DATA_DIR, "logs")
-BACKUPS_DIR = os.path.join(DATA_DIR, "backups")      # database copies made by tools/deploy.sh
+BACKUPS_DIR = os.path.join(DATA_DIR, "backups")      # database copies: tools/deploy.sh and before migrations
+ORPHANS_DIR = os.path.join(DATA_DIR, "orphans")      # unreferenced photos waiting to be erased (integrity.py)
 
 # Top-level folders of the app that are counted separately, not as "app files"
-DATA_DIRS = {"photos", "logs", "backups", ".git", ".venv", "venv"}
+DATA_DIRS = {"photos", "logs", "backups", "orphans", ".git", ".venv", "venv"}
 
 
 def _is_db_file(name: str) -> bool:
@@ -139,6 +140,9 @@ def usage() -> dict:
     backups = dir_size(BACKUPS_DIR)
     if backups[1]:
         items.append(_item("backups", *backups))
+    orphans = dir_size(ORPHANS_DIR)
+    if orphans[1]:
+        items.append(_item("orphans", *orphans))
     venv = tuple(map(sum, zip(optional.get(".venv", (0, 0)), optional.get("venv", (0, 0)))))
     if venv[1]:
         items.append(_item("venv", *venv))

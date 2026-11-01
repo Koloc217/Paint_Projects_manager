@@ -6,13 +6,13 @@
 {% include 'components/pwa_head.html' %}
     <title>RPi5 Dashboard</title>
     <!-- Everything is served by the app itself, no CDN: the page works without internet (tools/build_assets.py) -->
-    <link rel="stylesheet" href="/static/vendor/tailwind.css">
-    <script src="/static/vendor/chart.umd.min.js"></script>
-<link rel="stylesheet" href="/static/fonts/fonts.css">
-<link rel="stylesheet" href="/static/themes.css">
-<link rel="stylesheet" href="/static/mobile.css"> <!-- phone layout: after the themes -->
-<link rel="stylesheet" href="/static/card-tab.css"> <!-- project card in a separate tab (/?card=) -->
-<link rel="stylesheet" href="/static/dropzone.css"> <!-- drag and drop of images -->
+    <link rel="stylesheet" href="{{ static_url('vendor/tailwind.css') }}">
+    <script src="{{ static_url('vendor/chart.umd.min.js') }}"></script>
+<link rel="stylesheet" href="{{ static_url('fonts/fonts.css') }}">
+<link rel="stylesheet" href="{{ static_url('themes.css') }}">
+<link rel="stylesheet" href="{{ static_url('mobile.css') }}"> <!-- phone layout: after the themes -->
+<link rel="stylesheet" href="{{ static_url('card-tab.css') }}"> <!-- project card in a separate tab (/?card=) -->
+<link rel="stylesheet" href="{{ static_url('dropzone.css') }}"> <!-- drag and drop of images -->
 </head>
 <body class="bg-slate-900 text-slate-300 font-sans antialiased min-h-screen">
     
@@ -35,15 +35,15 @@
         window.APP_LANG = {{ lang|tojson }};
         window.APP_I18N = {{ i18n|tojson }};
     </script>
-    <script src="/static/i18n.js"></script>
-    <script src="/static/auth.js"></script>
-    <script src="/static/app.js"></script>
-    <script src="/static/progress.js"></script>
-    <script src="/static/dropzone.js"></script>
-    <script src="/static/dateinput.js"></script>
-    <script src="/static/trash.js"></script>
-    <script src="/static/calendar.js"></script>
-    <script src="/static/templates.js"></script>
-    <script src="/static/pwa.js"></script>
+    <script src="{{ static_url('i18n.js') }}"></script>
+    <script src="{{ static_url('auth.js') }}"></script>
+    <script src="{{ static_url('app.js') }}"></script>
+    <script src="{{ static_url('progress.js') }}"></script>
+    <script src="{{ static_url('dropzone.js') }}"></script>
+    <script src="{{ static_url('dateinput.js') }}"></script>
+    <script src="{{ static_url('trash.js') }}"></script>
+    <script src="{{ static_url('calendar.js') }}"></script>
+    <script src="{{ static_url('templates.js') }}"></script>
+    <script src="{{ static_url('pwa.js') }}"></script>
 </body>
 </html>

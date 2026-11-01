@@ -55,6 +55,6 @@ async function purgeProject(id) {
 
 async function emptyTrash() {
     if (!(await confirmDialog({ title: tr('trash.empty_title'), message: tr('trash.empty_text', { n: trashItems.length }) }))) return;
-    await fetch('/api/trash', { method: 'DELETE' });
+    await postOk('/api/trash', undefined, 'DELETE');
     loadData();
 }
