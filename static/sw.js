@@ -5,10 +5,12 @@
  * - pages: network first; if the server is unreachable, an offline page is shown;
  * - /static/*: network first (new files right after an app update), the cached copy when offline.
  *   Tailwind, Chart.js and the fonts are local files too (static/vendor, static/fonts), nothing comes from a CDN.
+ *   Pages link to /static/x.js?v=<stamp> (a new address after every change, see static_url in app.py): only the
+ *   newest copy of each file is kept, and offline any copy of the file will do.
  *
  * After editing this file, increase VERSION: old caches are deleted on activation.
  */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const STATIC_CACHE = `ph-static-${VERSION}`;
 const OFFLINE_URL = '/static/offline.html';
 const PRECACHE = [
@@ -38,10 +40,17 @@ async function networkFirst(request) {
     const cache = await caches.open(STATIC_CACHE);
     try {
         const response = await fetch(request);
-        if (response.ok) cache.put(request, response.clone());
+        if (response.ok) {
+            const path = new URL(request.url).pathname;
+            // older versions of the same file (?v=...) are no longer needed
+            for (const old of await cache.keys()) {
+                if (old.url !== request.url && new URL(old.url).pathname === path) cache.delete(old);
+            }
+            cache.put(request, response.clone());
+        }
         return response;
     } catch (e) {
-        const cached = await cache.match(request);
+        const cached = (await cache.match(request)) || (await cache.match(request, { ignoreSearch: true }));
         if (cached) return cached;
         throw e;
     }

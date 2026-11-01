@@ -345,6 +345,15 @@
                         <div class="text-[11px] text-slate-500 pt-2 border-t border-slate-800">{{ tr('tg.cleanup_note') }}</div>
                     </div>
 
+                    <!-- Time spent: the bot asks right after a task is closed there (quick buttons, can be skipped) -->
+                    <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                        <div>
+                            <div class="font-semibold text-white">{{ tr('settings.ask_spent_time') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.ask_spent_time_hint') }}</div>
+                        </div>
+                        <input type="checkbox" id="cfgAskSpentTime" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                    </label>
+
                     <!-- Proxy for Telegram: optional, applies at once (the "Apply" button), see tgproxy.py -->
                     <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-3">
                         <label class="flex items-center justify-between cursor-pointer">
@@ -494,6 +503,10 @@
                 <input type="hidden" id="etId">
                 <input id="etName" maxlength="120" placeholder="{{ tr('task.description') }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
                 <input id="etDeadline" type="date" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+                <div>
+                    <input id="etSpent" maxlength="20" autocomplete="off" placeholder="⏱ {{ tr('time.task_ph') }}" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white outline-none focus:border-indigo-500">
+                    <div class="text-[11px] text-slate-500 mt-1 px-1">{{ tr('time.task_hint') }}</div>
+                </div>
             </div>
             <div class="flex justify-end gap-3 mt-6">
                 <button onclick="closeModal('editTaskModal')" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium text-white">{{ tr('common.cancel') }}</button>

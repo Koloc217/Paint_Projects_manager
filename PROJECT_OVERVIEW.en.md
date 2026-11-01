@@ -172,7 +172,7 @@ deadline, and allows creating projects without tokens.
     the notes text and the project's task names. The counter shows "found / total", Esc clears the field, the filter
     survives data refreshes. Runs in the browser; nothing is sent to the server.
 - **All tasks.** Tasks grouped by active project.
-- **Calendar.** A month grid (with the `mdy` date format the week starts on Sunday, otherwise on Monday): deadlines of open tasks
+- **Calendar.** A month grid (the week always starts on Monday, in any date format): deadlines of open tasks
   and 📌 project deadlines. Overdue items are red, closed ones struck through; a cell shows three entries and
   "N more". Clicking a day opens its list, clicking an entry opens the project. Finished projects are not shown.
   **Export to devices** (`ics.py`) is the `CALENDAR_EXPORT` option, off by default, turned on in Settings → General →

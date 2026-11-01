@@ -7,8 +7,8 @@
  * - the rest of the code reads and writes `input.value` in ISO (2026-10-31) as before, nothing to change;
  * - writing `input.value = '...'` from code updates the visible field right away;
  * - the calendar button opens the app's own month grid (the system picker takes the week start from the
- *   browser language, so English Chrome always starts on Sunday): Monday first for dmy, Sunday for mdy,
- *   the same rule as the Calendar tab;
+ *   browser language, so English Chrome always starts on Sunday): the week always starts on Monday,
+ *   in any date format, the same rule as the Calendar tab;
  * - fields added later (rows of the pipeline template window) are picked up automatically.
  */
 (function () {
@@ -92,7 +92,7 @@
     const pad = (n) => String(n).padStart(2, '0');
     const isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     const lang = () => window.APP_LANG || 'ru-RU';
-    const weekStart = () => (isMdy() ? 0 : 1);          // US: Sunday, otherwise Monday (as in calendar.js)
+    const weekStart = () => 1;                          // always Monday (as in calendar.js), whatever the date format
 
     function setValue(native, iso) {
         proto.set.call(native, iso);

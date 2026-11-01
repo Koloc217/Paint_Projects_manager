@@ -1,7 +1,7 @@
 import os
 import uuid
 from datetime import datetime
-from sqlalchemy import create_engine, event, Column, String, Float, DateTime, Integer, Text, text
+from sqlalchemy import create_engine, event, Column, String, Float, DateTime, Integer, Text, ForeignKey, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +25,9 @@ def _sqlite_pragmas(dbapi_connection, _record):
         cur.execute("PRAGMA busy_timeout=5000")
         cur.execute("PRAGMA journal_mode=WAL")
         cur.execute("PRAGMA synchronous=NORMAL")
+        # Foreign keys are off by default in SQLite, per connection. On: a task, reference or progress photo
+        # cannot point to a project that does not exist, and erasing a project removes their rows too.
+        cur.execute("PRAGMA foreign_keys=ON")
     except Exception as e:      # e.g. a file system without WAL support: keep the default journal mode
         print(f"[DB] could not enable WAL: {e!r}")
     finally:
@@ -58,12 +61,19 @@ class Project(Base):
     updated_at = Column(DateTime, default=datetime.now)
     completed_at = Column(DateTime, nullable=True)
     deleted_at = Column(DateTime, nullable=True)   # set = the project is in the trash
+    extra_spent_min = Column(Integer, default=0)   # time spent on the project outside its tasks, minutes
+
+
+# Rows that belong to a project. ON DELETE CASCADE needs PRAGMA foreign_keys=ON (see _sqlite_pragmas);
+# the app still deletes them explicitly (purge_project), the constraint is the safety net.
+def _project_fk():
+    return ForeignKey("projects.id", ondelete="CASCADE")
 
 
 class Task(Base):
     __tablename__ = "tasks"
     id = Column(String, primary_key=True, default=gen_task_id)
-    project_id = Column(String, nullable=False, index=True)
+    project_id = Column(String, _project_fk(), nullable=False, index=True)
     task_name = Column(String, nullable=False)
     deadline = Column(DateTime, nullable=True)
     status = Column(String, default="not_started")   # code, see common.TASK_STATUSES
@@ -72,13 +82,15 @@ class Task(Base):
     # set when the task was closed together with its project: the status it had before, so reopening the project
     # can bring it back; empty for tasks closed by hand
     closed_from = Column(String, default="")
+    spent_min = Column(Integer, nullable=True)       # time spent, minutes; empty = not given (it is optional)
+    spent_stage = Column(String, default="")         # project stage when the time was given (code), for the breakdown
 
 
 class Reference(Base):
     """Paint references: original images (not recompressed) plus small previews."""
     __tablename__ = "project_refs"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, nullable=False, index=True)
+    project_id = Column(String, _project_fk(), nullable=False, index=True)
     filename = Column(String, nullable=False)   # original in photos/refs/
     thumb = Column(String, default="")          # preview (JPEG) in photos/refs/
     position = Column(Integer, default=0)       # order in the card (drag to reorder); ties fall back to id
@@ -89,7 +101,7 @@ class ProgressPhoto(Base):
     """Progress (WIP) photo with the date and the project stage at upload time. Files live in photos/progress/."""
     __tablename__ = "progress_photos"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, nullable=False, index=True)
+    project_id = Column(String, _project_fk(), nullable=False, index=True)
     filename = Column(String, nullable=False)
     thumb = Column(String, default="")          # preview (JPEG); empty = the file itself is used
     stage = Column(String, default="none")      # project stage at upload time (code)
@@ -135,50 +147,17 @@ class Adjustment(Base):
 
 
 def ensure_schema():
-    """Safe automatic migration of an existing SQLite database, without data loss."""
+    """Creates missing tables and runs the pending versioned migrations (migrations.py), then the cheap idempotent
+    clean-up of old status/stage values. Safe to call from every entry point (app, bot, scripts) on every start."""
+    import migrations
+    had_data = os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) > 0
     Base.metadata.create_all(bind=engine)
+    migrations.migrate(DB_PATH, had_data=had_data)
+    engine.dispose()                  # pooled connections must see the rebuilt tables
     with engine.connect() as conn:
-        proj_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(projects)")).fetchall()]
-        if "stage" not in proj_cols:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN stage VARCHAR DEFAULT 'none'"))
-        if "paint_notes" not in proj_cols:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN paint_notes TEXT DEFAULT ''"))
-        if "photo" not in proj_cols:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN photo VARCHAR DEFAULT ''"))
-        if "updated_at" not in proj_cols:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN updated_at DATETIME"))
-            conn.execute(text("UPDATE projects SET updated_at = :now WHERE updated_at IS NULL"),
-                         {"now": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
-        if "completed_at" not in proj_cols:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN completed_at DATETIME"))
-        if "deleted_at" not in proj_cols:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN deleted_at DATETIME"))
-
-        task_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(tasks)")).fetchall()]
-        if "postponed" not in task_cols:
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN postponed INTEGER DEFAULT 0"))
-        if "completed_at" not in task_cols:
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN completed_at DATETIME"))
-        if "closed_from" not in task_cols:
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN closed_from VARCHAR DEFAULT ''"))
-
-        ref_cols = [r[1] for r in conn.execute(text("PRAGMA table_info(project_refs)")).fetchall()]
-        if "position" not in ref_cols:
-            conn.execute(text("ALTER TABLE project_refs ADD COLUMN position INTEGER DEFAULT 0"))
-            conn.execute(text("UPDATE project_refs SET position = id"))     # keep the old upload order
-
-        # Tokens are whole numbers: older versions allowed fractions (step 0.1 in the form), round them once
-        conn.execute(text("UPDATE projects SET token = ROUND(token) WHERE token IS NOT NULL AND token != ROUND(token)"))
-        conn.execute(text("UPDATE projects SET token_reward = ROUND(token_reward) "
-                          "WHERE token_reward IS NOT NULL AND token_reward != ROUND(token_reward)"))
-        conn.execute(text("UPDATE adjustments SET amount = ROUND(amount) WHERE amount IS NOT NULL AND amount != ROUND(amount)"))
-
+        # Not a versioned step on purpose: an old client (a bot button sent before the switch to codes, an older
+        # script) may still write a Russian value; this pass fixes such rows on the next start.
         migrate_value_codes(conn)
-
-        # Indexes for the lookups done on every page load and bot update. create_all() does not add
-        # indexes to tables that already exist, so older databases get them here.
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tasks_project_id ON tasks (project_id)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_projects_deleted_at ON projects (deleted_at)"))
         conn.commit()
 
 
