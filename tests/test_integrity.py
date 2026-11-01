@@ -124,3 +124,14 @@ def test_cache_headers(client):
     client.post(f"/api/projects/{pid}/photo", json={"image": _jpeg()})
     assert "immutable" in client.get(project(client, pid)["Photo"]).headers["cache-control"]
     assert url in client.get("/").text                              # pages link to the versioned address
+
+
+def test_data_etag(client):
+    first = client.get("/api/data")
+    etag = first.headers["etag"]
+    assert first.status_code == 200 and first.headers["cache-control"] == "no-store"
+    same = client.get("/api/data", headers={"If-None-Match": etag})
+    assert same.status_code == 304 and same.content == b""
+    make_project(client)                                            # any change gives a new ETag
+    changed = client.get("/api/data", headers={"If-None-Match": etag})
+    assert changed.status_code == 200 and changed.headers["etag"] != etag

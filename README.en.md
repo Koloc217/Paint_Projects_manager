@@ -207,12 +207,15 @@ Password login does not break installation: `/sw.js` and `/manifest.webmanifest`
 
 ```
 app.py, bot.py, notify.py, scheduler.py, backup.py   server, bot, notifications, schedule, backup
+bot_api.py, bot_views.py, bot_photos.py, bot_tasks.py   bot: Telegram calls, cards, photos, task builder and time
 auth.py, tls.py, common.py, database.py, i18n.py     login, HTTPS, shared helpers and config, DB models, translations
 pipeline.py, vacation.py, tgproxy.py, storage.py     pipeline templates, vacation, Telegram proxy, used space
 progress.py, logs.py                                 progress photos (web and bot), rotating logs
 locales.json                                         all texts of the UI, the bot and notifications
 templates/                                           page, login, components (nav, tabs, modals, toasts, pwa_head)
-static/app.js, i18n.js, auth.js, dateinput.js        UI logic, translations, password hashing, date fields
+static/app.js, i18n.js, auth.js, dateinput.js        UI core, translations, password hashing, date fields
+static/cards.js, photos.js, settings.js, analytics.js   cards and tasks, cover and references, settings, charts
+static/main.js, themes.js                            page start-up, the theme registry and switcher
 static/calendar.js, progress.js, templates.js, trash.js   calendar, progress photos, templates and vacation, trash
 static/dropzone.js, dropzone.css                        drag and drop of images (cover, references, progress)
 static/themes.css, mobile.css, card-tab.css          themes, phone layout, card in a separate tab

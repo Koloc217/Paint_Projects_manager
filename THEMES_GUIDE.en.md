@@ -26,7 +26,7 @@ borders, background, charts); the markup, texts and app logic stay untouched.
    /* === END THEME: theme-neon === */
    ```
 
-2. **Registration**, one line in the `THEMES` registry in `static/app.js`:
+2. **Registration**, one line in the `THEMES` registry in `static/themes.js`:
 
    ```js
    { id: 'theme-neon', label: () => '🌈 Neon' },
@@ -195,7 +195,7 @@ Output exactly three code blocks and nothing else, except one line of explanatio
 1) CSS for the end of static/themes.css between the markers /* === THEME: theme-<name> === */ and /* === END THEME: theme-<name> === */.
    Every selector starts with body.theme-<name>; every property has !important (except --variables); all 15 --chart-*
    tokens are set; body has background-color and color; fonts must include Cyrillic.
-2) One line for the THEMES registry in static/app.js: { id: 'theme-<name>', label: () => '<emoji> <Title>' },
+2) One line for the THEMES registry in static/themes.js: { id: 'theme-<name>', label: () => '<emoji> <Title>' },
 3) The web fonts with weights as Fontsource package names (for example "russo-one": (400,)), or the word "none".
 
 Do not: change the layout or sizes, hide elements, use external images or @import, touch selectors without the theme

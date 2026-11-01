@@ -27,10 +27,15 @@ function renderProjectProgress(project) {
     const box = document.getElementById('pdProgress');
     if (!list.length) {
         box.innerHTML = `<div class="text-xs text-slate-600 py-2">${tr('progress.empty')}</div>`;
+        box.dataset.count = '0';
         return;
     }
     // Timeline: oldest on the left, newest on the right; scrolls horizontally and starts at the newest end.
-    box.innerHTML = list.map((ph, i) => `
+    // only a new photo (or another project) scrolls to the newest end; a caption edit keeps the position
+    const toEnd = box.dataset.pid !== project.ID || box.dataset.count !== String(list.length);
+    box.dataset.pid = project.ID;
+    box.dataset.count = String(list.length);
+    patchList(box, list.map((ph, i) => ({ ph, i })), x => x.ph.ID, ({ ph, i }) => `
         <div class="shrink-0 w-24">
             <div class="relative group aspect-square rounded-lg overflow-hidden border border-slate-700 bg-slate-950 cursor-pointer hover:border-fuchsia-400 transition-colors" onclick="openProjectProgress('${esc(project.ID)}', ${i})">
                 <img src="${esc(ph.Thumb)}" alt="" loading="lazy" decoding="async" class="w-full h-full object-cover">
@@ -41,8 +46,8 @@ function renderProjectProgress(project) {
             <div class="text-[10px] text-slate-400 mt-1 leading-tight">${esc(formatIsoDate((ph.At || '').slice(0, 10)))}</div>
             <div class="text-[10px] text-slate-500 leading-tight truncate">${esc(ph.Stage && ph.Stage !== 'none' ? progressStageLabel(ph.Stage) : '')}</div>
             ${ph.Note ? `<div onclick="editProgressNote('${esc(project.ID)}', ${ph.ID})" class="text-[10px] text-slate-300 leading-tight line-clamp-2 break-words cursor-text hover:text-white" title="${esc(ph.Note)}">${esc(ph.Note)}</div>` : ''}
-        </div>`).join('');
-    box.scrollLeft = box.scrollWidth;
+        </div>`);
+    if (toEnd) box.scrollLeft = box.scrollWidth;
 }
 
 function openProjectProgress(projectId, index) {

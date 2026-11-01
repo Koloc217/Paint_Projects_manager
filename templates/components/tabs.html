@@ -90,6 +90,17 @@
                     <canvas id="velocityChart"></canvas>
                 </div>
             </div>
+            <!-- Time spent by stage across all projects (the optional time of tasks, plus time outside tasks) -->
+            <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-5 shadow-xl lg:col-span-2">
+                <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-4">
+                    <h3 class="text-base font-bold text-white">⏱ {{ tr('analytics.time_by_stage') }}</h3>
+                    <span id="timeChartNote" class="text-xs text-slate-500"></span>
+                </div>
+                <div id="timeChartBox" class="h-56">
+                    <canvas id="timeChart"></canvas>
+                </div>
+                <div id="timeChartEmpty" class="hidden text-sm text-slate-500 py-6 text-center">{{ tr('analytics.time_empty') }}</div>
+            </div>
         </div>
 
         <!-- Hall of Fame (archive) -->

@@ -4,6 +4,8 @@ import asyncio
 import pytest
 
 import bot
+import bot_api
+import bot_tasks
 from helpers import make_project, make_task, task
 
 
@@ -28,8 +30,8 @@ def tg(monkeypatch):
 
     for name, fn in [("send_message", send_message), ("edit_message_text", edit_message_text),
                      ("answer_callback", answer_callback), ("delete_messages", delete_messages)]:
-        monkeypatch.setattr(bot, name, fn)
-    bot._time_drafts.clear()
+        monkeypatch.setattr(bot_api, name, fn)
+    bot_tasks._time_drafts.clear()
     return sent
 
 
@@ -58,11 +60,11 @@ def test_own_value_typed(client, tg):
     tid = make_task(client, pid)
     press(f"t_done:{tid}:{pid}")
     press(f"tm_own:{tid}", message_id=12)
-    assert asyncio.run(bot.handle_time_text(1, "что-то")) is True          # bad value: asked again
+    assert asyncio.run(bot_tasks.handle_time_text(1, "что-то")) is True          # bad value: asked again
     assert task(client, tid)["Spent"] is None
-    assert asyncio.run(bot.handle_time_text(1, "1ч 15м")) is True
+    assert asyncio.run(bot_tasks.handle_time_text(1, "1ч 15м")) is True
     assert task(client, tid)["Spent"] == 75
-    assert asyncio.run(bot.handle_time_text(1, "another message")) is False  # the draft is over
+    assert asyncio.run(bot_tasks.handle_time_text(1, "another message")) is False  # the draft is over
 
 
 def test_skip_deletes_the_question(client, tg):
