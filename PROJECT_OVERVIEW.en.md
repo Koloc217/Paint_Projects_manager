@@ -51,6 +51,7 @@ and starting a new project costs tokens. The goal is to finish what you start in
 | `database.py` | SQLAlchemy models and automatic schema migration |
 | `common.py` | Config (cached, atomic writes under a lock, `edit_config()`), canonical values, token balance, escaping, trimming Telegram messages, chat linking |
 | `storage.py` | Used space: app, database, photos, logs (folder walk, Windows and Linux) |
+| `archive.py` | Data archive: building the zip (database, settings, photos) and restoring from it |
 | `pipeline.py` | Pipeline templates: built-in defaults, storage and validation in `config.json` |
 | `vacation.py` | Vacation: moving deadlines, state, ending early |
 | `activity.py` | Activity journal: events recorded on database writes, restoring the past, texts |
@@ -495,10 +496,29 @@ means Telegram did not accept it or there is no token; the code is visible in `l
 
 ## 8. Backup
 
-`backup.py` sends JSON (`projects`, `tasks`, `timestamp`) to the Google Apps Script at `APPS_SCRIPT_URL` (redirects are
+**Data archive** (`archive.py`, Settings → Backup, `tools/archive_tool.py`). A full copy in one zip file:
+`manifest.json` (format, date, schema version, number of projects, tasks and photos), `tracker.db` (a snapshot through
+the sqlite3 backup API, no need to stop the app), `config.json` and the `photos/` folder as is (covers, previews,
+references, progress; images are stored without compressing them again). Not included: `.env`, `auth.json`, `tls/`,
+logs, `orphans/`, `backups/`.
+- Download: `GET /api/archive` builds the archive in a temp file next to the data and sends it; the file is removed after
+  sending. The page fetches it first, so an error shows as a toast instead of a broken download.
+- Restore: `POST /api/archive/restore`, the archive is the request body itself (`application/zip`, no multipart), written
+  to a temp file in pieces. Order: archive check (manifest with `app: project-hub`, format not newer than the code, only
+  `manifest.json`, `tracker.db`, `config.json` and `photos/...` without `..` inside, file CRCs, `config.json` is a JSON
+  object, `PRAGMA integrity_check` of the database, schema version not newer than the code) → a copy of the current
+  database to `backups/tracker-before-restore-<date>.db` (last 3 kept) → the database is written into the live file
+  through the backup API (the file is not swapped, so it works with the app running and on Windows) → migrations to the
+  current schema → photos from the archive are added to `photos/` (through `.part` and `os.replace`) → `config.json`
+  (`--no-config` in the script keeps it). If the check fails, nothing changes. Only one archive job runs at a time.
+- Photos that are not in the archive are not deleted: nothing points to them any more, and the regular integrity check
+  moves them to `orphans/`. Temp files of a job that was cut off (`.archive-*`, `.restore-*`, `.download-*`,
+  `.upload-*`) are removed when the app starts.
+
+**Google Sheets auto-backup.** `backup.py` sends JSON (`projects`, `tasks`, `timestamp`) to the Google Apps Script at `APPS_SCRIPT_URL` (redirects are
 followed). Exit code 1 if the URL is not set or Google answered with an error (visible in `logs/backup.log`).
-The copy contains projects and tasks. **Photos, references and balance adjustments are not included**: copy the
-`photos/` folder and the `tracker.db` file separately. The database runs in WAL mode, so `tracker.db-wal` and
+The copy contains projects and tasks. **Photos, references and balance adjustments are not included**: for a full
+copy use the archive (see above). The database runs in WAL mode, so `tracker.db-wal` and
 `tracker.db-shm` appear next to `tracker.db`. Do not copy the file while the app is running (fresh writes are in `-wal`):
 stop the app or make a copy with `sqlite3 tracker.db ".backup copy.db"`.
 
@@ -600,6 +620,8 @@ Responses look like `{"status": "ok"}` or `{"status": "error", "message": "..."}
 | `GET /cal/<token>.ics` | deadline subscription; no login, a wrong token or a disabled subscription gives 404 |
 | `GET /api/activity` | journal: `project` (filter), `offset`; 200 events per page, `more` tells if there are more |
 | `GET /api/storage` | used space by category (bytes and number of files) |
+| `GET /api/archive` | download the data archive (zip: database, config.json, photos) |
+| `POST /api/archive/restore` | restore from an archive (the request body is the zip) |
 | `GET /api/telegram` | link state: whether a chat is linked, the chat ID or the pairing code |
 | `POST /api/telegram/unlink`, `/api/telegram/code` | unlink the chat; create a new code |
 | `GET`, `POST /api/telegram/proxy`, `POST /api/telegram/proxy/check` | Telegram proxy: state (without the password), save, check the connection |
