@@ -321,6 +321,89 @@ function switchTab(tab) {
     if (tab === 'calendar') renderCalendar();
 }
 
+// ---------- Windows and the keyboard ----------
+// Every window is tracked in the order it was opened (a MutationObserver watches its "hidden" class, so windows
+// opened by any code are covered). For the window on top:
+// - Esc closes it (the handler below; the question, confirmation and viewer windows have their own Esc);
+// - Tab and Shift+Tab move only between its own buttons and fields, never to the page behind it;
+// - on opening, focus moves into it: the first field of a small form (on a computer only, so a phone does not pop
+//   up the keyboard), otherwise the window itself; on closing, focus goes back to the button that opened it.
+const DIALOG_IDS = ['askModal', 'confirmModal', 'lightbox', 'settingsModal', 'editProjectModal', 'editTaskModal',
+    'taskModal', 'trashModal', 'calExportModal', 'templateModal', 'projectModal', 'projectDetailsModal'];
+const FORM_DIALOGS = { projectModal: 'pName', taskModal: 'tName', editProjectModal: 'epName', editTaskModal: 'etName' };
+const dialogStack = [];          // [{ id, back: the element that had focus before the window opened }]
+const HAS_MOUSE = window.matchMedia('(hover: hover) and (pointer: fine)');
+
+function isDialogShown(el) { return !!el && !el.classList.contains('hidden'); }
+
+function topDialogId() {
+    for (let i = dialogStack.length - 1; i >= 0; i--) {
+        if (isDialogShown(document.getElementById(dialogStack[i].id))) return dialogStack[i].id;
+    }
+    return null;
+}
+
+function focusableIn(root) {
+    return [...root.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')]
+        .filter(el => !el.disabled && el.type !== 'hidden' && el.tabIndex >= 0 && el.getClientRects().length > 0);
+}
+
+function onDialogShown(el) {
+    const i = dialogStack.findIndex(d => d.id === el.id);
+    if (i >= 0) dialogStack.splice(i, 1);
+    dialogStack.push({ id: el.id, back: document.activeElement });
+    // after the code that opened the window had its chance to focus something (askDialog, confirmDialog do)
+    setTimeout(() => {
+        if (!isDialogShown(el) || el.contains(document.activeElement)) return;
+        const field = FORM_DIALOGS[el.id] && HAS_MOUSE.matches ? document.getElementById(FORM_DIALOGS[el.id]) : null;
+        if (field) { field.focus(); return; }
+        if (!el.hasAttribute('tabindex')) { el.tabIndex = -1; el.style.outline = 'none'; }
+        el.focus({ preventScroll: true });
+    }, 0);
+}
+
+function onDialogHidden(el) {
+    const i = dialogStack.findIndex(d => d.id === el.id);
+    if (i < 0) return;
+    const [entry] = dialogStack.splice(i, 1);
+    const active = document.activeElement;
+    const lost = !active || active === document.body || el.contains(active);
+    const back = entry.back;
+    // the button may have been redrawn meanwhile (lists keep unchanged items, but not changed ones)
+    if (lost && back && back.isConnected && back.getClientRects().length > 0 && back !== document.body) {
+        back.focus({ preventScroll: true });
+    }
+}
+
+DIALOG_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    let shown = isDialogShown(el);
+    if (shown) onDialogShown(el);
+    new MutationObserver(() => {
+        const now = isDialogShown(el);
+        if (now === shown) return;
+        shown = now;
+        if (now) onDialogShown(el); else onDialogHidden(el);
+    }).observe(el, { attributes: true, attributeFilter: ['class'] });
+});
+
+// Tab stays inside the top window (the date picker pop-up is its own small window: Tab works inside it as usual)
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab') return;
+    const id = topDialogId();
+    if (!id) return;
+    const active = document.activeElement;
+    if (active && active.closest && active.closest('.dp-pop')) return;
+    const root = document.getElementById(id);
+    const items = focusableIn(root);
+    if (!items.length) { e.preventDefault(); return; }
+    const first = items[0], last = items[items.length - 1];
+    if (!root.contains(active)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+    else if (e.shiftKey && (active === first || active === root)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+});
+
 document.addEventListener('keydown', function(e) {
     if (isAskOpen()) {
         if (e.key === 'Escape') resolveAsk(null);
@@ -343,13 +426,14 @@ document.addEventListener('keydown', function(e) {
     if (document.activeElement && document.activeElement.tagName === 'TEXTAREA' && e.key === 'Enter') {
         return;
     }
-    const modals = ['trashModal', 'templateModal', 'settingsModal', 'editProjectModal', 'editTaskModal', 'taskModal', 'projectDetailsModal', 'projectModal'];
-    const active = modals.filter(id => !document.getElementById(id).classList.contains('hidden'));
-    if (active.length === 0) return;
-    const topModal = active[0];
+    const topModal = topDialogId();
+    if (!topModal) return;
 
     if (e.key === 'Escape') closeModal(topModal);
     else if (e.key === 'Enter') {
+        // Enter on a button, a link or a list does what that element does (Tab can now reach "Cancel")
+        const el = document.activeElement;
+        if (el && ['BUTTON', 'A', 'SELECT'].includes(el.tagName)) return;
         e.preventDefault();
         if (topModal === 'projectModal') createProject();
         else if (topModal === 'editProjectModal') saveProjectEdit();

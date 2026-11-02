@@ -487,7 +487,36 @@ async def _process_update(item: dict):
 
 SESSION_MAX_SEC = 3 * 3600            # planned reconnect: a fresh connection every 3 hours
 PRE_PUSH_RECONNECT_SEC = 600          # ... and about 10 minutes before scheduled notifications
-NETWORK_RETRY_SEC = 3                 # pause after a network error, so a dead proxy does not spin the CPU
+RETRY_STEPS_SEC = (3, 10, 30, 60)     # pause after consecutive network errors: grows, then stays at the last step
+
+
+class Backoff:
+    """Pauses between failed polls: 3 → 10 → 30 → 60 s (then 60 s each time), back to 3 s after a success.
+    The log gets one line when the connection is lost (with the reason) and one when it is back, with how long it
+    took and how many attempts failed, instead of a line every few seconds while a proxy is down."""
+
+    def __init__(self, steps=RETRY_STEPS_SEC, clock=time.monotonic):
+        self.steps = steps
+        self.clock = clock
+        self.failures = 0
+        self.since = None
+
+    def fail(self, reason: str) -> float:
+        if self.failures == 0:
+            self.since = self.clock()
+            print(f"⚠️ [{datetime.now().strftime('%H:%M:%S')}] No connection to Telegram ({tgproxy.describe()}): "
+                  f"{reason}. Retrying with growing pauses ({', '.join(str(s) for s in self.steps)} s)...")
+        delay = self.steps[min(self.failures, len(self.steps) - 1)]
+        self.failures += 1
+        return delay
+
+    def ok(self) -> None:
+        if self.failures:
+            took = int(self.clock() - self.since) if self.since is not None else 0
+            print(f"✅ [{datetime.now().strftime('%H:%M:%S')}] Connection to Telegram is back "
+                  f"after {took} s ({self.failures} failed attempt(s))")
+        self.failures = 0
+        self.since = None
 
 
 async def start_bot_polling():
@@ -503,6 +532,7 @@ async def start_bot_polling():
     # The offset survives session restarts: getUpdates confirms the previous batch only through the next offset,
     # so starting again from 0 would deliver the last processed updates twice (a "+2d" press applied twice).
     offset = 0
+    backoff = Backoff()
     while True:  # OUTER LOOP: a new session (fresh connections) every few hours
         bot_api.reset_http_client()
         try:
@@ -542,17 +572,18 @@ async def start_bot_polling():
                 return  # clean stop when the service shuts down
             except httpx.ReadTimeout:
                 continue
-            except (httpx.TransportError, ValueError):     # no connection, proxy refused, broken reply
-                await asyncio.sleep(NETWORK_RETRY_SEC)
+            except (httpx.TransportError, ValueError) as e:     # no connection, proxy refused, broken reply
+                await asyncio.sleep(backoff.fail(f"{e.__class__.__name__}: {bot_api.safe_error(e)}"[:200]))
                 continue
             except Exception as e:
                 print(f"[BOT POLLING ERROR]: {bot_api.safe_error(e)}")
-                await asyncio.sleep(5)
+                await asyncio.sleep(backoff.fail(e.__class__.__name__))
                 continue
 
             if not data.get("ok"):
-                await asyncio.sleep(NETWORK_RETRY_SEC)
+                await asyncio.sleep(backoff.fail(f"Telegram: {str(data.get('description') or data)[:150]}"))
                 continue
+            backoff.ok()
 
             for item in data.get("result", []):
                 offset = item["update_id"] + 1

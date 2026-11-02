@@ -84,7 +84,6 @@ def parse_rules(text):
             stack.append(head)
             if head.startswith("@"):
                 ctx_stack.append(head)
-                body_start = None
             else:
                 end = text.find("}", i)
                 if end < 0:

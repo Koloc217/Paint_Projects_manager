@@ -7,7 +7,8 @@
 New uploads from the web app get their preview from the browser. Without a preview the app simply shows the photo
 itself, so this script only saves traffic on a phone for older photos:
   • covers: photos/<cover>_t.jpg (used by the phone layout only);
-  • progress photos sent from Telegram: photos/progress/<name>_t.jpg (the database row gets the name).
+  • progress photos sent from Telegram before the bot kept previews: photos/progress/<name>_t.jpg (the database
+    row gets the name). Newer ones come with a preview: the bot saves a small size Telegram already made.
 
 Files are written next to the originals; originals are never changed. Can be run again at any time: photos that
 already have a preview are skipped. Pillow cannot read some formats (AVIF without a plugin): those are skipped.

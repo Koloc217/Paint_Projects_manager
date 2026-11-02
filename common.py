@@ -5,6 +5,7 @@ import html
 import hmac
 import json
 import os
+import re
 import secrets
 import tempfile
 import threading
@@ -283,32 +284,99 @@ def _read_config_file() -> dict:
         return {}
 
 
-def _normalize_config(cfg: dict) -> dict:
+_HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+_BOOL_KEYS = ("DEV_MODE", "DELETE_KEEPS_BALANCE", "CALENDAR_EXPORT", "ASK_SPENT_TIME")
+
+
+def _is_int(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _normalize_config(cfg: dict, problems: list = None) -> dict:
+    """Fills in defaults and replaces invalid values with the default. Every replaced value that was present in
+    the file is added to `problems` as (key, bad value, value used), so the log can say what was wrong."""
+    problems = problems if problems is not None else []
+
+    def bad(key, value, used):
+        problems.append((key, value, used))
+
     for k, v in DEFAULT_CONFIG.items():
-        cfg.setdefault(k, v)
+        cfg.setdefault(k, copy.deepcopy(v))
+    for key in _BOOL_KEYS:
+        if not isinstance(cfg.get(key), bool):
+            bad(key, cfg.get(key), DEFAULT_CONFIG[key])
+            cfg[key] = DEFAULT_CONFIG[key]
+
     if not isinstance(cfg.get("NOTIFY"), dict):
+        if "NOTIFY" in cfg:
+            bad("NOTIFY", cfg["NOTIFY"], "defaults")
         cfg["NOTIFY"] = dict(DEFAULT_NOTIFY_SETTINGS)
     else:
+        notify = cfg["NOTIFY"]
         for k, v in DEFAULT_NOTIFY_SETTINGS.items():
-            cfg["NOTIFY"].setdefault(k, v)
+            notify.setdefault(k, v)
+            if isinstance(v, bool) and not isinstance(notify[k], bool):
+                bad(f"NOTIFY.{k}", notify[k], v)
+                notify[k] = v
+        days = notify.get("stagnation_days")
+        if not _is_int(days) or not 1 <= days <= 90:
+            bad("NOTIFY.stagnation_days", days, DEFAULT_NOTIFY_SETTINGS["stagnation_days"])
+            notify["stagnation_days"] = DEFAULT_NOTIFY_SETTINGS["stagnation_days"]
+
+    if "SCHEDULE" in cfg and not isinstance(cfg["SCHEDULE"], dict):
+        bad("SCHEDULE", cfg["SCHEDULE"], "defaults")
     cfg["SCHEDULE"] = normalize_schedule(cfg.get("SCHEDULE"))
+    sched = cfg["SCHEDULE"]
+    for key, day in sched["notify_days"].items():
+        if not _HHMM.match(day["time"]):
+            used = "18:05" if DAY_KEYS.index(key) < 5 else "12:05"
+            bad(f"SCHEDULE.notify_days.{key}.time", day["time"], used)
+            day["time"] = used
+    if not isinstance(sched.get("backup_time"), str) or not _HHMM.match(sched["backup_time"]):
+        bad("SCHEDULE.backup_time", sched.get("backup_time"), "03:00")
+        sched["backup_time"] = "03:00"
+    for key in ("notify_enabled", "backup_enabled"):
+        if not isinstance(sched.get(key), bool):
+            used = key == "notify_enabled"
+            bad(f"SCHEDULE.{key}", sched.get(key), used)
+            sched[key] = used
+
     cfg["LANGUAGE"] = LEGACY_LANGUAGES.get(cfg.get("LANGUAGE"), cfg.get("LANGUAGE"))
+    if not isinstance(cfg.get("LANGUAGE"), str) or not cfg["LANGUAGE"]:
+        bad("LANGUAGE", cfg.get("LANGUAGE"), DEFAULT_CONFIG["LANGUAGE"])
+        cfg["LANGUAGE"] = DEFAULT_CONFIG["LANGUAGE"]
     if cfg.get("DATE_FORMAT") not in DATE_FORMATS:
+        bad("DATE_FORMAT", cfg.get("DATE_FORMAT"), DEFAULT_CONFIG["DATE_FORMAT"])
         cfg["DATE_FORMAT"] = DEFAULT_CONFIG["DATE_FORMAT"]
     for key in ("PROJECT_COST", "INITIAL_TOKENS"):        # tokens are whole numbers
-        cfg[key] = to_tokens(cfg.get(key), DEFAULT_CONFIG[key])
+        value = cfg.get(key)
+        fixed = to_tokens(value, DEFAULT_CONFIG[key])
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or fixed < 0 or fixed > MAX_TOKENS:
+            fixed = DEFAULT_CONFIG[key]
+            bad(key, value, fixed)
+        cfg[key] = fixed                                  # 15.0 -> 15 is a silent clean-up, not a problem
     if cfg.get("TG_CLEANUP") not in ("keep_46h", "latest_only", "off"):
+        bad("TG_CLEANUP", cfg.get("TG_CLEANUP"), DEFAULT_CONFIG["TG_CLEANUP"])
         cfg["TG_CLEANUP"] = DEFAULT_CONFIG["TG_CLEANUP"]
     days = cfg.get("TRASH_DAYS")
-    if not isinstance(days, int) or isinstance(days, bool) or not 1 <= days <= 3650:
+    if not _is_int(days) or not 1 <= days <= 3650:
+        bad("TRASH_DAYS", days, DEFAULT_CONFIG["TRASH_DAYS"])
         cfg["TRASH_DAYS"] = DEFAULT_CONFIG["TRASH_DAYS"]
-    cfg["CALENDAR_EXPORT"] = cfg.get("CALENDAR_EXPORT") is True
     feed = cfg.get("ICS_FEED")
     if not isinstance(feed, dict) or not isinstance(feed.get("token", ""), str):
+        bad("ICS_FEED", feed, "off")
         cfg["ICS_FEED"] = dict(DEFAULT_CONFIG["ICS_FEED"])
     else:
         cfg["ICS_FEED"] = {"enabled": bool(feed.get("enabled")), "token": feed.get("token", "")}
     return cfg
+
+
+def _report_config_problems(problems: list) -> None:
+    """One line per invalid value: what the file has and what the app uses instead. The file itself is not
+    changed (a typo can be fixed by hand; the next save from the settings writes the value in use)."""
+    for key, value, used in problems:
+        shown = json.dumps(value, ensure_ascii=False) if not isinstance(value, str) else f'"{value}"'
+        print(f"[CONFIG] config.json: {key} = {shown[:80]} is invalid, using {json.dumps(used, ensure_ascii=False)}")
 
 
 def _cached_config() -> dict:
@@ -319,8 +387,10 @@ def _cached_config() -> dict:
             stamp = _file_stamp(CONFIG_FILE)
         if stamp != _config_cache["stamp"] or _config_cache["data"] is None:
             # the stamp taken BEFORE reading is stored: if the file changes meanwhile, the next call re-reads it
-            _config_cache["data"] = _normalize_config(_read_config_file())
+            problems = []
+            _config_cache["data"] = _normalize_config(_read_config_file(), problems)
             _config_cache["stamp"] = stamp
+            _report_config_problems(problems)
         return _config_cache["data"]
 
 

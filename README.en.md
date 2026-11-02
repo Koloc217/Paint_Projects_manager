@@ -237,7 +237,7 @@ python tools/check_theme.py        # every theme in the registry (or one: theme-
 python tools/build_assets.py css   # rebuild Tailwind CSS after new classes (without css: also fonts and Chart.js)
 python tools/check_backup.py       # does the newest copy in backups/ restore (or: check_backup.py FILE)
 python tools/check_data.py         # rows without a project, rows without a file, files without a row (--fix: to orphans/)
-python tools/make_thumbs.py        # once: previews for older covers and Telegram photos (needs pillow)
+python tools/make_thumbs.py        # once: previews for older covers and older Telegram photos (needs pillow)
 ```
 
 `check_backup.py` changes nothing: it copies the backup to a temp folder, checks the SQLite file, runs the migrations
@@ -258,7 +258,9 @@ python -m pytest tests/test_tasks.py  # one file
 
 The tests use an empty temporary data folder (`PROJECT_HUB_DATA_DIR`): they never see or change the real
 `tracker.db`, `config.json`, photos or `.env` (the bot token). Covered: projects and tokens, tasks, the trash,
-pipeline templates, status codes and the migration of old values, translation completeness.
+pipeline templates, status codes and the migration of old values, translation completeness, vacation, catch-up of
+missed runs, the token balance through the trash and reopening, `config.json` checks, every bot command against a fake
+Telegram.
 
 Checking the migration on a copy of your own database (the file itself is not changed):
 
