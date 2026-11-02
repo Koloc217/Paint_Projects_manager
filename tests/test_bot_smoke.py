@@ -82,3 +82,18 @@ def test_strangers_are_ignored(client, tg):
     asyncio.run(bot.process_update({"message": {"message_id": 1, "chat": {"id": 1, "type": "private"},
                                                 "text": "/projects"}}))
     assert tg == []
+
+
+def test_backoff_grows_and_resets(capsys):
+    t = [0.0]
+    b = bot.Backoff(clock=lambda: t[0])
+    delays = []
+    for _ in range(6):
+        delays.append(b.fail("ConnectError"))
+        t[0] += delays[-1]
+    assert delays == [3, 10, 30, 60, 60, 60]
+    b.ok()
+    assert b.fail("again") == 3                    # a success starts over
+    out = capsys.readouterr().out
+    assert out.count("No connection to Telegram") == 2    # one line per outage, not per attempt
+    assert "is back after 223 s (6 failed attempt(s))" in out

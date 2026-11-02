@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
-from database import SessionLocal, Project, Task, Adjustment, Reference, ProgressPhoto, ensure_schema
+from database import engine, SessionLocal, Project, Task, Adjustment, Reference, ProgressPhoto, ensure_schema
 import progress
 import logs
 from i18n import tr, tv, get_lang, table_for, available_languages, normalize_lang
@@ -92,6 +92,20 @@ def parse_date_field(value):
         return None, tr("err.bad_date")
 
 
+_last_optimize = {"day": None}
+
+
+def optimize_db() -> None:
+    """Once a day: PRAGMA optimize refreshes SQLite's query statistics where they went stale, so lookups keep using
+    the right indexes as the tables grow (cheap: SQLite only re-analyzes what needs it)."""
+    today = datetime.now().date()
+    if _last_optimize["day"] == today:
+        return
+    with engine.connect() as conn:
+        conn.exec_driver_sql("PRAGMA optimize")
+    _last_optimize["day"] = today
+
+
 def cleanup_orphans() -> dict:
     db = SessionLocal()
     try:
@@ -123,12 +137,19 @@ async def trash_loop():
                       f"{res['erased_days']} old quarantine day(s) erased")
         except Exception as e:
             print(f"[ORPHANS ERROR] {e!r}")
+        try:
+            await asyncio.to_thread(optimize_db)
+        except Exception as e:
+            print(f"[DB] optimize failed: {e!r}")
         await asyncio.sleep(6 * 3600)
 
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     logs.setup_app_log()
+    lang = load_config().get("LANGUAGE")           # also reads config.json: invalid values are reported in the log
+    if normalize_lang(lang) is None:
+        print(f'[CONFIG] config.json: LANGUAGE = "{lang}" is not in locales.json, using {get_lang()}')
     print("🚀 Starting the bot and the scheduler...")
     bot_task = asyncio.create_task(start_bot_polling())
     scheduler_task = asyncio.create_task(scheduler_loop())

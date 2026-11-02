@@ -21,19 +21,36 @@ import bot_views
 # With several active projects, the bot asks which one the photo belongs to.
 
 MAX_TG_DOWNLOAD = 20 * 1024 * 1024        # Bot API limit for file downloads
-_pending_photos = {}                       # token -> {"files": [file_id], "caption", "ts"}
+_pending_photos = {}                       # token -> {"files": [(file_id, thumb_id)], "caption", "ts"}
 _photo_groups = {}                         # media_group_id -> {"token": ..., "project": ..., "ts": ...}
 
 
+THUMB_MIN_SIDE = 240              # the preview: the smallest size Telegram made whose short side is at least this
+
+
+def _thumb_size(sizes: list, best: dict):
+    """file_id of a small size of the same photo for the preview (Telegram sends every photo in several sizes,
+    typically 90, 320, 800 and 1280 px), or None when there is no smaller usable one."""
+    def short_side(s):
+        return min(s.get("width") or 0, s.get("height") or 0)
+    smaller = [s for s in sizes if s is not best and short_side(s) >= THUMB_MIN_SIDE
+               and (s.get("width") or 0) < (best.get("width") or 0)]
+    if not smaller:
+        return None
+    return min(smaller, key=lambda s: (s.get("width") or 0) * (s.get("height") or 0)).get("file_id")
+
+
 def _extract_image(msg: dict):
-    """(file_id, size) of the image in a message: a regular photo (the largest size) or an image sent as a file."""
+    """(file_id, size, thumb_file_id) of the image in a message: a regular photo (the largest size, plus a small
+    size for the preview) or an image sent as a file (Telegram's own thumbnail of a file is too small: no preview,
+    the photo itself is shown, as before)."""
     sizes = msg.get("photo")
     if sizes:
         best = max(sizes, key=lambda s: (s.get("file_size") or 0, (s.get("width") or 0) * (s.get("height") or 0)))
-        return best.get("file_id"), best.get("file_size")
+        return best.get("file_id"), best.get("file_size"), _thumb_size(sizes, best)
     doc = msg.get("document")
     if doc and str(doc.get("mime_type", "")).startswith("image/"):
-        return doc.get("file_id"), doc.get("file_size")
+        return doc.get("file_id"), doc.get("file_size"), None
     return None
 
 
@@ -49,8 +66,20 @@ def _active_projects(db):
     return [p for p in live_projects(db).all() if not status_done(p.status)]
 
 
+async def _download_thumb(thumb_id):
+    """The preview bytes, or None: a failed preview never stops the photo itself (the photo is shown instead)."""
+    if not thumb_id:
+        return None
+    try:
+        raw = await bot_api.download_file(thumb_id)
+        return raw if raw.startswith(b"\xff\xd8\xff") and len(raw) <= progress.MAX_THUMB_BYTES else None
+    except Exception as e:
+        print(f"[BOT] preview not downloaded (the photo itself is used): {bot_api.safe_error(e)}")
+        return None
+
+
 async def save_telegram_photos(project_id: str, file_ids: list, note: str):
-    """Downloads the files and saves them as progress photos.
+    """Downloads the files and saves them as progress photos. An item is a file_id or (file_id, thumb_file_id).
     Returns (saved ids, project name, stage, error, number of photos NOT saved)."""
     db = SessionLocal()
     try:
@@ -58,10 +87,12 @@ async def save_telegram_photos(project_id: str, file_ids: list, note: str):
         if not proj:
             return [], "", "", tr("err.project_not_found"), len(file_ids)
         saved, error = [], None
-        for fid in file_ids:
+        for item in file_ids:
+            fid, thumb_id = item if isinstance(item, (tuple, list)) else (item, None)
             try:
                 raw = await bot_api.download_file(fid)
-                row = progress.add_photo(db, project_id, raw, None, note, "telegram")
+                thumb = await _download_thumb(thumb_id)
+                row = progress.add_photo(db, project_id, raw, thumb, note, "telegram")
                 saved.append(row.id)
             except progress.ProgressError as e:
                 error = tr(e.key, **e.params)
@@ -103,10 +134,11 @@ async def _handle_photo_message(chat_id: int, msg: dict):
     found = _extract_image(msg)
     if not found or not found[0]:
         return
-    file_id, size = found
+    file_id, size, thumb_id = found
     if size and size > MAX_TG_DOWNLOAD:
         await bot_api.send_message(chat_id, tr("bot.photo_too_big"))
         return
+    item = (file_id, thumb_id)                          # what save_telegram_photos downloads
     note = (msg.get("caption") or "").strip()
     group = msg.get("media_group_id")
     _prune_pending()
@@ -115,11 +147,11 @@ async def _handle_photo_message(chat_id: int, msg: dict):
     if entry:                                           # the next photo of the same album
         if entry.get("project"):
             # this album was already answered: success stays quiet, a failure is reported
-            ids, _, _, error, failed = await save_telegram_photos(entry["project"], [file_id], note)
+            ids, _, _, error, failed = await save_telegram_photos(entry["project"], [item], note)
             if failed:
                 await bot_api.send_message(chat_id, not_added_text(1, 1, error))
         elif entry["token"] in _pending_photos:
-            _pending_photos[entry["token"]]["files"].append(file_id)
+            _pending_photos[entry["token"]]["files"].append(item)
         else:                                           # the project question was cancelled or has expired
             await bot_api.send_message(chat_id, not_added_text(1, 1, tr("bot.photo_expired")))
         return
@@ -137,7 +169,7 @@ async def _handle_photo_message(chat_id: int, msg: dict):
         pid = active[0][0]
         if group:
             _photo_groups[group] = {"token": None, "project": pid, "ts": time.time()}
-        ids, name, stage, error, failed = await save_telegram_photos(pid, [file_id], note)
+        ids, name, stage, error, failed = await save_telegram_photos(pid, [item], note)
         if ids:
             text, markup = _saved_view(name, stage, ids, pid)
             await bot_api.send_message(chat_id, text, markup)
@@ -146,7 +178,7 @@ async def _handle_photo_message(chat_id: int, msg: dict):
         return
 
     token = uuid.uuid4().hex[:8]
-    _pending_photos[token] = {"files": [file_id], "caption": note, "ts": time.time()}
+    _pending_photos[token] = {"files": [item], "caption": note, "ts": time.time()}
     if group:
         _photo_groups[group] = {"token": token, "project": None, "ts": time.time()}
     keyboard = [[{"text": f"🎨 {short_text(name, 60)}", "callback_data": f"ph_to:{token}:{pid}"}]
