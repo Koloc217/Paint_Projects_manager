@@ -70,14 +70,6 @@ def normalize_value(value):
     s = str(value).strip()
     return LEGACY_VALUES.get(s, s)
 
-
-def legacy_value(code):
-    """Current code -> the Russian value older versions used (for the Google Sheets backup, whose format stays)."""
-    for old, new in LEGACY_VALUES.items():
-        if new == code and old not in ("Завершено", "Завершен", "Выполнено", "Completed", "completed", "Без стадии"):
-            return old
-    return code
-
 DEFAULT_NOTIFY_SETTINGS = {
     "allow_postpone": True,
     "stagnation_alert": True,
@@ -106,8 +98,9 @@ def normalize_schedule(raw) -> dict:
         days[key] = {"enabled": bool(d.get("enabled", True)), "time": str(d.get("time") or fallback)}
     s["notify_days"] = days
     s.setdefault("notify_enabled", True)
-    s.setdefault("backup_enabled", False)
-    s.setdefault("backup_time", "03:00")      # every day
+    # the Google Sheets backup was removed: its settings drop out of config.json on the next save
+    s.pop("backup_enabled", None)
+    s.pop("backup_time", None)
     return s
 
 
@@ -249,7 +242,7 @@ def esc(value) -> str:
 # ---------------------------------------------------------------------------
 # config.json
 #   The file is read on almost every request and by every bot update, so the parsed content is cached and
-#   re-read only when the file changes on disk (mtime/size). Other processes (notify.py, backup.py) write it
+#   re-read only when the file changes on disk (mtime/size). Other processes (notify.py) write it
 #   with edit_config as well, which replaces the file atomically, so the cache notices their changes too.
 #   Callers get their own deep copy. Changes go through edit_config() (a lock against lost concurrent updates).
 # ---------------------------------------------------------------------------
@@ -332,14 +325,9 @@ def _normalize_config(cfg: dict, problems: list = None) -> dict:
             used = "18:05" if DAY_KEYS.index(key) < 5 else "12:05"
             bad(f"SCHEDULE.notify_days.{key}.time", day["time"], used)
             day["time"] = used
-    if not isinstance(sched.get("backup_time"), str) or not _HHMM.match(sched["backup_time"]):
-        bad("SCHEDULE.backup_time", sched.get("backup_time"), "03:00")
-        sched["backup_time"] = "03:00"
-    for key in ("notify_enabled", "backup_enabled"):
-        if not isinstance(sched.get(key), bool):
-            used = key == "notify_enabled"
-            bad(f"SCHEDULE.{key}", sched.get(key), used)
-            sched[key] = used
+    if not isinstance(sched.get("notify_enabled"), bool):
+        bad("SCHEDULE.notify_enabled", sched.get("notify_enabled"), True)
+        sched["notify_enabled"] = True
 
     cfg["LANGUAGE"] = LEGACY_LANGUAGES.get(cfg.get("LANGUAGE"), cfg.get("LANGUAGE"))
     if not isinstance(cfg.get("LANGUAGE"), str) or not cfg["LANGUAGE"]:

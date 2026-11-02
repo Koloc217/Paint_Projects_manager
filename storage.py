@@ -23,7 +23,7 @@ def _is_db_file(name: str) -> bool:
 
 
 def _is_log_file(name: str) -> bool:
-    # old logs in the root folder (notify.log, backup.log and their rotations) from before the move to logs/
+    # old logs in the root folder (notify.log, the old backup.log and their rotations) from before the move to logs/
     return name.endswith(".log") or ".log." in name
 
 

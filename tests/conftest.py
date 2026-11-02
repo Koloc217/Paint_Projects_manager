@@ -23,7 +23,7 @@ BASE_CONFIG = {"INITIAL_TOKENS": 100, "PROJECT_COST": 10, "DEV_MODE": False, "LA
 # Runs once, before any test module is imported.
 DATA_DIR = tempfile.mkdtemp(prefix="project-hub-test-")
 os.environ["PROJECT_HUB_DATA_DIR"] = DATA_DIR
-for secret in ("TELEGRAM_BOT_TOKEN", "PROXY_URL", "APPS_SCRIPT_URL"):
+for secret in ("TELEGRAM_BOT_TOKEN", "PROXY_URL"):
     os.environ.pop(secret, None)        # values exported in the shell or the IDE must not reach the tests either
 if REPO not in sys.path:
     sys.path.insert(0, REPO)

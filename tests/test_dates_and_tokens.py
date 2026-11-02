@@ -86,8 +86,7 @@ def test_vacation_state_ends_by_itself():
 def _cfg(**schedule):
     days = {k: {"enabled": True, "time": "18:05"} for k in ("mon", "tue", "wed", "thu", "fri")}
     days.update({k: {"enabled": True, "time": "12:05"} for k in ("sat", "sun")})
-    return {"SCHEDULE": {"notify_enabled": True, "notify_days": days, "backup_enabled": True,
-                         "backup_time": "03:00", **schedule}}
+    return {"SCHEDULE": {"notify_enabled": True, "notify_days": days, **schedule}}
 
 
 def _ids(result):
@@ -116,20 +115,20 @@ def test_missed_evening_digest_same_day():
     assert scheduler.missed_jobs(_cfg(), MON.replace(hour=21, minute=30), alive, {}) == []
 
 
-def test_digest_not_caught_up_next_day_but_backup_is():
+def test_digest_not_caught_up_next_day():
     alive = MON.replace(hour=17)
     now = (MON + timedelta(days=1)).replace(hour=1)        # Tuesday 01:00, the app was off since Monday 17:00
     assert _ids(scheduler.missed_jobs(_cfg(), now, alive, {})) == []
-    now = (MON + timedelta(days=1)).replace(hour=9)        # Tuesday 09:00: the 03:00 backup is missed
-    assert _ids(scheduler.missed_jobs(_cfg(), now, alive, {})) == [("backup", "2026-11-03 03:00")]
+    now = (MON + timedelta(days=1)).replace(hour=9)
+    assert _ids(scheduler.missed_jobs(_cfg(), now, alive, {})) == []
 
 
 def test_only_latest_missed_run_and_not_twice():
-    alive = MON - timedelta(days=3)                         # off since Friday
-    now = MON.replace(hour=9)
+    alive = MON - timedelta(days=10)                        # off for more than a week
+    now = MON.replace(hour=19)
     result = scheduler.missed_jobs(_cfg(), now, alive, {})
-    assert _ids(result) == [("backup", "2026-11-02 03:00")]       # one backup, not three
-    fired = {"backup": "2026-11-02 03:00"}
+    assert _ids(result) == [("notify_mon", "2026-11-02 18:05")]   # today's digest only, not the older days
+    fired = {"notify_mon": "2026-11-02 18:05"}
     assert scheduler.missed_jobs(_cfg(), now, alive, fired) == []
 
 
