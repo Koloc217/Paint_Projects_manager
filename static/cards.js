@@ -333,7 +333,7 @@ function openProjectDetails(projectId) {
     const project = currentProjects.find(p => p.ID === projectId);
     if (!project) return;
     const titleEl = document.getElementById('pdTitle');
-    titleEl.innerText = project.Name;
+    document.getElementById('pdTitleText').innerText = project.Name;
     titleEl.title = project.Name;          // the full name on hover when it is longer than two lines
     // A background refresh (window focus, another action) must not wipe notes the user is typing right now
     const notesEl = document.getElementById('pdPaintNotes');
@@ -345,7 +345,7 @@ function openProjectDetails(projectId) {
         notesEl.dataset.projectId = projectId;
     }
     document.getElementById('pdPhoto').innerHTML = projectPhotoInner(project, false);
-    document.getElementById('pdPhotoActions').classList.toggle('hidden', !project.Photo);
+    document.getElementById('pdPhotoActions').classList.toggle('invisible', !project.Photo);   // the row keeps its place: same header height with or without a cover
     renderProjectRefs(project);
     renderProjectProgress(project);
     const mediaCount = (project.Refs || []).length + (project.Progress || []).length;
