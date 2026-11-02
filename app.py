@@ -371,8 +371,6 @@ class ConfigUpdate(BaseModel):
     monthly_report: bool = True
     notify_enabled: bool = True
     notify_days: Optional[Dict[str, DaySchedule]] = None
-    backup_enabled: bool = False
-    backup_time: str = DEFAULT_SCHEDULE["backup_time"]
     language: Optional[str] = None
     date_format: Optional[str] = None
     ask_spent_time: Optional[bool] = None       # the bot asks for the time when a task is closed; None: keep
@@ -524,8 +522,6 @@ def update_config_route(data: ConfigUpdate):
             return {"status": "error", "message": tr("err.unknown_day", key=key)}
         if not TIME_RE.match(day.time or ""):
             return {"status": "error", "message": tr("err.bad_time_day", day=tv(DAY_LABELS[key]))}
-    if not TIME_RE.match(data.backup_time or ""):
-        return {"status": "error", "message": tr("err.bad_time_backup")}
     if data.language is not None and normalize_lang(data.language) is None:
         return {"status": "error", "message": tr("err.unknown_language")}
     if data.tg_cleanup is not None and data.tg_cleanup not in ("keep_46h", "latest_only", "off"):
@@ -563,8 +559,6 @@ def update_config_route(data: ConfigUpdate):
         cfg["SCHEDULE"] = {
             "notify_enabled": data.notify_enabled,
             "notify_days": days,
-            "backup_enabled": data.backup_enabled,
-            "backup_time": data.backup_time
         }
     return {"status": "ok"}
 

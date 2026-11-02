@@ -52,8 +52,6 @@ def build_jobs(cfg: dict) -> list:
             if day["enabled"]:
                 jobs.append(Job(f"notify_{key}", "notify.py", frozenset({weekday}), str(day["time"]), ("--source=scheduler",),
                                 catchup_hours=3, catchup_same_day=True))
-    if s.get("backup_enabled", False):
-        jobs.append(Job("backup", "backup.py", EVERY_DAY, str(s.get("backup_time", "03:00")), catchup_hours=24))
     return jobs
 
 

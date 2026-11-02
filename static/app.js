@@ -50,7 +50,7 @@ function copyMondayTimeToAll() {
 }
 
 function fillTimeSelects() {
-    [...DAY_KEYS.map(k => `cfgDay_${k}`), 'cfgBackupTime'].forEach(prefix => {
+    DAY_KEYS.map(k => `cfgDay_${k}`).forEach(prefix => {
         const h = document.getElementById(prefix + 'H');
         const m = document.getElementById(prefix + 'M');
         if (!h || !m) return;

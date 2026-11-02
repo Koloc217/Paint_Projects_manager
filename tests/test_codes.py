@@ -63,8 +63,3 @@ def test_done_detection():
         assert common.is_done(value), value
     for value in ("in_work", "not_started", "", None):
         assert not common.is_done(value), value
-
-
-def test_backup_keeps_old_sheet_values():
-    assert [common.legacy_value(c) for c in ("in_work", "finished", "not_started", "none", "painting")] == \
-        ["В работе", "Закончен", "Не начато", "—", "Покрас"]

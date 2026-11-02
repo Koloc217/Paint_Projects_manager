@@ -1,7 +1,7 @@
 """Application logs with rotation and no external tools (logrotate, systemd): works the same on Windows and Linux.
 
   logs/app.log       everything the app prints to the console (bot, scheduler, errors); the console still gets a copy
-  logs/notify.log    output of the notification script; logs/backup.log, output of the backup script
+  logs/notify.log    output of the notification script
 
 A file larger than MAX_BYTES is shifted: app.log -> app.log.1 -> app.log.2 ... Copies older than KEEP are removed.
 """

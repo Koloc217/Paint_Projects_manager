@@ -267,24 +267,6 @@
                 </div>
 
                 <div id="cfgTab-backup" class="hidden space-y-4">
-                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-2">
-                        <label class="flex items-center justify-between cursor-pointer">
-                            <div>
-                                <div class="font-semibold text-white">{{ tr('settings.backup.title') }}</div>
-                                <div class="text-xs text-slate-400">{{ tr('settings.backup.hint') }}</div>
-                            </div>
-                            <input type="checkbox" id="cfgBackupEnabled" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
-                        </label>
-                        <div class="flex items-center justify-between pt-2 border-t border-slate-800">
-                            <span class="text-xs text-slate-400">{{ tr('settings.backup.time') }}:</span>
-                            <div class="flex items-center gap-1">
-                            <select id="cfgBackupTimeH" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
-                            <span class="text-slate-400 font-bold">:</span>
-                            <select id="cfgBackupTimeM" class="bg-slate-900 border border-slate-700 rounded-lg px-1.5 py-0.5 text-sm text-white outline-none cursor-pointer [color-scheme:dark]"></select>
-                        </div>
-                        </div>
-                    </div>
-
                     <!-- Data archive (logic in static/settings.js: downloadArchive, restoreArchive; server: archive.py) -->
                     <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 space-y-3">
                         <div>

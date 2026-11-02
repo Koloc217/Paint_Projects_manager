@@ -362,8 +362,6 @@ function openSettingsModal(tab = 'general') {
         setTimeSelect(`cfgDay_${k}`, d.time, (k === 'sat' || k === 'sun') ? '12:05' : '18:05');
         syncDayRow(k);
     });
-    document.getElementById('cfgBackupEnabled').checked = scheduleSettings.backup_enabled ?? false;
-    setTimeSelect('cfgBackupTime', scheduleSettings.backup_time, '03:00');
     openModal('settingsModal');
 }
 
@@ -387,8 +385,6 @@ async function saveSettings() {
             enabled: document.getElementById(`cfgDayEn_${k}`).checked,
             time: getTimeSelect(`cfgDay_${k}`)
         }])),
-        backup_enabled: document.getElementById('cfgBackupEnabled').checked,
-        backup_time: getTimeSelect('cfgBackupTime'),
         language: document.getElementById('cfgLanguage').value,
         date_format: document.getElementById('cfgDateFormat').value
     };

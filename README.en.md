@@ -73,8 +73,7 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - Data archive: Settings → Backup → "Download archive" — the database, settings and all photos in one zip file.
   Restore in the same place ("Restore from archive") or from the console: `python tools/archive_tool.py restore archive.zip`.
   The login password, `.env` and certificates are not included.
-- Automatic backup of projects and tasks to Google Sheets through Apps Script (the table only, no photos).
-- If the app was off when a push or a backup was due, the missed run is done after start-up.
+- If the app was off when a push was due, the missed run is done after start-up.
 - SQLite in WAL mode: the web app, the bot and the scripts write to it concurrently without lock errors.
 - Versioned schema migrations (`migrations.py`, version in `PRAGMA user_version`): each step runs once, in a
   transaction; before migrating, a copy of the database goes to `backups/tracker-before-v<N>-<date>.db` (last 5 kept).
@@ -115,7 +114,7 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env          # set TELEGRAM_BOT_TOKEN; APPS_SCRIPT_URL if needed
+cp .env.example .env          # set TELEGRAM_BOT_TOKEN
 python app.py                 # web app, bot and scheduler in one process
 ```
 
@@ -216,7 +215,7 @@ Password login does not break installation: `/sw.js` and `/manifest.webmanifest`
 
 | What | Where |
 |---|---|
-| Port and address (`PORT`, `HOST`), secrets (bot token, proxy, backup URL), HTTPS | `.env` (template: `.env.example`), see "Port and address" |
+| Port and address (`PORT`, `HOST`), secrets (bot token, proxy), HTTPS | `.env` (template: `.env.example`), see "Port and address" |
 | Language, date format, project cost, deadlines to phone calendar, schedule, notifications | Settings in the UI, stored in `config.json` |
 | Password | Settings → Access; reset from the console: `python auth.py reset` |
 | Theme background images | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` ship with the repository, `wh40k_bg.jpg` you add yourself (without an image the theme draws its own background), see [static/backgrounds/README.en.md](static/backgrounds/README.en.md) |
@@ -224,7 +223,7 @@ Password login does not break installation: `/sw.js` and `/manifest.webmanifest`
 ## Layout
 
 ```
-app.py, bot.py, notify.py, scheduler.py, backup.py   server, bot, notifications, schedule, backup
+app.py, bot.py, notify.py, scheduler.py             server, bot, notifications, schedule
 bot_api.py, bot_views.py, bot_photos.py, bot_tasks.py   bot: Telegram calls, cards, photos, task builder and time
 auth.py, tls.py, common.py, database.py, i18n.py     login, HTTPS, shared helpers and config, DB models, translations
 pipeline.py, vacation.py, tgproxy.py, storage.py     pipeline templates, vacation, Telegram proxy, used space
@@ -245,7 +244,7 @@ static/vendor/, static/fonts/                        Tailwind CSS, Chart.js and 
 migrations.py, integrity.py, spent.py                schema migrations, data and photo integrity, time spent
 tools/                                               check_locales.py, check_theme.py, build_assets.py, deploy.sh, clean.sh,
                                                      check_backup.py, check_data.py, make_thumbs.py, archive_tool.py
-logs/                                                app.log, notify.log, backup.log (created automatically)
+logs/                                                app.log, notify.log (created automatically)
 PLANS.md                                             postponed ideas and decisions (in Russian)
 ```
 
@@ -263,7 +262,7 @@ python tools/make_thumbs.py        # once: previews for older covers and older T
 `check_backup.py` changes nothing: it copies the backup to a temp folder, checks the SQLite file, runs the migrations
 on the copy, reads it with the app's models and compares the numbers with the live database. To restore a copy that
 passed: stop the app, put the file in place of `tracker.db` (and delete `tracker.db-wal`, `tracker.db-shm`), start it.
-The Google Sheets backup is a table export, not a database, so the script does not check it.
+The full archive is checked separately: `python tools/archive_tool.py check archive.zip`.
 
 Browser caching: pages link to `/static/file?v=<stamp>`; such files and photos (`/photos/...`, every upload gets a new
 name) are kept by the browser for a year without asking again; the stamp changes by itself after an app update.
@@ -310,9 +309,9 @@ Two shared run configurations from the `.run/` folder appear in the run list:
 - HTTPS is off by default and the certificate is self-signed: traffic is encrypted, but every device shows a warning
   once. There is no automatic certificate renewal.
 - No redirect from HTTP to HTTPS: there is one port, serving either HTTP or HTTPS.
-- The Google Sheets auto-backup does not include photos: for a full copy use the archive (Settings → Backup). The archive itself is not scheduled.
+- The archive is made by hand only (button or script); there is no scheduled archive.
 - Without trusted HTTPS the PWA is limited (a shortcut instead of an app, no offline page).
-- Catching up missed runs is limited: pushes within 3 hours on the same day, the backup within 24 hours, only the latest run.
+- Catching up missed runs is limited: pushes within 3 hours on the same day, only the latest run.
 - The database runs in WAL mode: do not copy `tracker.db` while the app is running (stop the app or use
   `sqlite3 tracker.db ".backup copy.db"`).
 - Task names created from a template are stored in the language that was active at creation time.

@@ -15,7 +15,7 @@ What happens:
 Exit code 0: the backup restores. 1: it does not (the reason is printed).
 
 Copies in backups/ are made by tools/deploy.sh before every update and by the app before a schema migration.
-The Google Sheets backup (backup.py) is a table export, not a database: it is not checked here.
+The full archive (database, settings, photos) is checked with `python tools/archive_tool.py check <zip>`.
 
 How to restore a copy that passed the check: stop the app, put the file in place of tracker.db (and delete
 tracker.db-wal and tracker.db-shm next to it if they exist), start the app.
