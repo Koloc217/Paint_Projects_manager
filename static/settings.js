@@ -53,6 +53,81 @@ async function loadStorage() {
     }
 }
 
+// ---------- Data archive: download / restore (server: archive.py) ----------
+async function downloadArchive() {
+    const btn = document.getElementById('archiveDownloadBtn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = tr('archive.preparing');
+    try {
+        // fetch first, so an error comes back as a toast instead of a broken download;
+        // the archive is then handed to the browser as a file
+        const resp = await fetch('/api/archive');
+        if (!resp.ok) throw new Error((await resp.text()) || tr('archive.err_build'));
+        const blob = await resp.blob();
+        const m = /filename="?([^";]+)"?/.exec(resp.headers.get('Content-Disposition') || '');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = m ? m[1] : 'project-hub.zip';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    } catch (e) {
+        showToast(e.message || tr('archive.err_build'), 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = tr('archive.download');
+    }
+}
+
+function uploadArchive(file, onProgress) {
+    // XMLHttpRequest instead of fetch: it reports upload progress (archives with photos can be large)
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/archive/restore');
+        xhr.setRequestHeader('Content-Type', 'application/zip');
+        xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(Math.round(e.loaded * 100 / e.total)); };
+        xhr.upload.onload = () => onProgress(null);
+        xhr.onload = () => {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch (e) { reject(new Error(tr('archive.err_upload'))); }
+        };
+        xhr.onerror = () => reject(new Error(tr('archive.err_upload')));
+        xhr.send(file);
+    });
+}
+
+async function restoreArchive(input) {
+    const file = input.files && input.files[0];
+    input.value = '';                     // choosing the same file again must fire onchange
+    if (!file) return;
+    const ok = await confirmDialog({
+        title: tr('archive.restore'), message: tr('archive.restore_confirm', { name: file.name }),
+        okText: tr('archive.restore'), icon: '📦',
+    });
+    if (!ok) return;
+    const btn = document.getElementById('archiveRestoreBtn');
+    const status = document.getElementById('archiveStatus');
+    btn.disabled = true;
+    status.classList.remove('hidden', 'text-red-400');
+    status.textContent = tr('archive.uploading', { pct: 0 });
+    try {
+        const r = await uploadArchive(file, pct => {
+            status.textContent = pct === null ? tr('archive.restoring') : tr('archive.uploading', { pct });
+        });
+        if (r.status !== 'ok') throw new Error(r.message || tr('archive.err_upload'));
+        status.textContent = tr('archive.done', { projects: r.projects, tasks: r.tasks, photos: r.photos });
+        showToast(status.textContent, 'success');
+        setTimeout(() => location.reload(), 2500);    // settings, language and data all come from the archive
+    } catch (e) {
+        status.classList.add('text-red-400');
+        status.textContent = e.message;
+        showToast(e.message, 'error');
+        btn.disabled = false;
+    }
+}
+
 // ---------- Access: password login (off by default) ----------
 let authState = null;
 

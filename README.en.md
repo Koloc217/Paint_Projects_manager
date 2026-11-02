@@ -70,7 +70,10 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
   without it.
 
 **Backups and reliability**
-- Automatic backup of projects and tasks to Google Sheets through Apps Script. Photos are not included.
+- Data archive: Settings → Backup → "Download archive" — the database, settings and all photos in one zip file.
+  Restore in the same place ("Restore from archive") or from the console: `python tools/archive_tool.py restore archive.zip`.
+  The login password, `.env` and certificates are not included.
+- Automatic backup of projects and tasks to Google Sheets through Apps Script (the table only, no photos).
 - If the app was off when a push or a backup was due, the missed run is done after start-up.
 - SQLite in WAL mode: the web app, the bot and the scripts write to it concurrently without lock errors.
 - Versioned schema migrations (`migrations.py`, version in `PRAGMA user_version`): each step runs once, in a
@@ -79,6 +82,21 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - Photos no row points to are moved to `orphans/<date>/` every 6 hours and erased after 30 days (files younger
   than an hour and files with foreign names are never touched; photos of projects in the trash are kept).
 - Restore check: `python tools/check_backup.py` (see "Checks").
+
+**Archive: moving to another server and restoring**
+
+```
+python tools/archive_tool.py create                     # project-hub-<date>.zip here (same as the button in Settings)
+python tools/archive_tool.py check   archive.zip        # check an archive, nothing is changed
+python tools/archive_tool.py restore archive.zip        # replace the database and settings, add the photos
+python tools/archive_tool.py restore archive.zip --no-config   # keep the current config.json
+```
+
+A restore checks the archive first (manifest, paths inside, database integrity) and changes nothing if something is
+wrong. The current database is saved to `backups/tracker-before-restore-<date>.db` (last 3 kept). An archive from an
+older version works (the database is migrated), one from a newer version does not. Photos that are not in the archive
+are not deleted at once: the regular check moves them to `orphans/`. On a new server: install the app, restore the
+archive, set up `.env` (bot token) and start.
 
 ## Stack
 
@@ -210,6 +228,8 @@ app.py, bot.py, notify.py, scheduler.py, backup.py   server, bot, notifications,
 bot_api.py, bot_views.py, bot_photos.py, bot_tasks.py   bot: Telegram calls, cards, photos, task builder and time
 auth.py, tls.py, common.py, database.py, i18n.py     login, HTTPS, shared helpers and config, DB models, translations
 pipeline.py, vacation.py, tgproxy.py, storage.py     pipeline templates, vacation, Telegram proxy, used space
+archive.py                                           data archive (download and restore)
+archive.py                                           data archive (download and restore)
 progress.py, logs.py                                 progress photos (web and bot), rotating logs
 locales.json                                         all texts of the UI, the bot and notifications
 templates/                                           page, login, components (nav, tabs, modals, toasts, pwa_head)
@@ -224,7 +244,7 @@ static/backgrounds/                                  theme background images
 static/vendor/, static/fonts/                        Tailwind CSS, Chart.js and fonts (built by tools/build_assets.py)
 migrations.py, integrity.py, spent.py                schema migrations, data and photo integrity, time spent
 tools/                                               check_locales.py, check_theme.py, build_assets.py, deploy.sh, clean.sh,
-                                                     check_backup.py, check_data.py, make_thumbs.py
+                                                     check_backup.py, check_data.py, make_thumbs.py, archive_tool.py
 logs/                                                app.log, notify.log, backup.log (created automatically)
 PLANS.md                                             postponed ideas and decisions (in Russian)
 ```
@@ -290,7 +310,7 @@ Two shared run configurations from the `.run/` folder appear in the run list:
 - HTTPS is off by default and the certificate is self-signed: traffic is encrypted, but every device shows a warning
   once. There is no automatic certificate renewal.
 - No redirect from HTTP to HTTPS: there is one port, serving either HTTP or HTTPS.
-- The backup does not include photos, references or progress photos.
+- The Google Sheets auto-backup does not include photos: for a full copy use the archive (Settings → Backup). The archive itself is not scheduled.
 - Without trusted HTTPS the PWA is limited (a shortcut instead of an app, no offline page).
 - Catching up missed runs is limited: pushes within 3 hours on the same day, the backup within 24 hours, only the latest run.
 - The database runs in WAL mode: do not copy `tracker.db` while the app is running (stop the app or use

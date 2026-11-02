@@ -27,7 +27,7 @@ DEFAULT_LANG = "ru-RU"
 NAME_KEY = "meta.name"
 
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
-PY_FILES = ["app.py", "bot.py", "bot_api.py", "bot_views.py", "bot_photos.py", "bot_tasks.py", "notify.py", "common.py", "scheduler.py", "database.py", "i18n.py", "auth.py", "pipeline.py", "vacation.py", "tgproxy.py", "ics.py", "tgclean.py", "activity.py", "spent.py"]
+PY_FILES = ["app.py", "bot.py", "bot_api.py", "bot_views.py", "bot_photos.py", "bot_tasks.py", "notify.py", "common.py", "scheduler.py", "database.py", "i18n.py", "auth.py", "pipeline.py", "vacation.py", "tgproxy.py", "ics.py", "tgclean.py", "activity.py", "spent.py", "archive.py", "tools/archive_tool.py"]
 JS_FILES = ["static/app.js", "static/photos.js", "static/settings.js", "static/cards.js", "static/analytics.js", "static/main.js", "static/themes.js", "static/progress.js", "static/dropzone.js", "static/trash.js", "static/calendar.js", "static/i18n.js", "static/auth.js", "static/pwa.js", "static/dateinput.js", "static/templates.js"]
 HTML_FILES = ["templates/index.html", "templates/components/nav.html", "templates/components/tabs.html",
               "templates/components/modals.html", "templates/components/toasts.html", "templates/login.html"]
@@ -47,7 +47,7 @@ def placeholders(text):
 
 
 def scan_code():
-    """-> (used, literals): used are keys from tr() calls; literals are any area.name-like strings in the code."""
+    """-> (used, literals): used are keys from tr() calls (and ArchiveError(key) in archive.py); literals are any area.name-like strings in the code."""
     used, literals = {}, set()
 
     def add(key, where):
@@ -59,7 +59,7 @@ def scan_code():
             continue
         tree = ast.parse(src)
         for node in ast.walk(tree):
-            if (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "tr" and node.args
+            if (isinstance(node, ast.Call) and getattr(node.func, "id", "") in ("tr", "ArchiveError") and node.args
                     and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)):
                 add(node.args[0].value, rel)
             if isinstance(node, ast.Constant) and isinstance(node.value, str) and KEY_RE.match(node.value):
