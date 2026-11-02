@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks a UI theme (static/themes.css + the THEMES registry in static/app.js).
+"""Checks a UI theme (static/themes.css + the THEMES registry in static/themes.js).
 
   python tools/check_theme.py                 check every theme in the THEMES registry
   python tools/check_theme.py theme-neon      check one theme
@@ -23,7 +23,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSS = os.path.join(ROOT, "static", "themes.css")
-APP_JS = os.path.join(ROOT, "static", "app.js")
+APP_JS = os.path.join(ROOT, "static", "themes.js")
 INDEX = os.path.join(ROOT, "static", "fonts", "fonts.css")      # local fonts, built by tools/build_assets.py
 
 CHART_TOKENS = [
@@ -224,14 +224,14 @@ def main():
     fonts_html = open(INDEX, encoding="utf-8").read() if os.path.exists(INDEX) else ""
     registry = registered_themes()
     if registry is None:
-        print("В static/app.js не найден реестр const THEMES = [...]")
+        print("В static/themes.js не найден реестр const THEMES = [...]")
         return 1
     targets = sys.argv[1:] or registry
     failed = 0
     for tid in targets:
         errors, warnings = check(tid, css, fonts_html)
         if tid not in registry:
-            errors.insert(0, f"тема не зарегистрирована в THEMES (static/app.js): добавьте {{ id: '{tid}', label: () => '...' }}")
+            errors.insert(0, f"тема не зарегистрирована в THEMES (static/themes.js): добавьте {{ id: '{tid}', label: () => '...' }}")
         status = "ОШИБКИ" if errors else "ок"
         print(f"== {tid}: {status}")
         for e in errors:

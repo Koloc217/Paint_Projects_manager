@@ -204,12 +204,15 @@ Chrome) браузер включает только на `https` с серти�
 
 ```
 app.py, bot.py, notify.py, scheduler.py, backup.py   сервер, бот, уведомления, расписание, бэкап
+bot_api.py, bot_views.py, bot_photos.py, bot_tasks.py   бот: запросы к Telegram, карточки, фото, конструктор задач и время
 auth.py, tls.py, common.py, database.py, i18n.py     вход, HTTPS, общие функции и конфиг, модели БД, переводы
 pipeline.py, vacation.py, tgproxy.py, storage.py     шаблоны пайплайна, отпуск, прокси для Telegram, занятое место
 progress.py, logs.py                                 фото прогресса (веб и бот), журналы с ротацией
 locales.json                                         все тексты интерфейса, бота и уведомлений
 templates/                                           страница, вход, компоненты (nav, tabs, modals, toasts, pwa_head)
-static/app.js, i18n.js, auth.js, dateinput.js        логика интерфейса, переводы, хэш пароля, поля даты
+static/app.js, i18n.js, auth.js, dateinput.js        ядро интерфейса, переводы, хэш пароля, поля даты
+static/cards.js, photos.js, settings.js, analytics.js   карточки и задачи, обложка и референсы, настройки, графики
+static/main.js, themes.js                            запуск страницы, реестр тем и переключатель
 static/calendar.js, progress.js, templates.js, trash.js   календарь, фото прогресса, шаблоны и отпуск, корзина
 static/dropzone.js, dropzone.css                        перетаскивание картинок (обложка, референсы, прогресс)
 static/themes.css, mobile.css, card-tab.css          темы, телефонная вёрстка, карточка во вкладке

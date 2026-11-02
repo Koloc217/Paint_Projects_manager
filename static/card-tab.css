@@ -1,6 +1,6 @@
 /* ==========================================================================
    Project card in a separate tab: /?card=<id>
-   app.js (initStandaloneCard) puts the card-standalone class on <body>.
+   cards.js (initStandaloneCard) puts the card-standalone class on <body>.
    The modal becomes a normal full-width page; on a wide screen the recipe and tasks
    are on the left and a column of photos (references and progress) with large previews on the right.
    The regular modal on the dashboard does not change.
@@ -94,7 +94,7 @@ body.card-standalone #pdProgress > div > div:not(:first-child) {
 
 /* ==========================================================================
    Compact card (the modal on the dashboard): "Tasks" and "Photos" sub-tabs.
-   app.js (switchCardTab) puts the pd-tab-media class on #pdPanel while the "Photos" sub-tab is open.
+   cards.js (switchCardTab) puts the pd-tab-media class on #pdPanel while the "Photos" sub-tab is open.
    The separate tab (/?card=) has no sub-tabs: recipe, tasks and photos are all visible.
    ========================================================================== */
 body:not(.card-standalone) #pdPanel:not(.pd-tab-media) #pdMedia,

@@ -27,8 +27,8 @@ DEFAULT_LANG = "ru-RU"
 NAME_KEY = "meta.name"
 
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
-PY_FILES = ["app.py", "bot.py", "notify.py", "common.py", "scheduler.py", "database.py", "i18n.py", "auth.py", "pipeline.py", "vacation.py", "tgproxy.py", "ics.py", "tgclean.py", "activity.py", "spent.py"]
-JS_FILES = ["static/app.js", "static/progress.js", "static/dropzone.js", "static/trash.js", "static/calendar.js", "static/i18n.js", "static/auth.js", "static/pwa.js", "static/dateinput.js", "static/templates.js"]
+PY_FILES = ["app.py", "bot.py", "bot_api.py", "bot_views.py", "bot_photos.py", "bot_tasks.py", "notify.py", "common.py", "scheduler.py", "database.py", "i18n.py", "auth.py", "pipeline.py", "vacation.py", "tgproxy.py", "ics.py", "tgclean.py", "activity.py", "spent.py"]
+JS_FILES = ["static/app.js", "static/photos.js", "static/settings.js", "static/cards.js", "static/analytics.js", "static/main.js", "static/themes.js", "static/progress.js", "static/dropzone.js", "static/trash.js", "static/calendar.js", "static/i18n.js", "static/auth.js", "static/pwa.js", "static/dateinput.js", "static/templates.js"]
 HTML_FILES = ["templates/index.html", "templates/components/nav.html", "templates/components/tabs.html",
               "templates/components/modals.html", "templates/components/toasts.html", "templates/login.html"]
 

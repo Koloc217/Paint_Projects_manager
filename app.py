@@ -1,5 +1,7 @@
 import os
 import re
+import json
+import hashlib
 import math
 import time
 import uuid
@@ -41,6 +43,7 @@ import ics
 import activity
 import integrity
 import spent
+import tgclean
 
 ensure_schema()
 
@@ -107,6 +110,12 @@ async def trash_loop():
                 print(f"🗑 Erased from the trash: {n} project(s)")
         except Exception as e:
             print(f"[TRASH ERROR] {e!r}")
+        try:
+            # rows of bot messages older than 48 h: Telegram no longer lets the bot delete them, so they are
+            # useless. The bot prunes too, but only while it is connected; this keeps the table small either way.
+            await asyncio.to_thread(tgclean.prune)
+        except Exception as e:
+            print(f"[TGCLEAN ERROR] {e!r}")
         try:
             res = await asyncio.to_thread(cleanup_orphans)
             if res["moved"] or res["erased_days"]:
@@ -395,7 +404,19 @@ def index(request: Request):
     )
 
 @app.get("/api/data")
-def get_data(db: Session = Depends(get_db)):
+def get_data(request: Request, db: Session = Depends(get_db)):
+    """Everything the page shows. The answer carries an ETag (a hash of its content): the page sends it back
+    in If-None-Match and gets an empty 304 when nothing changed, so it neither downloads nor redraws anything."""
+    body = json.dumps(collect_data(db), ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+                      default=str).encode("utf-8")
+    etag = '"' + hashlib.sha1(body).hexdigest()[:20] + '"'
+    headers = {"ETag": etag, "Cache-Control": "no-store"}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return Response(content=body, media_type="application/json", headers=headers)
+
+
+def collect_data(db: Session) -> dict:
     config = load_config()
     projects = live_projects(db).all()
     tasks = live_tasks(db).all()

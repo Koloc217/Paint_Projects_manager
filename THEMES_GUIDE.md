@@ -26,7 +26,7 @@
    /* === END THEME: theme-neon === */
    ```
 
-2. **Регистрация** одной строкой в реестре `THEMES` в `static/app.js`:
+2. **Регистрация** одной строкой в реестре `THEMES` в `static/themes.js`:
 
    ```js
    { id: 'theme-neon', label: () => '🌈 Neon' },
@@ -196,7 +196,7 @@ body.theme-neon button.bg-indigo-600 { background: #7a2cff !important; }
 1) CSS для конца static/themes.css между маркерами /* === THEME: theme-<имя> === */ и /* === END THEME: theme-<имя> === */.
    Каждый селектор начинается с body.theme-<имя>; все свойства с !important (кроме --переменных); заданы все
    15 токенов --chart-*; у body заданы background-color и color; шрифты только с кириллицей.
-2) Одну строку для реестра THEMES в static/app.js: { id: 'theme-<имя>', label: () => '<эмодзи> <Название>' },
+2) Одну строку для реестра THEMES в static/themes.js: { id: 'theme-<имя>', label: () => '<эмодзи> <Название>' },
 3) Список веб-шрифтов с начертаниями в виде имён пакетов Fontsource (например "russo-one": (400,)), либо слово «нет».
 
 Нельзя: менять вёрстку и размеры, прятать элементы, подключать внешние картинки и @import, трогать селекторы без
