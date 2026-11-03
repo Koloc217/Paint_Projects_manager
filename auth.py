@@ -46,7 +46,8 @@ MIN_PASSWORD_LEN = 8                 # checked in the browser (the server only r
 
 MAX_FAILS = 5
 FAIL_WINDOW_SEC = 300
-PUBLIC_PREFIXES = ("/static/", "/cal/")    # /cal/: calendar subscription, protected by its own secret token
+PUBLIC_PREFIXES = ("/static/", "/cal/", "/api/v1/")    # /cal/: calendar subscription, protected by its own secret token;
+                                                      # /api/v1/: device API, protected by its own key (devices.py)
 PUBLIC_PATHS = ("/login", "/api/auth/login", "/sw.js", "/manifest.webmanifest")   # PWA: without login, otherwise installing fails
 # while the default password is not changed, only these are available
 MUST_CHANGE_PATHS = ("/login", "/api/auth/login", "/api/auth/change", "/api/auth/logout", "/api/auth/status")
