@@ -131,6 +131,9 @@ DEFAULT_CONFIG = {
     "ASK_SPENT_TIME": True,
     # calendar subscription (/cal/<token>.ics): off by default; the token is generated when it is turned on
     "ICS_FEED": {"enabled": False, "token": ""},
+    # API for external devices (e-ink frame, ESP32 screens), /api/v1/...: off by default, see devices.py.
+    # key: optional secret for devices (required when app login is on); hot_days: how close a deadline is "hot"
+    "DEVICE_API": {"enabled": False, "key": "", "hot_days": 3},
 }
 
 DATE_FORMATS = {"dmy": "%d.%m.%Y", "mdy": "%m/%d/%Y"}
@@ -356,6 +359,22 @@ def _normalize_config(cfg: dict, problems: list = None) -> dict:
         cfg["ICS_FEED"] = dict(DEFAULT_CONFIG["ICS_FEED"])
     else:
         cfg["ICS_FEED"] = {"enabled": bool(feed.get("enabled")), "token": feed.get("token", "")}
+    dev = cfg.get("DEVICE_API")
+    if not isinstance(dev, dict):
+        bad("DEVICE_API", dev, "off")
+        cfg["DEVICE_API"] = dict(DEFAULT_CONFIG["DEVICE_API"])
+    else:
+        fixed = {**DEFAULT_CONFIG["DEVICE_API"], **dev}
+        if not isinstance(fixed["enabled"], bool):
+            bad("DEVICE_API.enabled", fixed["enabled"], False)
+            fixed["enabled"] = False
+        if not isinstance(fixed["key"], str):
+            bad("DEVICE_API.key", fixed["key"], "")
+            fixed["key"] = ""
+        if not _is_int(fixed["hot_days"]) or not 0 <= fixed["hot_days"] <= 365:
+            bad("DEVICE_API.hot_days", fixed["hot_days"], DEFAULT_CONFIG["DEVICE_API"]["hot_days"])
+            fixed["hot_days"] = DEFAULT_CONFIG["DEVICE_API"]["hot_days"]
+        cfg["DEVICE_API"] = {k: fixed[k] for k in DEFAULT_CONFIG["DEVICE_API"]}
     return cfg
 
 

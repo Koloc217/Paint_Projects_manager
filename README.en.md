@@ -217,8 +217,41 @@ Password login does not break installation: `/sw.js` and `/manifest.webmanifest`
 |---|---|
 | Port and address (`PORT`, `HOST`), secrets (bot token, proxy), HTTPS | `.env` (template: `.env.example`), see "Port and address" |
 | Language, date format, project cost, deadlines to phone calendar, schedule, notifications | Settings in the UI, stored in `config.json` |
+| API for external devices (`DEVICE_API`) | `config.json`, see "External devices" |
 | Password | Settings → Access; reset from the console: `python auth.py reset` |
 | Theme background images | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` ship with the repository, `wh40k_bg.jpg` you add yourself (without an image the theme draws its own background), see [static/backgrounds/README.en.md](static/backgrounds/README.en.md) |
+
+## External devices
+
+The e-ink photo frame and other screens (ESP32 and the like) use a separate API, `/api/v1/`. The app only hands out
+data; the device does the layout itself (font, colors, clipping long names to its own width).
+Off by default, turned on in `config.json`:
+
+```json
+"DEVICE_API": {"enabled": true, "key": "", "hot_days": 3}
+```
+
+- `enabled`: without it `/api/v1/` answers 404;
+- `key`: optional key. When set, a device sends it in the `X-Device-Key` header or as `?key=...`.
+  When password login is on, the key is required: without one `/api/v1/` stays closed;
+- `hot_days`: a task with a deadline within this many days (or overdue) is hot.
+
+**`GET /api/v1/hot?limit=2`**: what a small screen should show.
+
+1. Hot tasks: overdue first (oldest first), then close deadlines, at most `limit` (up to 5).
+2. No hot tasks: the single nearest task with a deadline, however far away.
+3. No tasks with a deadline: an empty list and a ready phrase in the app's language.
+
+Tasks without a deadline do not count. Closed tasks, finished and paused projects and the trash are left out.
+
+```json
+{"mode": "hot", "today": "2026-11-03", "message": "",
+ "tasks": [{"id": "TSK-…", "name": "Prime", "project": "Knight", "project_id": "PRJ-…",
+            "deadline": "2026-11-02", "days_left": -1, "overdue": true}]}
+```
+
+`mode`: `hot` | `nearest` | `empty`; `message` is filled only for `empty`. Example for the frame:
+`curl -s http://<pi-address>:8000/api/v1/hot -H "X-Device-Key: <key>"`.
 
 ## Layout
 
@@ -227,8 +260,7 @@ app.py, bot.py, notify.py, scheduler.py             server, bot, notifications, 
 bot_api.py, bot_views.py, bot_photos.py, bot_tasks.py   bot: Telegram calls, cards, photos, task builder and time
 auth.py, tls.py, common.py, database.py, i18n.py     login, HTTPS, shared helpers and config, DB models, translations
 pipeline.py, vacation.py, tgproxy.py, storage.py     pipeline templates, vacation, Telegram proxy, used space
-archive.py                                           data archive (download and restore)
-archive.py                                           data archive (download and restore)
+archive.py, devices.py                               data archive (download and restore), API for devices
 progress.py, logs.py                                 progress photos (web and bot), rotating logs
 locales.json                                         all texts of the UI, the bot and notifications
 templates/                                           page, login, components (nav, tabs, modals, toasts, pwa_head)
