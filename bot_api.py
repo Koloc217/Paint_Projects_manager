@@ -32,7 +32,7 @@ def _http_client() -> httpx.Client:
     with _client_lock:
         if _client is None or url != _client_proxy:
             old = _client
-            transport = httpx.HTTPTransport(proxy=url) if url else None
+            transport = tgproxy.make_transport(url)      # SOCKS handshake limited, see tgproxy.STALL_TIMEOUT_SEC
             _client = httpx.Client(transport=transport, timeout=httpx.Timeout(20.0, connect=10.0))
             _client_proxy = url
             if old is not None:
