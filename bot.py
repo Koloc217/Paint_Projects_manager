@@ -55,6 +55,7 @@ COMMANDS = [                         # (command, description key)
     ("photo", "bot.cmd_photo_desc"),
     ("myphotos", "bot.cmd_myphotos_desc"),
     ("calendar", "bot.cmd_calendar_desc"),
+    ("summary", "bot.cmd_summary_desc"),
     ("stats", "bot.cmd_stats_desc"),
     ("clear", "bot.cmd_clear_desc"),
     ("help", "bot.cmd_help_desc"),
@@ -132,6 +133,12 @@ async def sync_menu_commands():
 
 
 # ==================== COMMANDS AND CALLBACKS ====================
+
+async def cmd_summary():
+    """/summary: the regular digest right now, exactly as the scheduled one (like "Send now" in the app).
+    No "started" reply: the digest itself is the answer, so the chat stays clean."""
+    spawn_script("notify.py", ["--now", "--source=bot"])
+
 
 async def cmd_test_notify(chat_id: int):
     spawn_script("notify.py", ["--test"])
@@ -479,6 +486,8 @@ async def _process_update(item: dict):
             await bot_api.send_message(chat_id, tr("bot.calendar_off"))
     elif text.startswith("/clear"):
         await start_clear(chat_id)
+    elif text.startswith("/summary"):
+        await cmd_summary()
     elif text.startswith("/stats"):
         await bot_api.send_message(chat_id, await asyncio.to_thread(bot_views.build_current_month_stats))
     elif text.startswith("/test_notify"):
