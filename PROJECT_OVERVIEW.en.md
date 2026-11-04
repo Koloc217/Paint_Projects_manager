@@ -28,7 +28,8 @@ and starting a new project costs tokens. The goal is to finish what you start in
 - **One service.** The web app, the bot and the scheduler start together with the app (`lifespan` in `app.py`).
 - **The `notify.py` script** is started by the scheduler as a separate process with the same
   interpreter (`sys.executable`), so the venv path is not hard-coded anywhere. Its output goes to `logs/notify.log`
-  (rotated at 1 MB, three copies, job timeout 180 s). Everything the app prints to the console is
+  (rotated at 1 MB, three copies, job timeout 180 s; output is unbuffered, so a script killed on timeout still leaves
+  in the log how far it got). Everything the app prints to the console is
   copied to `logs/app.log` with the same rotation (`logs.py`, pure Python, so it works the same on Windows and Linux).
 - **Data.** `tracker.db` (SQLite), the `photos/` folder (photos and references), `config.json` (settings and the chat
   link), `.env` (secrets).
@@ -361,6 +362,11 @@ Only needed if Telegram is not reachable directly (`tgproxy.py`, Settings → Te
   address are allowed. MTProto proxies (`tg://proxy?…`, `dd…` secrets) do not work with the Bot API and are rejected.
 - **The password never reaches the browser:** the UI only gets a mask (`socks5://***@host:1080`). An empty field on
   "Apply" keeps the saved address (or the one from `.env`, which is then copied into `config.json`).
+- **A stuck proxy does not hang the bot.** httpx reads the SOCKS5 handshake replies with no timeout: a proxy that
+  accepted the connection and stays silent would hold the request (and its worker thread) forever, and piled-up threads
+  stopped the bot entirely. So every connection to Telegram (the bot, `notify.py`, "Check connection") goes through
+  `tgproxy.make_transport`: any read or write without its own timeout is limited to `STALL_TIMEOUT_SEC` (15 s), then it
+  is an ordinary network error and a retry.
 - **"Check connection"** sends a `getMe` request with what is in the form right now (before saving) and shows the bot
   name or the error.
 - API: `GET /api/telegram/proxy` (state: `source` = `env` or `settings`, `enabled`, `has_url`, `display`),
@@ -470,7 +476,9 @@ In DEV MODE and during a vacation (see "Settings window") automatic pushes are s
 `.notify_state.json` under a file lock, so simultaneous runs (an old cron entry plus the scheduler, two copies of the
 app) produce one message. The lock works on Linux (`fcntl`) and on Windows (`msvcrt`). A skipped run writes to
 `logs/notify.log` who took the slot. Flags: `--test` (test, skips the protection), `--force` (skips the protection),
-`--monthly` (report only), `--source=name`. Exit code 0 means the message was sent (or there was nothing to send), 1
+`--now` (the regular digest at once: the "Send now" button and `/summary`; skips the protection, silent mode and the
+vacation), `--monthly` (report only), `--source=name`. Every request to Telegram is limited to 30 seconds and, if it
+hangs, is retried once on a fresh connection; the log then has a `Telegram did not answer in 30 s` line. Exit code 0 means the message was sent (or there was nothing to send), 1
 means Telegram did not accept it or there is no token; the code is visible in `logs/notify.log`.
 
 ---
