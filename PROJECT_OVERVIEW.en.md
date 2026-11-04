@@ -389,6 +389,7 @@ All user text is escaped before sending (HTML mode).
 | `/calendar` | deadlines as an `.ics` file: open it on a phone to add them to the calendar. Only while calendar export is on; otherwise the command is not in the menu or `/help` |
 | `/clear` | clear the chat: asks "Delete all (N)" or "All but the latest digest", then "Chat cleared", which removes itself after 5 seconds |
 | `/stats` | statistics of the current month: tasks closed, projects finished, tokens earned, balance |
+| `/summary` | the summary right now, as the scheduled one (same as "Send now" in the app: silent mode and vacation don't block it) |
 | `/test_notify` | starts a test notification |
 
 **Project in focus:** among active projects, "In progress" first, then by priority (Critical → Low), then by the nearest
