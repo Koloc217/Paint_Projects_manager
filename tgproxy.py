@@ -12,6 +12,7 @@ import os
 from typing import Optional
 from urllib.parse import urlsplit
 
+import httpcore
 import httpx
 from dotenv import load_dotenv
 
@@ -45,10 +46,65 @@ def get_url(cfg: dict = None) -> Optional[str]:
     return (str(block.get("url") or "")).strip() or None
 
 
+# httpx/httpcore read the SOCKS5 handshake replies with no timeout at all: a proxy that accepts the connection and
+# then stays silent blocks the request (and its thread) forever, whatever timeout the client has. In the bot those
+# threads piled up until the worker pool was full, and from then on every request failed even with the proxy fine.
+# So any socket read or write that comes without a timeout gets this one.
+STALL_TIMEOUT_SEC = 15.0
+
+
+class _DeadlineStream:
+    """A network stream whose reads and writes never wait without a limit."""
+
+    def __init__(self, inner, limit: float):
+        self._inner = inner
+        self._limit = limit
+
+    def _t(self, timeout):
+        return self._limit if timeout is None else timeout
+
+    def read(self, max_bytes, timeout=None):
+        return self._inner.read(max_bytes, self._t(timeout))
+
+    def write(self, buffer, timeout=None):
+        return self._inner.write(buffer, self._t(timeout))
+
+    def start_tls(self, ssl_context, server_hostname=None, timeout=None):
+        return _DeadlineStream(self._inner.start_tls(ssl_context, server_hostname, self._t(timeout)), self._limit)
+
+    def close(self):
+        return self._inner.close()
+
+    def get_extra_info(self, info):
+        return self._inner.get_extra_info(info)
+
+
+class _DeadlineBackend(httpcore.SyncBackend):
+    def __init__(self, limit: float):
+        self._limit = limit
+
+    def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+        stream = super().connect_tcp(host, port, timeout=self._limit if timeout is None else timeout,
+                                     local_address=local_address, socket_options=socket_options)
+        return _DeadlineStream(stream, self._limit)
+
+
+def make_transport(url: Optional[str], stall_timeout: float = None):
+    """httpx transport through the given proxy (None for a direct connection), with the SOCKS handshake limited."""
+    if not url:
+        return None
+    tr_ = httpx.HTTPTransport(proxy=url)
+    pool = getattr(tr_, "_pool", None)
+    # the backend is a private attribute of httpcore 1.x; if a future version renames it, the transport still works,
+    # only without the handshake limit
+    if isinstance(pool, httpcore.SOCKSProxy) and hasattr(pool, "_network_backend"):
+        pool._network_backend = _DeadlineBackend(STALL_TIMEOUT_SEC if stall_timeout is None else stall_timeout)
+    return tr_
+
+
 def transport(cfg: dict = None):
     """httpx transport for requests to Telegram: through the proxy, or direct (None)."""
-    url = get_url(cfg)
-    return httpx.HTTPTransport(proxy=url) if url else None
+    return make_transport(get_url(cfg))
 
 
 def validate(url: str) -> Optional[str]:
@@ -130,7 +186,7 @@ def check(bot_token: Optional[str], url: Optional[str], timeout: float = 12.0) -
     """A test getMe request through the given proxy (or directly if url is empty)."""
     if not bot_token:
         return {"ok": False, "error": "no_token"}
-    tr_ = httpx.HTTPTransport(proxy=url) if url else None
+    tr_ = make_transport(url)
     try:
         with httpx.Client(transport=tr_, timeout=httpx.Timeout(timeout, connect=min(timeout, 10.0))) as client:
             data = client.get(f"https://api.telegram.org/bot{bot_token}/getMe").json()
