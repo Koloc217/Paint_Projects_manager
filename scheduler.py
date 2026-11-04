@@ -172,6 +172,8 @@ async def run_script(script: str, args=(), timeout: float = JOB_TIMEOUT_SEC):
         proc = await asyncio.create_subprocess_exec(
             sys.executable, script_path, *args,
             cwd=BASE_DIR, stdout=log, stderr=asyncio.subprocess.STDOUT,
+            # unbuffered: lines reach the log at once, so a killed (timed-out) script still shows how far it got
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
         try:
             await asyncio.wait_for(proc.wait(), timeout=timeout)

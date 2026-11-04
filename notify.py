@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import threading
 import httpx
 from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
@@ -21,9 +22,46 @@ LOCK_FILE = os.path.join(DATA_DIR, ".notify.lock")
 MIN_GAP_SEC = 600
 MAX_BUTTONS = 4           # task buttons under the message, so the push stays readable
 MAX_SECTION_ITEMS = 12    # lines per section (overdue, burning, ...); the rest becomes "…and N more"
+# httpx applies no timeout to the SOCKS5 handshake: a proxy that accepts the connection but never answers it hangs
+# the request for good (the scheduler then kills the script after 3 minutes and nothing reaches the chat).
+# So every request also gets a hard limit of its own, and a hung one is tried once more on a fresh connection.
+REQUEST_DEADLINE_SEC = 30
+REQUEST_ATTEMPTS = 2
 
 load_dotenv(os.path.join(DATA_DIR, ".env"))
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+
+def _post_once(url, payload):
+    with httpx.Client(transport=tgproxy.transport(), timeout=20.0) as client:
+        return client.post(url, json=payload)
+
+
+def tg_post(url, payload, deadline=None, attempts=None, post=None):
+    """POST to Telegram with a hard time limit per attempt (see REQUEST_DEADLINE_SEC).
+    The request runs in a daemon thread: a hung one is abandoned, and the process can still exit.
+    Returns the response; raises httpx.HTTPError on a network error, TimeoutError if every attempt hung."""
+    deadline = REQUEST_DEADLINE_SEC if deadline is None else deadline
+    attempts = REQUEST_ATTEMPTS if attempts is None else attempts
+    post = post or _post_once
+    for attempt in range(1, attempts + 1):
+        box = {}
+
+        def run():
+            try:
+                box["resp"] = post(url, payload)
+            except BaseException as e:          # handed over to the caller's thread
+                box["err"] = e
+
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        worker.join(deadline)
+        if "resp" in box:
+            return box["resp"]
+        if "err" in box:
+            raise box["err"]
+        print(f"[NOTIFY] Telegram did not answer in {deadline} s ({tgproxy.describe()}), attempt {attempt} of {attempts}")
+    raise TimeoutError(f"no answer from Telegram in {deadline} s")
 
 
 def send_tg_message(chat_id, text, reply_markup=None, kind="digest") -> bool:
@@ -35,9 +73,8 @@ def send_tg_message(chat_id, text, reply_markup=None, kind="digest") -> bool:
         payload["reply_markup"] = reply_markup
     # The proxy is optional: Settings → Telegram or PROXY_URL in .env (see tgproxy.py)
     try:
-        with httpx.Client(transport=tgproxy.transport(), timeout=20.0) as client:
-            resp = client.post(url, json=payload)
-    except httpx.HTTPError as e:
+        resp = tg_post(url, payload)
+    except (httpx.HTTPError, TimeoutError) as e:
         print(f"[NOTIFY ERROR] no connection to Telegram ({tgproxy.describe()}): {e.__class__.__name__}")
         return False
     if resp.status_code != 200:
@@ -59,12 +96,11 @@ def cleanup_digests(chat_id) -> None:
         ids = tgclean.digest_candidates(chat_id)
         if not ids:
             return
-        with httpx.Client(transport=tgproxy.transport(), timeout=20.0) as client:
-            for batch in tgclean.batches(ids):
-                resp = client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteMessages",
-                                   json={"chat_id": chat_id, "message_ids": batch})
-                if resp.status_code != 200:
-                    print(f"[NOTIFY] deleteMessages: Telegram returned {resp.status_code}: {resp.text[:200]}")
+        for batch in tgclean.batches(ids):
+            resp = tg_post(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteMessages",
+                           {"chat_id": chat_id, "message_ids": batch}, attempts=1)
+            if resp.status_code != 200:
+                print(f"[NOTIFY] deleteMessages: Telegram returned {resp.status_code}: {resp.text[:200]}")
         tgclean.forget(chat_id, ids)          # deleted, or too old to delete anyway
     except Exception as e:                     # cleanup must never break sending
         print(f"[NOTIFY] digest cleanup failed: {e.__class__.__name__}")
