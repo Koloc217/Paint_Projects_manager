@@ -108,7 +108,7 @@ indexes on `tasks.project_id` and `projects.deleted_at` in older databases (`CRE
 | `updated_at` | last "progress" on the project (for the stagnation detector) |
 | `completed_at` | when the project was finished |
 
-**`tasks`**: `id` (`TSK-XXXXXX`), `project_id`, `task_name`, `deadline`, `status` (`Не начато` (Not started),
+**`tasks`**: `id` (`TSK-XXXXXX`), `project_id` (empty = a general task without a project), `task_name`, `deadline`, `status` (`Не начато` (Not started),
 `В процессе` (In progress), `Закончен` (Done)), `postponed` (how many times the deadline was moved from the bot),
 `completed_at`, `closed_from` (the status before it was closed together with its project; empty if closed by hand).
 
@@ -178,7 +178,7 @@ deadline, and allows creating projects without tokens.
     not matter. Searches the name, id, priority, status, stage (both the stored code and its translation),
     the notes text and the project's task names. The counter shows "found / total", Esc clears the field, the filter
     survives data refreshes. Runs in the browser; nothing is sent to the server.
-- **All tasks.** Tasks grouped by active project.
+- **All tasks.** "General tasks" first (no project: tidying, tool maintenance), then tasks grouped by active project.
 - **Calendar.** A month grid (the week always starts on Monday, in any date format): deadlines of open tasks
   and 📌 project deadlines. Overdue items are red, closed ones struck through; a cell shows three entries and
   "N more". Clicking a day opens its list, clicking an entry opens the project. Finished projects are not shown.

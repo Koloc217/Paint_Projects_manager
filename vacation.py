@@ -60,7 +60,7 @@ def start(db, days: int, now: datetime = None):
                 p.updated_at = p.updated_at + delta
         moved_tasks = 0
         for t in live_tasks(db).filter(Task.deadline.isnot(None)).all():
-            if t.project_id in open_ids and not is_done(t.status):
+            if (t.project_id is None or t.project_id in open_ids) and not is_done(t.status):
                 t.deadline = t.deadline + delta
                 moved_tasks += 1
         db.commit()

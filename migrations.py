@@ -8,6 +8,7 @@ leaves the database exactly as it was and is retried on the next start.
     1  baseline: the column additions that ensure_schema() used to check on every start
     2  time spent: tasks.spent_min / tasks.spent_stage, projects.extra_spent_min
     3  foreign keys: tasks, references and progress photos belong to a project (ON DELETE CASCADE)
+    4  general tasks: tasks.project_id may be empty (a task outside any project)
 
 Rules for new steps:
 - add a function and append it to STEPS; never change or reorder a released step;
@@ -88,43 +89,65 @@ def step_2_time_spent(conn) -> None:
 _FK_TABLES = ("tasks", "project_refs", "progress_photos")
 
 
-def step_3_foreign_keys(conn) -> None:
-    """tasks, project_refs and progress_photos get project_id REFERENCES projects(id) ON DELETE CASCADE.
-
-    SQLite cannot add a constraint to an existing table, so each table is rebuilt: indexes dropped, the old table
-    renamed, the new one created from the model (same DDL as a new install), the rows copied, the old table dropped.
-    Rows of projects that no longer exist are not copied: nothing could show them, and the constraint would reject
-    them. Their photo files become unreferenced and are moved aside by integrity.cleanup_orphan_files().
-    Runs with foreign_keys=OFF (see migrate()), as the SQLite manual prescribes for table rebuilds."""
+def _rebuild_table(conn, name: str, keep_where: str) -> None:
+    """Re-creates a table from its model (same DDL as a new install) and copies the rows that match keep_where.
+    SQLite cannot add a constraint or drop NOT NULL on an existing table: indexes are dropped, the old table
+    renamed, the new one created, the rows copied, the old table dropped."""
     from sqlalchemy.dialects import sqlite as sqlite_dialect
     from sqlalchemy.schema import CreateIndex, CreateTable
     import database
 
     dialect = sqlite_dialect.dialect()
+    table = database.Base.metadata.tables[name]
+    old_cols = set(_columns(conn, name))
+    for idx in conn.execute(f"PRAGMA index_list({name})").fetchall():
+        if idx[3] == "c":                             # made by CREATE INDEX (not a primary key / unique)
+            conn.execute(f'DROP INDEX IF EXISTS "{idx[1]}"')
+    conn.execute(f"ALTER TABLE {name} RENAME TO {name}__old")
+    conn.execute(str(CreateTable(table).compile(dialect=dialect)))
+    for index in table.indexes:
+        conn.execute(str(CreateIndex(index).compile(dialect=dialect)))
+    cols = ", ".join(c.name for c in table.columns if c.name in old_cols)
+    conn.execute(f"INSERT INTO {name} ({cols}) SELECT {cols} FROM {name}__old WHERE {keep_where}")
+    conn.execute(f"DROP TABLE {name}__old")
+
+
+def step_3_foreign_keys(conn) -> None:
+    """tasks, project_refs and progress_photos get project_id REFERENCES projects(id) ON DELETE CASCADE.
+
+    Each table is rebuilt (see _rebuild_table). Rows of projects that no longer exist are not copied: nothing could
+    show them, and the constraint would reject them. Their photo files become unreferenced and are moved aside by
+    integrity.cleanup_orphan_files(). Runs with foreign_keys=OFF (see migrate()), as the SQLite manual prescribes
+    for table rebuilds.
+
+    Released step: the tasks table is rebuilt here from the current model, which already allows an empty
+    project_id (step 4); the rows copied are the same, so the outcome of steps 3+4 does not change."""
     for name in _FK_TABLES:
         if not _has_table(conn, name):
             continue
         if any(r[2] == "projects" for r in conn.execute(f"PRAGMA foreign_key_list({name})").fetchall()):
             continue                                      # a new install: create_all() already made it right
-        table = database.Base.metadata.tables[name]
-        old_cols = set(_columns(conn, name))
-        for idx in conn.execute(f"PRAGMA index_list({name})").fetchall():
-            if idx[3] == "c":                             # made by CREATE INDEX (not a primary key / unique)
-                conn.execute(f'DROP INDEX IF EXISTS "{idx[1]}"')
-        conn.execute(f"ALTER TABLE {name} RENAME TO {name}__old")
-        conn.execute(str(CreateTable(table).compile(dialect=dialect)))
-        for index in table.indexes:
-            conn.execute(str(CreateIndex(index).compile(dialect=dialect)))
-        cols = ", ".join(c.name for c in table.columns if c.name in old_cols)
-        conn.execute(f"INSERT INTO {name} ({cols}) SELECT {cols} FROM {name}__old "
-                     f"WHERE project_id IN (SELECT id FROM projects)")
-        conn.execute(f"DROP TABLE {name}__old")
+        _rebuild_table(conn, name, "project_id IN (SELECT id FROM projects)")
     bad = conn.execute("PRAGMA foreign_key_check").fetchall()
     if bad:
         raise RuntimeError(f"foreign key check failed after the rebuild: {bad[:5]}")
 
 
-STEPS = [step_1_baseline, step_2_time_spent, step_3_foreign_keys]
+def step_4_general_tasks(conn) -> None:
+    """General tasks: tasks.project_id may be NULL (a task outside any project). Drops NOT NULL by rebuilding the
+    table; every row is kept. Nothing to do on a new install or after step 3 already rebuilt from the new model."""
+    if not _has_table(conn, "tasks"):
+        return
+    info = {r[1]: r for r in conn.execute("PRAGMA table_info(tasks)").fetchall()}
+    if "project_id" not in info or not info["project_id"][3]:        # notnull flag already off
+        return
+    _rebuild_table(conn, "tasks", "1")
+    bad = conn.execute("PRAGMA foreign_key_check").fetchall()
+    if bad:
+        raise RuntimeError(f"foreign key check failed after the rebuild: {bad[:5]}")
+
+
+STEPS = [step_1_baseline, step_2_time_spent, step_3_foreign_keys, step_4_general_tasks]
 LATEST = len(STEPS)
 
 

@@ -157,14 +157,16 @@ function renderTasks() {
     
     if (!activeTasks.length) {
         const noProjects = !currentProjects.some(p => !isDoneStatus(p.Status));
+        // a general task (no project) can be added even without projects
         container.innerHTML = `<div class="p-6 text-center">
             <div class="text-sm text-slate-400 mb-3">${tr(noProjects ? 'empty.tasks_no_projects' : 'empty.tasks')}</div>
-            ${noProjects ? '' : `<button onclick="openModal('taskModal')" class="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">+ ${tr('common.task')}</button>`}
+            <button onclick="openTaskModal(${noProjects ? "''" : 'undefined'})" class="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg">+ ${tr('common.task')}</button>
         </div>`;
         return;
     }
     patchList(container, activeTasks.slice(0, 5), t => t.ID, t => {
         const proj = currentProjects.find(p => p.ID === t['Project ID']);
+        const label = taskProjectLabel(t, proj);
         const isTaskDone = isDoneStatus(t.Status);
         return `
         <div class="p-3 hover:bg-slate-750 transition-colors relative group">
@@ -173,7 +175,7 @@ function renderTasks() {
                 <button onclick="deleteTask('${t.ID}')" class="text-slate-500 hover:text-red-400 p-1" title="${tr('common.delete')}">✕</button>
             </div>
             <div class="flex flex-wrap justify-between items-start gap-x-2 mb-1 pr-14">
-                <span class="text-[10px] uppercase tracking-wider font-semibold text-indigo-400 truncate max-w-[10rem]" title="${esc(proj ? proj.Name : '')}">${esc(proj ? proj.Name : t['Project ID'])}</span>
+                <span class="text-[10px] uppercase tracking-wider font-semibold ${t['Project ID'] ? 'text-indigo-400' : 'text-teal-300'} truncate max-w-[10rem]" title="${esc(label)}">${esc(label)}</span>
                 <div class="text-xs">${getDeadlineHTML(t.Deadline, true, isTaskDone)}</div>
             </div>
             <p class="text-sm text-slate-200 font-medium mb-2 leading-snug">${esc(t.Task)}</p>
@@ -186,25 +188,41 @@ function renderTasks() {
     });
 }
 
+// Group label of a task: its project, or "General" for a task without a project
+function taskProjectLabel(t, proj) {
+    if (!t['Project ID']) return tr('general.label');
+    return proj ? proj.Name : t['Project ID'];
+}
+
 function renderAllTasks() {
     const container = document.getElementById('allTasksContainer');
     const activeProjects = currentProjects.filter(p => !isDoneStatus(p.Status));
-    if (activeProjects.length === 0) {
+    // General tasks (no project) come first; closed ones older than the open ones stay visible like in projects
+    const generalTasks = projectTasks(null);
+    if (activeProjects.length === 0 && !generalTasks.length) {
         container.innerHTML = `<p class="text-slate-500 text-center py-4">${tr('project.no_active')}</p>`;
         return;
     }
 
     const groups = [];
-    activeProjects.forEach(proj => {
-        let pTasks = projectTasks(proj.ID).slice();
-        if (pTasks.length === 0) return;
-        pTasks = sortTasks(pTasks);
+    const sections = [];
+    if (generalTasks.length) sections.push({ key: '_general', tasks: generalTasks, head: `
+                <div class="min-w-0">
+                    <h3 class="text-base font-bold text-teal-300">🧰 ${esc(tr('general.title'))}</h3>
+                    <div class="text-[11px] text-slate-500">${esc(tr('general.hint'))}</div>
+                </div>
+                <button onclick="openTaskModal('')" class="shrink-0 text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg">+ ${tr('common.task')}</button>` });
+    activeProjects.forEach(proj => sections.push({ key: proj.ID, tasks: projectTasks(proj.ID), head: `
+                <h3 class="text-base font-bold text-white">${esc(proj.Name)}</h3>
+                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${getPriorityColor(proj.Priority)}">${esc(proj.Priority)}</span>` }));
+
+    sections.forEach(sec => {
+        if (sec.tasks.length === 0) return;
+        const pTasks = sortTasks(sec.tasks.slice());
 
         let html = `
         <div class="bg-slate-800 rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden mb-6">
-            <div class="bg-slate-900/80 px-4 py-3 border-b border-slate-700/50 flex justify-between items-center">
-                <h3 class="text-base font-bold text-white">${esc(proj.Name)}</h3>
-                <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${getPriorityColor(proj.Priority)}">${esc(proj.Priority)}</span>
+            <div class="bg-slate-900/80 px-4 py-3 border-b border-slate-700/50 flex justify-between items-center gap-3">${sec.head}
             </div>
             <div class="p-3 space-y-2">`;
 
@@ -229,7 +247,7 @@ function renderAllTasks() {
             </div>`;
         }).join('');
         html += `</div></div>`;
-        groups.push({ key: proj.ID, html });
+        groups.push({ key: sec.key, html });
     });
     if (!groups.length) {
         container.innerHTML = `<p class="text-slate-500 text-center py-4">${tr('task.no_active')}</p>`;
@@ -527,9 +545,18 @@ function updateProjectSelect() {
     // Rebuilding the options resets the selection to the first project; keep the chosen one
     // (loadData runs on window focus, e.g. after a native date picker, while the modal is open)
     const prev = select.value;
+    const hadOptions = select.options.length > 0;
     const activeProjects = currentProjects.filter(p => !isDoneStatus(p.Status));
-    select.innerHTML = activeProjects.map(p => `<option value="${p.ID}">${esc(p.Name)}</option>`).join('');
-    if (prev && activeProjects.some(p => p.ID === prev)) select.value = prev;
+    // the empty value is a general task (no project); the first project stays the default choice
+    select.innerHTML = activeProjects.map(p => `<option value="${p.ID}">${esc(p.Name)}</option>`).join('')
+        + `<option value="">${esc(tr('general.option'))}</option>`;
+    if (hadOptions && (prev === '' || activeProjects.some(p => p.ID === prev))) select.value = prev;
+}
+
+// The "new task" dialog; projectId: a project to preselect, '' for a general task, undefined to keep the choice
+function openTaskModal(projectId) {
+    if (projectId !== undefined) document.getElementById('tProjectId').value = projectId;
+    openModal('taskModal');
 }
 
 async function createProject() {
@@ -607,13 +634,14 @@ async function createTask() {
     const taskName = document.getElementById('tName').value.trim();
     let deadline = document.getElementById('tDeadline').value;
     if(!taskName) return showToast(tr('task.err_empty'));
-    const proj = currentProjects.find(p => p.ID === projectId);
+    // projectId '' = a general task: no project, the deadline is optional
+    const proj = projectId ? currentProjects.find(p => p.ID === projectId) : null;
+    if (projectId && !proj) return showToast(tr('err.project_not_found'));
     if (!deadline) {
         if (proj && proj.Status !== 'planned') return showToast(tr('project.err_deadline_required'));
         if (proj && proj.Estimate) deadline = proj.Estimate;
     }
-    if (!projectId) return showToast(tr('err.project_not_found'));
-    const body = { project_id: projectId, task_name: taskName, deadline: deadline || null };
+    const body = { project_id: projectId || null, task_name: taskName, deadline: deadline || null };
     const result = await postJson('/api/tasks', body);
     if (result.status === 'error') return showToast(result.message || tr('err.save_failed'), 'error');
     closeModal('taskModal');

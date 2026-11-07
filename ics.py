@@ -88,8 +88,14 @@ def collect(db):
         events.append((f"project-{p.id}", p.estimate.date(), tr("ics.project_summary", name=p.name),
                        "\n".join(details), p.id))
     for t in live_tasks(db).all():
+        if not t.deadline or is_done(t.status):
+            continue
+        if t.project_id is None:              # a general task: no project to name or link
+            events.append((f"task-{t.id}", t.deadline.date(), t.task_name,
+                           f"{tr('general.title')}\n{tr('ics.status')}: {tv(t.status)}", None))
+            continue
         p = projects.get(t.project_id)
-        if p is None or not t.deadline or is_done(t.status):
+        if p is None:
             continue
         details = [f"{tr('ics.project')}: {p.name}", f"{tr('ics.status')}: {tv(t.status)}"]
         if p.status == STATUS_ON_HOLD:
@@ -117,7 +123,7 @@ def build(db, base_url: str = "") -> bytes:
         f"X-PUBLISHED-TTL:{REFRESH}",
     ]
     for uid, day, summary, description, project_id in collect(db):
-        url = f"{base}/?card={project_id}" if base else ""
+        url = f"{base}/?card={project_id}" if base and project_id else (base + "/" if base else "")
         lines += _event(uid, day, summary, description, url, stamp)
     lines.append("END:VCALENDAR")
     return ("\r\n".join(_fold(line) for line in lines) + "\r\n").encode("utf-8")

@@ -134,13 +134,15 @@ function renderAnalytics() {
 // Time spent by stage over all projects (in the trash: not counted). Hours with one decimal; the stage of a task's
 // time is the project stage when the time was given (see spent.py), time outside tasks is its own bar.
 function renderTimeChart(ct) {
-    const keys = ['printing', 'sanding', 'assembly', 'priming', 'painting', 'finishing', 'none', '_extra'];
+    const keys = ['printing', 'sanding', 'assembly', 'priming', 'painting', 'finishing', 'none', '_extra', '_general'];
     const totals = Object.fromEntries(keys.map(k => [k, 0]));
     let withTime = 0;
     currentTasks.forEach(t => {
         if (!t.Spent) return;
         withTime++;
-        const k = PROGRESS_STAGE_KEYS[t.SpentStage] && t.SpentStage !== 'none' ? t.SpentStage : 'none';
+        // general tasks (no project) have no stage: their own bar
+        const k = !t['Project ID'] ? '_general'
+            : (PROGRESS_STAGE_KEYS[t.SpentStage] && t.SpentStage !== 'none' ? t.SpentStage : 'none');
         totals[k] += t.Spent;
     });
     currentProjects.forEach(p => { totals._extra += p.ExtraSpent || 0; });
@@ -160,11 +162,13 @@ function renderTimeChart(ct) {
     timeChartInstance = new Chart(document.getElementById('timeChart').getContext('2d'), {
         type: 'bar',
         data: {
-            labels: shown.map(k => k === '_extra' ? tr('time.extra') : (k === 'none' ? tr('time.no_stage') : tr(PROGRESS_STAGE_KEYS[k]))),
+            labels: shown.map(k => k === '_extra' ? tr('time.extra') : k === '_general' ? tr('general.time')
+                : (k === 'none' ? tr('time.no_stage') : tr(PROGRESS_STAGE_KEYS[k]))),
             datasets: [{
                 label: tr('time.spent'),
                 data: shown.map(k => Math.round(totals[k] / 6) / 10),          // hours, one decimal
-                backgroundColor: shown.map(k => k === '_extra' ? ct.series[0] : ct.stages[stageIndex[k]]),
+                backgroundColor: shown.map(k => k === '_extra' ? ct.series[0]
+                    : k === '_general' ? (ct.series[1] || ct.series[0]) : ct.stages[stageIndex[k]]),
                 borderColor: ct.border,
                 borderWidth: ct.borderWidth,
                 borderRadius: ct.radius,

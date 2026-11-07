@@ -14,7 +14,8 @@ import bot_photos
 import bot_views
 
 # ==================== TASK BUILDER ====================
-# /task or the "Task" button: project -> name -> deadline -> created. The draft lives in memory for one hour.
+# /task or the "Task" button: project (or "no project": a general task) -> name -> deadline -> created.
+# The draft lives in memory for one hour. A general task is kept in the draft as bot_views.GENERAL.
 
 MAX_TASK_NAME = MAX_TASK_NAME_LEN
 _task_drafts = {}          # chat_id -> {"step": ..., "project": id|None, "name": str|None, "ts": float}
@@ -66,18 +67,19 @@ def _project_choice_view():
         active = [(p.id, p.name) for p in bot_photos._active_projects(db)]
     finally:
         db.close()
-    if not active:
-        return tr("bot.task_no_projects"), None
     keyboard = [[{"text": f"📁 {short_text(name, 60)}", "callback_data": f"tk_p:{pid}"}] for pid, name in active[:bot_views.PROJECT_BUTTONS_MAX]]
+    keyboard.append([{"text": f"🧰 {tr('bot.btn_no_project')}", "callback_data": f"tk_p:{bot_views.GENERAL}"}])
     keyboard.append(_cancel_row())
-    return f"➕ {tr('bot.task_pick_project')}", {"inline_keyboard": keyboard}
+    text = tr("bot.task_pick_project") if active else tr("bot.task_no_projects")
+    return f"➕ {text}", {"inline_keyboard": keyboard}
 
 
 def _date_choice_view(project_id: str, name: str):
     db = SessionLocal()
     try:
         proj = db.query(Project).filter(Project.id == project_id, Project.deleted_at.is_(None)).first()
-        planned = bool(proj) and str(proj.status).strip() == STATUS_PLANNED
+        # a general task may have no deadline (like a task of a "planned" project)
+        planned = project_id == bot_views.GENERAL or (bool(proj) and str(proj.status).strip() == STATUS_PLANNED)
         estimate = bot_views.to_date(proj.estimate) if proj and proj.estimate else None
     finally:
         db.close()
@@ -98,10 +100,9 @@ async def start_task_constructor(chat_id: int, project: str = None, name: str = 
     db = SessionLocal()
     try:
         active = bot_photos._active_projects(db)
-        if project and not any(p.id == project for p in active):
+        if project and project != bot_views.GENERAL and not any(p.id == project for p in active):
             project = None
-        if not project and len(active) == 1:
-            project = active[0].id
+        # with one active project there is still a choice: that project or a general task
     finally:
         db.close()
     _new_draft(chat_id, project, name)
@@ -115,12 +116,12 @@ async def _task_step(chat_id: int, message_id: int = None):
         return
     if not d["project"]:
         text, markup = _project_choice_view()
-        if markup is None:
-            _task_drafts.pop(chat_id, None)
         d["step"] = "project"
     elif not d["name"]:
         d["step"] = "name"
-        text, markup = f"➕ {tr('bot.task_ask_name', name=esc(_project_name(d['project'])))}", {"inline_keyboard": [_cancel_row()]}
+        ask = (tr("bot.task_ask_name_general") if d["project"] == bot_views.GENERAL
+               else tr("bot.task_ask_name", name=esc(_project_name(d["project"]))))
+        text, markup = f"➕ {ask}", {"inline_keyboard": [_cancel_row()]}
     else:
         d["step"] = "date"
         text, markup = _date_choice_view(d["project"], d["name"])
@@ -152,23 +153,31 @@ async def create_task_from_draft(chat_id: int, message_id, deadline):
     d = _task_drafts.pop(chat_id, None)
     if not d:
         return
+    general = d["project"] == bot_views.GENERAL
     db = SessionLocal()
     try:
-        proj = db.query(Project).filter(Project.id == d["project"], Project.deleted_at.is_(None)).first()
-        if not proj:
-            await _reply(chat_id, message_id, tr("err.project_not_found"))
-            return
-        task = Task(project_id=proj.id, task_name=d["name"], deadline=datetime.combine(deadline, datetime.min.time()) if deadline else None,
+        proj = None
+        if not general:
+            proj = db.query(Project).filter(Project.id == d["project"], Project.deleted_at.is_(None)).first()
+            if not proj:
+                await _reply(chat_id, message_id, tr("err.project_not_found"))
+                return
+        task = Task(project_id=proj.id if proj else None, task_name=d["name"],
+                    deadline=datetime.combine(deadline, datetime.min.time()) if deadline else None,
                     status=TASK_NOT_STARTED, postponed=0)
         db.add(task)
-        proj.updated_at = datetime.now()
+        if proj:
+            proj.updated_at = datetime.now()
         db.commit()
         when = fmt_date(deadline) if deadline else tr("bot.not_set")
+        where = f"🧰 {esc(tr('general.title'))}" if general else f"📁 {esc(proj.name)}"
         text = (f"✅ <b>{tr('bot.task_created')}</b>\n{esc(d['name'])}\n"
-                f"📁 {esc(proj.name)} · 📅 {when}")
+                f"{where} · 📅 {when}")
+        target = bot_views.GENERAL if general else proj.id
         markup = {"inline_keyboard": [[
-            {"text": f"➕ {tr('bot.btn_more_task')}", "callback_data": f"tk_new:{proj.id}"},
-            {"text": f"🔍 {tr('bot.btn_open_project')}", "callback_data": f"open_p:{proj.id}"},
+            {"text": f"➕ {tr('bot.btn_more_task')}", "callback_data": f"tk_new:{target}"},
+            {"text": f"🧰 {tr('general.title')}", "callback_data": "gen_v"} if general
+            else {"text": f"🔍 {tr('bot.btn_open_project')}", "callback_data": f"open_p:{proj.id}"},
         ]]}
     finally:
         db.close()
@@ -218,7 +227,7 @@ async def handle_task_callback(cb: dict, data: str) -> bool:
             return True
         db = SessionLocal()
         try:
-            exists = any(p.id == parts[1] for p in bot_photos._active_projects(db))
+            exists = parts[1] == bot_views.GENERAL or any(p.id == parts[1] for p in bot_photos._active_projects(db))
         finally:
             db.close()
         if not exists:
@@ -253,7 +262,7 @@ async def handle_task_callback(cb: dict, data: str) -> bool:
         if deadline is False:
             await bot_api.answer_callback(cb_id)
             return True
-        if deadline is None and code == "none":
+        if deadline is None and code == "none" and d["project"] != bot_views.GENERAL:
             db = SessionLocal()
             try:
                 proj = db.query(Project).filter(Project.id == d["project"]).first()

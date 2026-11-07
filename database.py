@@ -73,7 +73,9 @@ def _project_fk():
 class Task(Base):
     __tablename__ = "tasks"
     id = Column(String, primary_key=True, default=gen_task_id)
-    project_id = Column(String, _project_fk(), nullable=False, index=True)
+    # empty (NULL) = a general task outside any project (shelf tidying, airbrush maintenance...): no stage,
+    # no tokens, it never goes to the trash with a project
+    project_id = Column(String, _project_fk(), nullable=True, index=True)
     task_name = Column(String, nullable=False)
     deadline = Column(DateTime, nullable=True)
     status = Column(String, default="not_started")   # code, see common.TASK_STATUSES

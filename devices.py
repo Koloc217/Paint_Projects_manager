@@ -16,9 +16,10 @@ GET /api/v1/hot?limit=2 picks what a small screen should show:
   2. no hot tasks: the single nearest task with a deadline, however far away;
   3. no tasks with a deadline at all: an empty list and a ready phrase ("no tasks, check the tasks").
 Tasks without a deadline never count. Closed tasks, finished or paused projects and the trash are left out.
+General tasks (no project) count too: their "project" is the "General" label and "project_id" is null.
 
 Answer: {"mode": "hot" | "nearest" | "empty", "today": "YYYY-MM-DD", "tasks": [...], "message": "..."}
-  each task: {"id", "name", "project", "project_id", "deadline": "YYYY-MM-DD", "days_left": int, "overdue": bool}
+  each task: {"id", "name", "project", "project_id" (null for a general task), "deadline": "YYYY-MM-DD", "days_left": int, "overdue": bool}
   message is filled only for "empty" (in the app's language).
 """
 import secrets
@@ -59,8 +60,8 @@ def _row(t, project, today: date) -> dict:
     return {
         "id": t.id,
         "name": t.task_name,
-        "project": project.name,
-        "project_id": project.id,
+        "project": project.name if project else tr("general.label"),
+        "project_id": project.id if project else None,
         "deadline": day.isoformat(),
         "days_left": left,
         "overdue": left < 0,
@@ -75,7 +76,7 @@ def hot(db, limit: int = 2, today: date = None) -> dict:
     projects = {p.id: p for p in live_projects(db).all()
                 if not is_done(p.status) and p.status != STATUS_ON_HOLD}
     open_tasks = [t for t in live_tasks(db).filter(Task.deadline.isnot(None)).all()
-                  if t.project_id in projects and not is_done(t.status)]
+                  if (t.project_id is None or t.project_id in projects) and not is_done(t.status)]
     # nearest (and most overdue) first; equal dates keep a stable order
     open_tasks.sort(key=lambda t: (t.deadline, t.id))
 
@@ -90,6 +91,6 @@ def hot(db, limit: int = 2, today: date = None) -> dict:
     return {
         "mode": mode,
         "today": today.isoformat(),
-        "tasks": [_row(t, projects[t.project_id], today) for t in chosen],
+        "tasks": [_row(t, projects.get(t.project_id), today) for t in chosen],
         "message": tr("devices.no_tasks") if mode == MODE_EMPTY else "",
     }

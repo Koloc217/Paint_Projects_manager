@@ -52,6 +52,7 @@ COMMANDS = [                         # (command, description key)
     ("current_task", "bot.cmd_start_desc"),
     ("projects", "bot.cmd_all_desc"),
     ("task", "bot.cmd_task_desc"),
+    ("general", "bot.cmd_general_desc"),
     ("photo", "bot.cmd_photo_desc"),
     ("myphotos", "bot.cmd_myphotos_desc"),
     ("calendar", "bot.cmd_calendar_desc"),
@@ -290,7 +291,7 @@ async def handle_callback(cb: dict):
             card_project = task.project_id if from_push else (parts[2] if len(parts) > 2 else None)
             ask_time = newly_closed and not task.spent_min
             task_id, task_name = task.id, task.task_name
-            text, markup = await asyncio.to_thread(bot_views.build_current_focus_view, card_project)
+            text, markup = await asyncio.to_thread(bot_views.build_view_for, card_project)
             await bot_api.edit_message_text(chat_id, message_id, text, markup)
             if ask_time:
                 await bot_tasks.ask_spent_time(chat_id, task_id, task_name)
@@ -323,7 +324,7 @@ async def handle_callback(cb: dict):
             if snark:
                 reply += f"\n\n{snark}"
             await bot_api.answer_callback(cb_id, reply, show_alert=True)
-            text, markup = await asyncio.to_thread(bot_views.build_current_focus_view, task.project_id)
+            text, markup = await asyncio.to_thread(bot_views.build_view_for, task.project_id or bot_views.GENERAL)
             await bot_api.edit_message_text(chat_id, message_id, text, markup)
 
         elif data.startswith("t_prog:"):
@@ -340,7 +341,7 @@ async def handle_callback(cb: dict):
                 await bot_api.answer_callback(cb_id, f"✅ {tr('bot.task_closed')}")
             else:
                 await bot_api.answer_callback(cb_id, tr("bot.task_not_found"))
-            text, markup = await asyncio.to_thread(bot_views.build_current_focus_view, proj_id)
+            text, markup = await asyncio.to_thread(bot_views.build_view_for, proj_id)
             await bot_api.edit_message_text(chat_id, message_id, text, markup)
 
         elif data.startswith("stage_menu:"):
@@ -363,6 +364,11 @@ async def handle_callback(cb: dict):
             else:
                 await bot_api.answer_callback(cb_id)
             text, markup = await asyncio.to_thread(bot_views.build_current_focus_view, proj_id)
+            await bot_api.edit_message_text(chat_id, message_id, text, markup)
+
+        elif data == "gen_v":
+            await bot_api.answer_callback(cb_id)
+            text, markup = await asyncio.to_thread(bot_views.build_general_view)
             await bot_api.edit_message_text(chat_id, message_id, text, markup)
 
         elif data == "show_all_proj":
@@ -470,6 +476,9 @@ async def _process_update(item: dict):
     elif text.startswith("/task"):
         rest = text.split(maxsplit=1)[1].strip() if len(text.split(maxsplit=1)) > 1 else ""
         await bot_tasks.start_task_constructor(chat_id, None, rest[:bot_tasks.MAX_TASK_NAME] if rest else None)
+    elif text.startswith("/general"):
+        view_text, markup = await asyncio.to_thread(bot_views.build_general_view)
+        await bot_api.send_message(chat_id, view_text, markup)
     elif text.startswith("/projects"):
         view_text, markup = await asyncio.to_thread(bot_views.build_all_projects_view)
         await bot_api.send_message(chat_id, view_text, markup)

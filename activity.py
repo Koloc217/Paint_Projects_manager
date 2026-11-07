@@ -80,6 +80,8 @@ def _event(session, kind, project, task=None, old=None, new=None, project_id=Non
 
 def _project_of(session, task, cache):
     pid = task.project_id
+    if pid is None:                        # a general task: no project
+        return None
     if pid not in cache:
         cache[pid] = session.get(Project, pid)
     return cache[pid]
@@ -166,14 +168,16 @@ def backfill_once() -> int:
                 rows.append(Activity(created_at=p.completed_at, kind="project_status", source="history",
                                      project_id=p.id, project_name=p.name, new=p.status))
         for t in db.query(Task).filter(Task.completed_at.isnot(None)).all():
-            p = projects.get(t.project_id)
-            if p is None or not is_done(t.status):
+            if not is_done(t.status):
                 continue
-            if p.completed_at and t.completed_at == p.completed_at:
+            p = projects.get(t.project_id)
+            if p is None and t.project_id is not None:
+                continue                       # the project is gone
+            if p is not None and p.completed_at and t.completed_at == p.completed_at:
                 continue                       # closed together with the project
             rows.append(Activity(created_at=t.completed_at, kind="task_status", source="history",
-                                 project_id=p.id, project_name=p.name, task_id=t.id, task_name=t.task_name,
-                                 new=t.status))
+                                 project_id=p.id if p else None, project_name=p.name if p else "",
+                                 task_id=t.id, task_name=t.task_name, new=t.status))
         db.add_all(rows)
         db.commit()
         return len(rows)
