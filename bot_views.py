@@ -12,6 +12,7 @@ from common import (
 from i18n import tr, tv
 
 PENDING_TTL_SEC = 3600                 # drafts and pending photos live this long
+GENERAL = "_g"                         # in callback data: "general tasks" (no project) instead of a project id
 
 
 # ==================== HELPERS ====================
@@ -152,8 +153,11 @@ def build_current_focus_view(specific_proj_id: str = None):
         tokens, _ = compute_balance(db, config)
 
         active_projects = [p for p in all_projects if not status_done(p.status)]
+        general_open = [t for t in all_tasks if t.project_id is None and not status_done(t.status)]
         if not active_projects:
-            return f"🎉 {tr('bot.all_closed')}", None
+            if general_open:
+                return build_general_view(header=f"🎉 {tr('bot.all_closed')}")
+            return f"🎉 {tr('bot.all_closed')}", {"inline_keyboard": [_general_button(0)]}
 
         # 1. Pick the project in focus
         if specific_proj_id:
@@ -185,7 +189,7 @@ def build_current_focus_view(specific_proj_id: str = None):
         }
         
         for t in all_tasks:
-            if t.project_id not in other_active_projs:
+            if t.project_id is not None and t.project_id not in other_active_projs:
                 continue
                 
             # Skip tasks that are already closed
@@ -198,7 +202,7 @@ def build_current_focus_view(specific_proj_id: str = None):
                 
             diff = (d - today).days
             if diff <= 3:  # 3 days or less left, or already overdue
-                burning_other.append((t, other_active_projs[t.project_id], diff))
+                burning_other.append((t, other_active_projs.get(t.project_id), diff))   # None: a general task
 
         # 3. Urgent tasks elsewhere are listed below the card
         if burning_other:
@@ -208,15 +212,71 @@ def build_current_focus_view(specific_proj_id: str = None):
             for t, p, diff in burning_other[:URGENT_MAX]:
                 date_str = fmt_date(to_date(t.deadline))
                 diff_text = f"{tr('bot.overdue_lc')} ({date_str})" if diff < 0 else f"{tr('bot.burning_lc')} ({date_str})"
-                extra_lines.append(f"• <b>{esc(p.name)}</b>: {esc(t.task_name)} <i>({diff_text})</i>")
+                where = esc(p.name) if p else f"🧰 {esc(tr('general.label'))}"
+                extra_lines.append(f"• <b>{where}</b>: {esc(t.task_name)} <i>({diff_text})</i>")
             if len(burning_other) > URGENT_MAX:
                 extra_lines.append(more_line(len(burning_other) - URGENT_MAX))
             text += "\n" + "\n".join(extra_lines)
+
+        # General tasks (no project) live in their own view: a button with the number of open ones
+        markup["inline_keyboard"].append(_general_button(len(general_open)))
 
         # Long project and task names can still add up: a message over the limit would not arrive at all
         return "\n".join(clip_lines(text.split("\n"), more=more_line)), markup
     finally:
         db.close()
+
+def _general_button(open_count: int) -> list:
+    return [{"text": f"🧰 {tr('bot.btn_general', n=open_count)}", "callback_data": "gen_v"}]
+
+
+def build_general_view(header: str = ""):
+    """General tasks (no project: tidying the shelves, airbrush maintenance...): open ones with buttons,
+    closed ones folded into one line. The same limits as a project card."""
+    db = SessionLocal()
+    try:
+        tasks = live_tasks(db).filter(Task.project_id.is_(None)).all()
+    finally:
+        db.close()
+
+    def sort_key(t):
+        d = to_date(t.deadline)
+        return (1 if d is None else 0, d or date(2099, 1, 1))
+
+    open_tasks = sorted((t for t in tasks if not status_done(t.status)), key=sort_key)
+    closed_count = len(tasks) - len(open_tasks)
+    lines = [header, ""] if header else []
+    lines.append(f"🧰 <b>{tr('general.title')}</b>")
+    keyboard = []
+    if not open_tasks:
+        lines.append(f"<i>{tr('bot.general_empty')}</i>")
+    for t in open_tasks[:CARD_MAX_OPEN]:
+        in_progress = str(t.status).strip() == TASK_IN_PROGRESS
+        icon = "🔄" if in_progress else "⏸️"
+        deadline = f" <i>({format_deadline(t.deadline, False)})</i>" if t.deadline else ""
+        lines.append(f"{icon} {esc(t.task_name)}{postpone_mark(getattr(t, 'postponed', 0))}{deadline}")
+        if len(keyboard) < CARD_MAX_BUTTONS:
+            short_name = short_text(t.task_name, BTN_NAME_LEN)
+            row = []
+            if not in_progress:
+                row.append({"text": f"🔄 {tr('bot.btn_start_work')}: {short_name}", "callback_data": f"t_prog:{t.id}:{GENERAL}"})
+            row.append({"text": f"✅ {tr('bot.btn_done')}: {short_name}", "callback_data": f"t_done:{t.id}:{GENERAL}"})
+            keyboard.append(row)
+    if len(open_tasks) > CARD_MAX_OPEN:
+        lines.append(more_line(len(open_tasks) - CARD_MAX_OPEN))
+    if closed_count:
+        lines.append(f"✅ <i>{tr('bot.closed_count', n=closed_count)}</i>")
+    keyboard.append([{"text": f"➕ {tr('bot.btn_add_task')}", "callback_data": f"tk_new:{GENERAL}"},
+                     {"text": f"📋 {tr('bot.btn_all_active')}", "callback_data": "show_all_proj"}])
+    return "\n".join(clip_lines(lines, more=more_line)), {"inline_keyboard": keyboard}
+
+
+def build_view_for(card: str = None):
+    """The view a task button returns to: the general tasks for GENERAL, otherwise the project card / focus."""
+    if card == GENERAL:
+        return build_general_view()
+    return build_current_focus_view(card)
+
 
 def build_stage_menu_view(proj_id: str):
     db = SessionLocal()
@@ -238,8 +298,9 @@ def build_all_projects_view():
     try:
         projects = live_projects(db).all()
         active = [p for p in projects if not status_done(p.status)]
+        general_n = sum(1 for t in live_tasks(db).filter(Task.project_id.is_(None)).all() if not status_done(t.status))
         if not active:
-            return tr("project.no_active"), None
+            return tr("project.no_active"), {"inline_keyboard": [_general_button(general_n)]}
         lines = [f"📋 <b>{tr('project.active_list')}:</b>", ""]
         keyboard = []
         for p in active:
@@ -248,6 +309,7 @@ def build_all_projects_view():
             if len(keyboard) < PROJECT_BUTTONS_MAX:
                 keyboard.append([{"text": f"🔍 {short_text(p.name, 60)}", "callback_data": f"open_p:{p.id}"}])
         keyboard.append([{"text": f"➕ {tr('bot.btn_add_task')}", "callback_data": "tk_new:*"}])
+        keyboard.append(_general_button(general_n))
         return "\n".join(clip_lines(lines, more=more_line)), {"inline_keyboard": keyboard}
     finally:
         db.close()
@@ -286,13 +348,14 @@ def _live_project(db, project_id: str):
 
 
 def _live_task(db, task_id: str):
-    """A task whose project is outside the trash, or None."""
-    return (db.query(Task).filter(Task.id == task_id)
-            .filter(Task.project_id.in_(db.query(Project.id).filter(Project.deleted_at.is_(None)))).first())
+    """A general task or a task whose project is outside the trash, or None."""
+    return live_tasks(db).filter(Task.id == task_id).first()
 
 
 def _touch_project(db, project_id: str, now: datetime) -> None:
-    """Marks progress on a project (resets the stagnation detector)."""
+    """Marks progress on a project (resets the stagnation detector). A general task has no project: nothing to do."""
+    if not project_id:
+        return
     proj = db.query(Project).filter(Project.id == project_id).first()
     if proj:
         proj.updated_at = now

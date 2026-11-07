@@ -27,10 +27,13 @@ function calItemsByDay() {
         add(p.Estimate, { kind: 'project', id: p.ID, projectId: p.ID, name: p.Name, projectName: p.Name, done: false, overdue: p.Estimate < today });
     });
     currentTasks.forEach(t => {
+        if (!t.Deadline) return;
+        const general = !t['Project ID'];          // a general task: no project
         const p = byId[t['Project ID']];
-        if (!p || calIsDone(p.Status) || !t.Deadline) return;
+        if (!general && (!p || calIsDone(p.Status))) return;
         const done = calIsDone(t.Status);
-        add(t.Deadline, { kind: 'task', id: t.ID, projectId: p.ID, name: t.Task, projectName: p.Name, done, overdue: !done && t.Deadline < today });
+        add(t.Deadline, { kind: 'task', id: t.ID, projectId: general ? null : p.ID, name: t.Task,
+                          projectName: general ? tr('general.label') : p.Name, done, overdue: !done && t.Deadline < today });
     });
     // Progress photos: one event per project per day (finished projects too: it is history, not a deadline).
     // Only progress photos, never paint references.
@@ -156,7 +159,7 @@ function renderCalendar() {
         return;
     }
     panel.innerHTML = head + '<div class="space-y-1.5">' + list.map(it => it.kind === 'photo' ? calPhotoRow(it) : `
-        <div onclick="openProjectDetails('${esc(it.projectId)}')" class="flex items-center gap-2 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 cursor-pointer hover:border-indigo-400/60">
+        <div onclick="${it.projectId ? `openProjectDetails('${esc(it.projectId)}')` : `openEditTaskModal('${esc(it.id)}')`}" class="flex items-center gap-2 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 cursor-pointer hover:border-indigo-400/60">
             <span class="shrink-0 w-2 h-2 rounded-full ${calDotClass(it)}"></span>
             <div class="min-w-0">
                 <div class="text-sm ${it.done ? 'line-through text-slate-500' : 'text-slate-100'} truncate">${it.kind === 'project' ? tr('calendar.project_deadline') + ': ' : ''}${esc(it.name)}</div>

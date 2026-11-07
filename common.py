@@ -504,8 +504,10 @@ def live_projects(db):
 
 
 def live_tasks(db):
-    """Query for tasks of projects outside the trash."""
-    return db.query(Task).filter(Task.project_id.in_(db.query(Project.id).filter(Project.deleted_at.is_(None))))
+    """Query for tasks of projects outside the trash, plus general tasks (no project)."""
+    from sqlalchemy import or_
+    return db.query(Task).filter(or_(Task.project_id.is_(None),
+                                     Task.project_id.in_(db.query(Project.id).filter(Project.deleted_at.is_(None)))))
 
 
 def compute_balance(db, config=None):

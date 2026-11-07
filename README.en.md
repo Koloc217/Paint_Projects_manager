@@ -16,6 +16,9 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - Project cards: status, stage (printing, sanding, assembly, priming, painting, finishing), priority, deadline, photo.
 - Search in the active list and in the Hall of Fame: by name, id, status, stage, notes and task names.
 - Tasks with deadlines, statuses, postponing and editing.
+- General tasks without a project: tidy the paint shelves, service the airbrush, anything not tied to a model.
+  Created in the same "+ Task" dialog ("No project"), listed as their own group in "All tasks", included in the
+  calendar, digests, vacation and the photo frame; they have no tokens or stages, and the deadline is optional.
 - References: images attached to a project, with a full-screen viewer.
 - Progress photos: shots taken along the way, with date and stage; a timeline in the project card and a shared "Feed" tab.
 - Activity journal on the Feed tab: by day, what happened to projects and tasks (statuses, stages, new and closed
@@ -42,7 +45,7 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 **Telegram bot**
 - Linked to one chat with a pairing code; the bot answers only that chat.
 - Commands and buttons: project list, the current task, closing and postponing tasks, changing status and stage.
-- `/help` lists all commands and features. `/task` (or the "Task" button) creates a task step by step: project, name, deadline.
+- `/help` lists all commands and features. `/task` (or the "Task" button) creates a task step by step: project (or "No project"), name, deadline. `/general` (or the "General" button) shows the general tasks with "Start" and "Done" buttons.
 - After a task is closed, the bot asks how long it took: buttons 15 min…2 h, your own value or "Skip"
   (turned off in Settings → Telegram).
 - `/calendar` sends the deadlines as an `.ics` file for a phone calendar (when calendar export is on in the settings).

@@ -254,22 +254,25 @@ def main() -> int:
             if is_done(t.status):
                 continue
             proj = projects.get(t.project_id)
-            if not proj or is_done(proj.status) or str(proj.status).strip() == STATUS_ON_HOLD:
+            if t.project_id is None:
+                proj = None                    # a general task (no project): shown under the "General" label
+            elif not proj or is_done(proj.status) or str(proj.status).strip() == STATUS_ON_HOLD:
                 continue
             d = to_date(t.deadline)
             if not d:
                 continue
 
             diff = (d - today).days
-            stage_info = f" [{esc(tv(proj.stage))}]" if (proj.stage or NO_STAGE) != NO_STAGE else ""
+            label = esc(proj.name) if proj else f"🧰 {esc(tr('general.label'))}"
+            stage_info = f" [{esc(tv(proj.stage))}]" if proj and (proj.stage or NO_STAGE) != NO_STAGE else ""
             n_post = int(t.postponed or 0)
             post_info = f" ⏳×{n_post}" if n_post >= 2 else ""
 
             if diff < 0:
-                overdue.append(f"💀 <b>{esc(proj.name)}</b>{stage_info}: {esc(t.task_name)}{post_info} <i>({tr('notify.overdue_by')} {abs(diff)} {tr('common.days_short')})</i>")
+                overdue.append(f"💀 <b>{label}</b>{stage_info}: {esc(t.task_name)}{post_info} <i>({tr('notify.overdue_by')} {abs(diff)} {tr('common.days_short')})</i>")
                 action_tasks.append(t)
             elif diff <= 3:
-                burning.append(f"🔥 <b>{esc(proj.name)}</b>{stage_info}: {esc(t.task_name)}{post_info} <i>({tr('notify.left')} {diff} {tr('common.days_short')})</i>")
+                burning.append(f"🔥 <b>{label}</b>{stage_info}: {esc(t.task_name)}{post_info} <i>({tr('notify.left')} {diff} {tr('common.days_short')})</i>")
                 action_tasks.append(t)
 
         # 2. Stagnation detector: projects "in work" without progress for too long
@@ -295,6 +298,10 @@ def main() -> int:
                         friday_plan.append(f"🛠 <b>{esc(p.name)}</b>: {esc(t.task_name)} ({esc(tv(t.status))})")
                     if not p_tasks:
                         no_tasks.append(f"📭 <b>{esc(p.name)}</b>")
+            # general tasks (no project): the three nearest open ones
+            general = [t for t in tasks if t.project_id is None and not is_done(t.status)]
+            for t in general[:3]:
+                friday_plan.append(f"🧰 <b>{esc(tr('general.label'))}</b>: {esc(t.task_name)} ({esc(tv(t.status))})")
 
         if not overdue and not burning and not stagnant and not (weekly and (friday_plan or no_tasks)):
             if is_test:

@@ -343,7 +343,7 @@ class PaintNotesUpdate(BaseModel):
     paint_notes: str = ""
 
 class TaskCreate(BaseModel):
-    project_id: str
+    project_id: Optional[str] = None        # empty = a general task outside any project
     task_name: str
     deadline: Optional[str] = None
 
@@ -727,7 +727,9 @@ def get_activity(project: str = "", offset: int = 0, db: Session = Depends(get_d
         "date": iso_date(ev.created_at),
         "time": ev.created_at.strftime("%H:%M") if ev.created_at and ev.source != "history" else "",
         "project_id": ev.project_id,
-        "project": names.get(ev.project_id) or ev.project_name or "",
+        # an event of a general task has no project: it is shown under the "General" label
+        "project": names.get(ev.project_id) or ev.project_name
+                   or (tr("general.label") if ev.task_id and not ev.project_id else ""),
         "open": ev.project_id in live,
         "kind": ev.kind,
         "text": activity.describe(ev),
@@ -859,7 +861,7 @@ def do_action(payload: ActionPayload, db: Session = Depends(get_db)):
         if not task:
             return {"status": "error", "message": tr("bot.task_not_found")}
         set_task_status(task, payload.status, now)
-        proj = get_project(db, task.project_id)
+        proj = get_project(db, task.project_id) if task.project_id else None
         if proj:
             proj.updated_at = now
         db.commit()
@@ -1265,15 +1267,19 @@ def create_task(data: TaskCreate, db: Session = Depends(get_db)):
     name, err = validate_name(data.task_name, MAX_TASK_NAME_LEN, "task.err_empty")
     if err:
         return {"status": "error", "message": err}
-    proj = get_project(db, data.project_id)
-    if proj is None:
-        return {"status": "error", "message": tr("err.project_not_found")}
+    proj = None
+    if data.project_id:                    # no project: a general task (maintenance, tidying...)
+        proj = get_project(db, data.project_id)
+        if proj is None:
+            return {"status": "error", "message": tr("err.project_not_found")}
     dead_date, err = parse_date_field(data.deadline)
     if err:
         return {"status": "error", "message": err}
-    new_task = Task(project_id=proj.id, task_name=name, deadline=dead_date, status=TASK_NOT_STARTED, postponed=0)
+    new_task = Task(project_id=proj.id if proj else None, task_name=name, deadline=dead_date,
+                    status=TASK_NOT_STARTED, postponed=0)
     db.add(new_task)
-    proj.updated_at = datetime.now()
+    if proj:
+        proj.updated_at = datetime.now()
     db.commit()
     return {"status": "ok", "id": new_task.id}
 
