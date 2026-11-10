@@ -592,7 +592,7 @@ function closeModal(id) {
         currentOpenProjectId = null; cardTabProjectId = null;
         delete document.getElementById('pdPaintNotes').dataset.projectId;     // reopening shows the stored notes
     }
-    if (id === 'taskModal') { document.getElementById('tName').value = ''; document.getElementById('tDeadline').value = ''; }
+    if (id === 'taskModal') { document.getElementById('tName').value = ''; document.getElementById('tDeadline').value = ''; setTaskGeneral(false); }
     if (id === 'editTaskModal') { document.getElementById('etName').value = ''; document.getElementById('etDeadline').value = ''; }
     if (id === 'projectModal') { document.getElementById('pName').value = ''; document.getElementById('pEstimate').value = ''; document.getElementById('pToken').value = ''; }
     if (id === 'editProjectModal') { document.getElementById('epName').value = ''; document.getElementById('epEstimate').value = ''; }

@@ -110,7 +110,7 @@ secondary buttons and borders: `slate-700`, regular text: `slate-300/400`.
 | Settings tabs | `#settingsModal button[id^="cfgTabBtn"]` |
 | Charts | only the `--chart-*` tokens |
 
-Examples live in `themes.css` itself: **Cyberpunk** (neon, corner marks on buttons), **Warhammer 40k** (bronze, rivets,
+Examples live in `themes.css` itself: **Cyberpunk** (neon, corner marks on buttons), **Hammer** (bronze, rivets,
 a background image) and six more themes between `/* === THEME: ... === */` markers (SCP Dossier, Workbench, Synthwave,
 JRPG, Model Manual, Hardware PCB). A new theme is easiest to start from a copy of the closest one in spirit.
 
@@ -188,7 +188,7 @@ You are making a UI theme for a web app (FastAPI + Tailwind, dark interface, Rus
 Theme style: <DESCRIBE THE STYLE, COLORS, MOOD, FONTS>.
 Theme name: theme-<name> (lowercase Latin letters/digits/hyphens).
 
-Read the attached THEMES_GUIDE.en.md and follow section 3 "Rules" literally. The examples are Cyberpunk and Warhammer
+Read the attached THEMES_GUIDE.en.md and follow section 3 "Rules" literally. The examples are Cyberpunk and Hammer
 in the attached themes.css.
 
 Output exactly three code blocks and nothing else, except one line of explanation for each:

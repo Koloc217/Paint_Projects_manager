@@ -732,10 +732,11 @@
     "bot.task_ask_name_general": "Общая задача (без проекта). Напиши её название одним сообщением.",
     "general.hint": "Уборка, обслуживание инструмента и прочее, что не относится к модели",
     "general.label": "Общее",
-    "general.option": "— Без проекта (общая задача) —",
     "general.title": "Общие задачи",
     "bot.cmd_general_desc": "общие задачи без проекта (уборка, обслуживание инструмента)",
-    "general.time": "общие задачи"
+    "general.time": "общие задачи",
+    "general.button": "Без проекта",
+    "general.note": "Общая задача — без проекта"
   },
   "en-US": {
     "analytics.active_projects": "Active projects",
@@ -1470,9 +1471,10 @@
     "bot.task_ask_name_general": "General task (no project). Send its name in one message.",
     "general.hint": "Tidying up, tool maintenance and anything else not tied to a model",
     "general.label": "General",
-    "general.option": "— No project (general task) —",
     "general.title": "General tasks",
     "bot.cmd_general_desc": "general tasks without a project (tidying, tool maintenance)",
-    "general.time": "general tasks"
+    "general.time": "general tasks",
+    "general.button": "No project",
+    "general.note": "General task — no project"
   }
 }

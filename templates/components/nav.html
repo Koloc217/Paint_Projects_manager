@@ -21,7 +21,7 @@
                 💰 <span class="nav-tokens-label">{{ tr('nav.tokens') }}:</span> <span id="tokenCounter">0</span>
             </div>
             <button onclick="openModal('projectModal')" class="text-sm px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors flex items-center gap-1 shadow-lg shadow-emerald-500/20">+ {{ tr('common.project') }}</button>
-            <button onclick="openModal('taskModal')" class="text-sm px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors flex items-center gap-1 shadow-lg shadow-indigo-500/20">+ {{ tr('common.task') }}</button>
+            <button onclick="openTaskModal()" class="text-sm px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors flex items-center gap-1 shadow-lg shadow-indigo-500/20">+ {{ tr('common.task') }}</button>
             <button onclick="openSettingsModal()" class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition-colors border border-slate-600" title="{{ tr('common.settings') }}">
                 ⚙️
             </button>
