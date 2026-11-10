@@ -264,7 +264,7 @@ body.theme-cyberpunk #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
 
 /* === THEME: theme-warhammer === */
 /* ==========================================================================
-   THEME 2: WARHAMMER 40K, WITH THE /static/backgrounds/wh40k_bg.jpg BACKGROUND (body.theme-warhammer)
+   THEME 2: HAMMER, WITH THE /static/backgrounds/wh40k_bg.jpg BACKGROUND (body.theme-warhammer)
    ========================================================================== */
 body.theme-warhammer {
     /* Theme fonts (both include Cyrillic). Headings/buttons/dates: Playfair Display SC; text: Alegreya.

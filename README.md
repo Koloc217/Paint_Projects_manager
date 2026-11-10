@@ -56,7 +56,7 @@
 - Расписание по дням недели настраивается в интерфейсе.
 
 **Оформление и язык**
-- Стандартная тема и восемь дополнительных: Cyberpunk, Warhammer 40k, SCP Dossier, Workbench, Synthwave, JRPG (FFVII),
+- Стандартная тема и восемь дополнительных: Cyberpunk, Hammer, SCP Dossier, Workbench, Synthwave, JRPG (FFVII),
   Model Manual, Hardware PCB. Графики подхватывают цвета темы. Как добавить свою: [THEMES_GUIDE.md](THEMES_GUIDE.md).
 - Язык интерфейса, бота и уведомлений: русский и английский. Все тексты лежат в одном файле `locales.json`.
 - Формат дат с годом на выбор: `21.03.2027` или `03/21/2027`.

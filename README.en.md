@@ -59,7 +59,7 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - The schedule is set per weekday in the UI.
 
 **Look and language**
-- A standard theme plus eight more: Cyberpunk, Warhammer 40k, SCP Dossier, Workbench, Synthwave, JRPG (FFVII),
+- A standard theme plus eight more: Cyberpunk, Hammer, SCP Dossier, Workbench, Synthwave, JRPG (FFVII),
   Model Manual, Hardware PCB. Charts follow the theme colors. How to add your own: [THEMES_GUIDE.en.md](THEMES_GUIDE.en.md).
 - Language of the UI, the bot and notifications: Russian or English. All texts live in one file, `locales.json`.
 - Date format with the year: `21.03.2027` or `03/21/2027`.

@@ -7,7 +7,7 @@
 const THEMES = [
     { id: 'default', label: () => `💿 ${tr('theme.default')}` },
     { id: 'theme-cyberpunk', label: () => '⚡ Cyberpunk' },
-    { id: 'theme-warhammer', label: () => '💀 Warhammer 40k' },
+    { id: 'theme-warhammer', label: () => '💀 Hammer' },
     { id: 'theme-scp', label: () => '☢️ SCP Dossier' },
     { id: 'theme-workbench', label: () => '🛠️ Workbench' },
     { id: 'theme-synthwave', label: () => '🌆 Synthwave' },

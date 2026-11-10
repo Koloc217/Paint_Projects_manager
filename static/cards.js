@@ -547,15 +547,34 @@ function updateProjectSelect() {
     const prev = select.value;
     const hadOptions = select.options.length > 0;
     const activeProjects = currentProjects.filter(p => !isDoneStatus(p.Status));
-    // the empty value is a general task (no project); the first project stays the default choice
-    select.innerHTML = activeProjects.map(p => `<option value="${p.ID}">${esc(p.Name)}</option>`).join('')
-        + `<option value="">${esc(tr('general.option'))}</option>`;
-    if (hadOptions && (prev === '' || activeProjects.some(p => p.ID === prev))) select.value = prev;
+    select.innerHTML = activeProjects.map(p => `<option value="${p.ID}">${esc(p.Name)}</option>`).join('');
+    if (hadOptions && activeProjects.some(p => p.ID === prev)) select.value = prev;
+    setTaskGeneral(taskGeneral);              // without active projects only a general task is possible
+}
+
+// "No project" button of the new task dialog: a general task, the project list is replaced by a note
+let taskGeneral = false;
+function setTaskGeneral(on) {
+    const noProjects = !currentProjects.some(p => !isDoneStatus(p.Status));
+    taskGeneral = !!on || noProjects;
+    const btn = document.getElementById('tGeneralBtn');
+    if (!btn) return;
+    btn.setAttribute('aria-pressed', String(taskGeneral));
+    btn.disabled = noProjects;
+    btn.classList.toggle('bg-indigo-600/20', taskGeneral);
+    btn.classList.toggle('border-indigo-500', taskGeneral);
+    btn.classList.toggle('text-indigo-200', taskGeneral);
+    btn.classList.toggle('border-slate-600', !taskGeneral);
+    btn.classList.toggle('text-slate-300', !taskGeneral);
+    document.getElementById('tProjectId').classList.toggle('hidden', taskGeneral);
+    document.getElementById('tGeneralNote').classList.toggle('hidden', !taskGeneral);
 }
 
 // The "new task" dialog; projectId: a project to preselect, '' for a general task, undefined to keep the choice
 function openTaskModal(projectId) {
-    if (projectId !== undefined) document.getElementById('tProjectId').value = projectId;
+    if (projectId === '') setTaskGeneral(true);
+    else if (projectId !== undefined) { setTaskGeneral(false); document.getElementById('tProjectId').value = projectId; }
+    else setTaskGeneral(taskGeneral);
     openModal('taskModal');
 }
 
@@ -630,7 +649,7 @@ async function saveTaskEdit() {
 }
 
 async function createTask() {
-    const projectId = document.getElementById('tProjectId').value;
+    const projectId = taskGeneral ? '' : document.getElementById('tProjectId').value;
     const taskName = document.getElementById('tName').value.trim();
     let deadline = document.getElementById('tDeadline').value;
     if(!taskName) return showToast(tr('task.err_empty'));
@@ -651,8 +670,7 @@ async function createTask() {
 
 function openTaskModalForProject() {
     if (!currentOpenProjectId) return;
-    document.getElementById('tProjectId').value = currentOpenProjectId;
-    openModal('taskModal');
+    openTaskModal(currentOpenProjectId);
 }
 
 async function deleteProject(id) {

@@ -6,7 +6,7 @@
 
 | Файл | Тема | В репозитории |
 |---|---|---|
-| `wh40k_bg.jpg` | Warhammer 40k | нет, положите свой (файл в `.gitignore`) |
+| `wh40k_bg.jpg` | Hammer | нет, положите свой (файл в `.gitignore`) |
 | `workbench_bg.jpg` | Workbench | да, можно заменить своим |
 | `synthwave_bg.jpg` | Synthwave | да, можно заменить своим |
 | `pcb_bg.jpg` | Hardware PCB | да, можно заменить своим |

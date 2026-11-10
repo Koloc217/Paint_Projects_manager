@@ -294,7 +294,7 @@ Infinity отклоняются), старые дробные значения �
   без сети страница заменяется заглушкой `static/offline.html`; Tailwind, Chart.js и шрифты — локальные файлы
   (`static/vendor/`, `static/fonts/`), CDN не используется;
   `/api/*` и `/photos/*` не кэшируются. После правок `sw.js` нужно увеличить `VERSION`.
-- **Темы:** «Стандарт», Cyberpunk, Warhammer 40k, SCP Dossier, Workbench, Synthwave, JRPG (FFVII), Model Manual,
+- **Темы:** «Стандарт», Cyberpunk, Hammer, SCP Dossier, Workbench, Synthwave, JRPG (FFVII), Model Manual,
   Hardware PCB. Выбор хранится в браузере (`localStorage`, ключ `ph_skin`),
   кнопки и окна оформлены под каждую тему. Темы перечислены в реестре `THEMES` (`static/themes.js`).
   **Графики** следуют теме: цвета столбцов, сетки, подписей, шрифт и скругление берутся из CSS-переменных `--chart-*`

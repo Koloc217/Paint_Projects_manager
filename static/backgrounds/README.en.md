@@ -6,7 +6,7 @@ Theme backgrounds go here:
 
 | File | Theme | In the repository |
 |---|---|---|
-| `wh40k_bg.jpg` | Warhammer 40k | no, add your own (the file is in `.gitignore`) |
+| `wh40k_bg.jpg` | Hammer | no, add your own (the file is in `.gitignore`) |
 | `workbench_bg.jpg` | Workbench | yes, can be replaced with your own |
 | `synthwave_bg.jpg` | Synthwave | yes, can be replaced with your own |
 | `pcb_bg.jpg` | Hardware PCB | yes, can be replaced with your own |
