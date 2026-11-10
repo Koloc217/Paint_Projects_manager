@@ -129,10 +129,51 @@ function renderAnalytics() {
 
     renderTimeChart(ct);
     renderHall();
+    renderShameBoard();
 }
 
 // Time spent by stage over all projects (in the trash: not counted). Hours with one decimal; the stage of a task's
 // time is the project stage when the time was given (see spent.py), time outside tasks is its own bar.
+// Shame board: total postponements, the last 30 days (journal) and the most postponed tasks
+function renderShameBoard() {
+    const box = document.getElementById('shameBoard');
+    if (!box) return;
+    const withPost = currentTasks.filter(t => (t.Postponed || 0) > 0);
+    const total = withPost.reduce((s, t) => s + t.Postponed, 0);
+    const openNow = withPost.filter(t => !isDoneStatus(t.Status)).reduce((s, t) => s + t.Postponed, 0);
+    if (!total && !postponed30d) {
+        box.innerHTML = `<div class="text-sm text-slate-500 py-4 text-center">${esc(tr('shame.empty'))}</div>`;
+        return;
+    }
+    const snark = total <= 1 ? 'shame.snark_1' : total <= 3 ? 'shame.snark_3' : total <= 6 ? 'shame.snark_6' : 'shame.snark_many';
+    const kpi = (label, value, cls) => `<div class="bg-slate-900/60 border border-slate-700/60 rounded-xl p-3">
+            <div class="text-[11px] text-slate-400 uppercase tracking-wider mb-1">${esc(tr(label))}</div>
+            <div class="text-2xl font-bold ${cls}">${value}</div></div>`;
+    const top = withPost.slice().sort((a, b) => b.Postponed - a.Postponed || (a.Task > b.Task ? 1 : -1)).slice(0, 5);
+    const rows = top.map((t, i) => {
+        const proj = currentProjects.find(p => p.ID === t['Project ID']);
+        const done = isDoneStatus(t.Status);
+        const open = t['Project ID'] ? `openProjectDetails('${esc(t['Project ID'])}')` : `openEditTaskModal('${esc(t.ID)}')`;
+        return `<div onclick="${open}" class="flex items-center gap-3 px-3 py-2 bg-slate-900/40 hover:bg-slate-900/70 border border-slate-700/40 rounded-lg cursor-pointer">
+            <span class="text-sm font-bold text-slate-500 w-5 shrink-0">${i + 1}</span>
+            <div class="min-w-0 flex-1">
+                <div class="text-sm text-slate-200 truncate ${done ? 'line-through text-slate-500' : ''}">${esc(t.Task)}</div>
+                <div class="text-[11px] text-slate-500 truncate">${esc(taskProjectLabel(t, proj))}${done ? ' · ' + esc(tr('shame.closed_anyway')) : ''}</div>
+            </div>
+            <span class="shrink-0 text-sm font-bold text-amber-400 whitespace-nowrap">⏳×${t.Postponed}</span>
+        </div>`;
+    }).join('');
+    box.innerHTML = `
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            ${kpi('shame.total', total, 'text-amber-400')}
+            ${kpi('shame.last_30d', postponed30d, 'text-amber-400')}
+            ${kpi('shame.in_open', openNow, 'text-red-400')}
+            ${kpi('shame.tasks', withPost.length, 'text-slate-200')}
+        </div>
+        <div class="text-sm text-slate-400 italic mb-3">${esc(tr(snark))}</div>
+        ${rows ? `<div class="text-[11px] text-slate-400 uppercase tracking-wider mb-2">${esc(tr('shame.top'))}</div><div class="space-y-2">${rows}</div>` : ''}`;
+}
+
 function renderTimeChart(ct) {
     const keys = ['printing', 'sanding', 'assembly', 'priming', 'painting', 'finishing', 'none', '_extra', '_general'];
     const totals = Object.fromEntries(keys.map(k => [k, 0]));

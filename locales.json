@@ -736,7 +736,23 @@
     "bot.cmd_general_desc": "общие задачи без проекта (уборка, обслуживание инструмента)",
     "general.time": "общие задачи",
     "general.button": "Без проекта",
-    "general.note": "Общая задача — без проекта"
+    "general.note": "Общая задача — без проекта",
+    "shame.title": "Доска позора",
+    "shame.hint": "Сколько раз сроки задач уезжали вперёд. Токены не отнимаются — только стыдно",
+    "shame.empty": "Переносов нет. Пока что.",
+    "shame.total": "Переносов всего",
+    "shame.last_30d": "За 30 дней",
+    "shame.in_open": "Висят в открытых",
+    "shame.tasks": "Задач с переносами",
+    "shame.top": "Рекордсмены",
+    "shame.closed_anyway": "всё-таки сделано",
+    "shame.badge_title": "Срок переносили: {n}",
+    "shame.snark_1": "Один перенос. Бывает, никто не видел.",
+    "shame.snark_3": "Пара переносов. Модели начинают переглядываться.",
+    "shame.snark_6": "Переносы входят в привычку. Кисти уже не верят обещаниям.",
+    "shame.snark_many": "Сроки здесь — скорее рекомендация. Полка позора гордится тобой.",
+    "shame.week_line": "Позор недели: переносов — {n}.",
+    "shame.month_line": "Переносов сроков: {n}"
   },
   "en-US": {
     "analytics.active_projects": "Active projects",
@@ -1475,6 +1491,22 @@
     "bot.cmd_general_desc": "general tasks without a project (tidying, tool maintenance)",
     "general.time": "general tasks",
     "general.button": "No project",
-    "general.note": "General task — no project"
+    "general.note": "General task — no project",
+    "shame.title": "Wall of shame",
+    "shame.hint": "How many times task deadlines slipped. No tokens are taken, it's just embarrassing",
+    "shame.empty": "No postponements. So far.",
+    "shame.total": "Total postponements",
+    "shame.last_30d": "Last 30 days",
+    "shame.in_open": "Still in open tasks",
+    "shame.tasks": "Tasks postponed",
+    "shame.top": "Record holders",
+    "shame.closed_anyway": "done after all",
+    "shame.badge_title": "Deadline postponed: {n}",
+    "shame.snark_1": "One postponement. Happens, nobody saw.",
+    "shame.snark_3": "A couple of postponements. The models are exchanging looks.",
+    "shame.snark_6": "Postponing is becoming a habit. The brushes no longer trust your promises.",
+    "shame.snark_many": "Deadlines here are more of a suggestion. The shelf of shame is proud of you.",
+    "shame.week_line": "Shame of the week: {n} postponements.",
+    "shame.month_line": "Deadlines postponed: {n}"
   }
 }

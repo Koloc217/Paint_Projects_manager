@@ -178,7 +178,7 @@ function renderTasks() {
                 <span class="text-[10px] uppercase tracking-wider font-semibold ${t['Project ID'] ? 'text-indigo-400' : 'text-teal-300'} truncate max-w-[10rem]" title="${esc(label)}">${esc(label)}</span>
                 <div class="text-xs">${getDeadlineHTML(t.Deadline, true, isTaskDone)}</div>
             </div>
-            <p class="text-sm text-slate-200 font-medium mb-2 leading-snug">${esc(t.Task)}</p>
+            <p class="text-sm text-slate-200 font-medium mb-2 leading-snug">${esc(t.Task)}${postponeBadge(t)}</p>
             <select onchange="updateTaskStatus('${t.ID}', this.value)" class="text-[11px] bg-slate-900 border border-slate-700 text-slate-300 rounded px-1.5 py-1 outline-none cursor-pointer w-32">
                 <option value="not_started" ${t.Status === 'not_started' ? 'selected' : ''}>${tr('status.not_started')} ⏸️</option>
                 <option value="in_progress" ${t.Status === 'in_progress' ? 'selected' : ''}>${tr('status.in_progress')} 🔄</option>
@@ -233,7 +233,7 @@ function renderAllTasks() {
             <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 group">
                 <div class="${op} flex-grow min-w-0 break-words">
                     <div class="text-xs font-mono text-slate-500 mb-1">${getDeadlineHTML(t.Deadline, true, isDone)}</div>
-                    <div class="text-sm text-slate-200 font-medium">${esc(t.Task)}${spentBadge(t)}</div>
+                    <div class="text-sm text-slate-200 font-medium">${esc(t.Task)}${postponeBadge(t)}${spentBadge(t)}</div>
                 </div>
                 <div class="flex items-center gap-3 sm:ml-4">
                     <select onchange="updateTaskStatus('${t.ID}', this.value)" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1 outline-none cursor-pointer">
@@ -304,6 +304,12 @@ function projectSpent(project) {
 }
 
 const STAGE_ORDER = ['printing', 'sanding', 'assembly', 'priming', 'painting', 'finishing', 'none', '_extra'];
+
+// ⏳×N next to a task name: how many times its deadline was moved later (shame metric)
+function postponeBadge(t) {
+    const n = t.Postponed || 0;
+    return n ? ` <span class="ml-1 text-[10px] font-semibold text-amber-400 whitespace-nowrap no-underline" title="${esc(tr('shame.badge_title', { n }))}">⏳${n > 1 ? '×' + n : ''}</span>` : '';
+}
 
 function spentBadge(t) {
     return t.Spent ? ` <span class="ml-1 text-[10px] font-normal text-slate-400 whitespace-nowrap no-underline" title="${esc(tr('time.spent'))}">⏱ ${formatMinutes(t.Spent)}</span>` : '';
@@ -387,7 +393,7 @@ function openProjectDetails(projectId) {
             <div class="p-3 bg-slate-900 rounded-xl border border-slate-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 group mb-2">
                 <div class="${op} flex-grow min-w-0 break-words">
                     <div class="text-xs font-mono text-slate-500 mb-1">${getDeadlineHTML(t.Deadline, true, isDone)}</div>
-                    <div class="text-sm text-slate-200 font-medium">${esc(t.Task)}${spentBadge(t)}</div>
+                    <div class="text-sm text-slate-200 font-medium">${esc(t.Task)}${postponeBadge(t)}${spentBadge(t)}</div>
                 </div>
                 <div class="flex gap-2 sm:ml-3 items-center">
                     <select onchange="updateTaskStatus('${t.ID}', this.value)" class="text-xs bg-slate-800 border border-slate-600 text-slate-300 rounded-lg px-2 py-1 outline-none cursor-pointer">
