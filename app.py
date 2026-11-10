@@ -500,6 +500,8 @@ def collect_data(db: Session) -> dict:
         "tasks": task_list,
         "total_tokens": current_tokens,
         "earned_tokens": earned,
+        # shame metric: postponements over the last 30 days (from the journal, deleted tasks included)
+        "postponed_30d": activity.count_postponements(db, datetime.now() - timedelta(days=30)),
         "dev_mode": config.get("DEV_MODE", False),
         "project_cost": to_tokens(config.get("PROJECT_COST", 10), 10),
         "delete_keeps_balance": config.get("DELETE_KEEPS_BALANCE", True),
@@ -1301,6 +1303,9 @@ def edit_task(task_id: str, data: TaskEdit, db: Session = Depends(get_db)):
             return {"status": "error", "message": tr("time.err_parse")}
         spent.set_task_spent(db, task, minutes)
     task.task_name = name
+    # moving the deadline of an open task later counts as a postponement (shame metric), as the bot's "+2 days"
+    if task.deadline and deadline and deadline.date() > task.deadline.date() and not is_done(task.status):
+        task.postponed = int(task.postponed or 0) + 1
     task.deadline = deadline
     db.commit()
     return {"status": "ok"}

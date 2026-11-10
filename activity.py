@@ -227,6 +227,17 @@ def describe(ev: Activity) -> str:
     return ev.kind
 
 
+def count_postponements(db, since: datetime, until: datetime = None) -> int:
+    """Shame metric: how many times task deadlines were moved later in [since, until).
+
+    Counted from the journal, so deleted tasks still count: the bot's "+2 days" and a later date set in the web
+    editor. Setting a first deadline, moving it earlier and a vacation (not logged one by one) do not count."""
+    q = db.query(Activity.old, Activity.new).filter(Activity.kind == "task_deadline", Activity.created_at >= since)
+    if until is not None:
+        q = q.filter(Activity.created_at < until)
+    return sum(1 for old, new in q.all() if old and new and new > old)       # ISO dates compare as strings
+
+
 def list_events(db, project_id: str = None, offset: int = 0, limit: int = 200) -> list:
     """Newest first. History events carry their original dates, so the order is by time, not by id."""
     q = db.query(Activity)

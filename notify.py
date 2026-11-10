@@ -13,6 +13,7 @@ from common import (
 from i18n import tr, tv
 import tgproxy
 import vacation
+import activity
 import tgclean
 
 # Duplicate protection: the automatic digest goes out at most once per MIN_GAP_SEC, even if two sources start it
@@ -162,6 +163,14 @@ def _deadline_key(t):
     return (d is None, d or date.max)
 
 
+def shame_snark(n: int) -> str:
+    """A short comment on the number of postponements (the more, the snarkier)."""
+    for limit, key in ((1, "shame.snark_1"), (3, "shame.snark_3"), (6, "shame.snark_6")):
+        if n <= limit:
+            return tr(key)
+    return tr("shame.snark_many")
+
+
 def build_monthly_report(db, now, config):
     """Statistics for the previous month (sent on the 1st or with the --monthly flag)."""
     first_day_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -184,6 +193,9 @@ def build_monthly_report(db, now, config):
         f"💰 {tr('stats.earned_month')}: <b>+{earned_month} {tr('common.tokens')}</b>",
         f"🏦 {tr('notify.current_balance')}: <b>{balance} {tr('common.tokens')}</b>"
     ]
+    shame = activity.count_postponements(db, last_month_start, first_day_this_month)
+    if shame:
+        lines.append(f"🐌 {tr('shame.month_line', n=shame)}")
     if closed_projs:
         lines.append("")
         lines += section(f"<b>{tr('notify.completed_projects')}:</b>", [f"• {esc(p.name)}" for p in closed_projs])
@@ -323,6 +335,10 @@ def main() -> int:
         if weekly:
             msg_lines += section(f"🍻 <b>{tr('notify.weekend_plan')}:</b>", friday_plan)
             msg_lines += section(f"<b>{tr('notify.no_open_tasks')}:</b>", no_tasks)
+            # shame metric of the week: deadlines moved later (text only, no token penalty)
+            shame = activity.count_postponements(db, now - timedelta(days=7))
+            if shame:
+                msg_lines += [f"🐌 <b>{tr('shame.week_line', n=shame)}</b> {esc(shame_snark(shame))}", ""]
         # Each section is capped, but many projects together could still pass Telegram's limit: then the message
         # would not arrive at all, so the tail is cut by whole lines
         msg_lines = clip_lines(msg_lines, more=more_line)

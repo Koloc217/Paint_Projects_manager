@@ -101,6 +101,14 @@
                 </div>
                 <div id="timeChartEmpty" class="hidden text-sm text-slate-500 py-6 text-center">{{ tr('analytics.time_empty') }}</div>
             </div>
+            <!-- Shame board: deadline postponements (text only, no token penalty) -->
+            <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-5 shadow-xl lg:col-span-2">
+                <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-4">
+                    <h3 class="text-base font-bold text-white">🐌 {{ tr('shame.title') }}</h3>
+                    <span class="text-xs text-slate-500">{{ tr('shame.hint') }}</span>
+                </div>
+                <div id="shameBoard"></div>
+            </div>
         </div>
 
         <!-- Hall of Fame (archive) -->

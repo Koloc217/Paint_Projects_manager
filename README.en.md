@@ -16,6 +16,9 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 - Project cards: status, stage (printing, sanding, assembly, priming, painting, finishing), priority, deadline, photo.
 - Search in the active list and in the Hall of Fame: by name, id, status, stage, notes and task names.
 - Tasks with deadlines, statuses, postponing and editing.
+- Wall of shame: a counter of deadline postponements (the bot's "+2 days" and a later date in the web editor; a
+  vacation doesn't count). A ⏳×N badge on the task, a block in Analytics (total, last 30 days, record holders), a line
+  in the Friday and monthly digests. Text only, no tokens are taken.
 - General tasks without a project: tidy the paint shelves, service the airbrush, anything not tied to a model.
   Created in the same "+ Task" dialog ("No project"), listed as their own group in "All tasks", included in the
   calendar, digests, vacation and the photo frame; they have no tokens or stages, and the deadline is optional.
