@@ -265,11 +265,14 @@ Tasks without a deadline do not count. Closed tasks, finished and paused project
 ```
 app.py                                               launcher: web, bot and scheduler in one process
 hub/paths.py                                         code and data folders (BASE_DIR, DATA_DIR) in one place
-hub/web/                                             server.py (FastAPI, formerly app.py), auth, tls, ics, devices
+hub/web/                                             server.py (app assembly, formerly app.py), lifespan, auth, tls, ics,
+                                                     devices, schemas (request bodies), validation, static, templating
+hub/web/routes/                                      the API by area: projects, tasks, photos, trash, settings, telegram,
+                                                     backup, calendar_feed, device_api, journal, pipeline_templates, pages, data
 hub/bot/                                             bot (commands, polling), callbacks (buttons), bot_api, bot_views, bot_photos,
                                                      bot_tasks, tgproxy, tgclean
 hub/jobs/                                            scheduler (schedule, subprocesses), notify (notifications)
-hub/core/                                            common (config), lifecycle (statuses), imagestore (pictures), database, migrations, i18n, logs, storage, archive,
+hub/core/                                            common (config), lifecycle (statuses), imagestore (pictures), photofiles, trash, database, migrations, i18n, logs, storage, archive,
                                                      progress, pipeline, vacation, activity, integrity, spent
 locales.json                                         all texts of the UI, the bot and notifications
 templates/                                           page, login, components (nav, tabs, modals, toasts, pwa_head)

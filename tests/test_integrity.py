@@ -114,7 +114,7 @@ def test_purge_removes_rows_and_files(client):
 
 
 def test_cache_headers(client):
-    from hub.web.server import static_url
+    from hub.web.static import static_url
     url = static_url("app.js")
     assert "?v=" in url
     assert "immutable" in client.get(url).headers["cache-control"]
