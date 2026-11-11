@@ -1,8 +1,8 @@
 /* UI skins: the THEMES registry and the switcher in the header. A new theme = a row in THEMES here + a body.<id>
- * block in themes.css (see THEMES_GUIDE.md). Loaded after main.js, as the switcher was set up after the first load. */
+ * block in themes.css (see docs/THEMES_GUIDE.md). Loaded after main.js, as the switcher was set up after the first load. */
 
 // ---------- UI skin switcher ----------
-// Theme registry. A new theme = a row here + a body.<id> CSS block in themes.css (see THEMES_GUIDE.md).
+// Theme registry. A new theme = a row here + a body.<id> CSS block in themes.css (see docs/THEMES_GUIDE.md).
 // id is the class name on <body>; 'default' is the standard look without a class.
 const THEMES = [
     { id: 'default', label: () => `💿 ${tr('theme.default')}` },

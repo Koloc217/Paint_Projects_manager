@@ -15,7 +15,7 @@ one of the --chart-* tokens is missing, external links (http/https, @import, @fo
 @keyframes without the <id>- prefix.
 Warnings: low contrast of charts and text, properties without !important (Tailwind may override them),
 layout properties (sizes, margins, positioning), which have to be checked by eye.
-Details and requirements: THEMES_GUIDE.md
+Details and requirements: docs/THEMES_GUIDE.md
 """
 import os
 import re
