@@ -16,7 +16,8 @@ import httpcore
 import httpx
 from dotenv import load_dotenv
 
-from hub.core.common import DATA_DIR, config_value, load_config, edit_config
+from hub.core.appconfig import config_value, load_config, edit_config
+from hub.paths import DATA_DIR
 
 load_dotenv(os.path.join(DATA_DIR, ".env"))
 

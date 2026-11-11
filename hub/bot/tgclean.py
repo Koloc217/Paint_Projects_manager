@@ -17,7 +17,7 @@ Digests are the notify.py messages (evening summary, Friday plan, test push); th
 from datetime import datetime, timedelta
 
 from hub.core.database import SessionLocal, TgMessage
-from hub.core.common import config_value
+from hub.core.appconfig import config_value
 
 DELETE_LIMIT = timedelta(hours=48)       # Telegram: older messages cannot be deleted by a bot
 KEEP_DIGEST = timedelta(hours=46)        # keep_46h: digests go just before the limit

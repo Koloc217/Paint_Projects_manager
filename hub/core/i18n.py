@@ -22,8 +22,9 @@ Settings → General → Interface language right away. Completeness check: pyth
 import os
 import json
 
-from hub.core.common import (BASE_DIR, config_value, normalize_value,
-                    PROJECT_STATUSES, TASK_STATUSES, STAGES, NO_STAGE)
+from hub.core.appconfig import config_value
+from hub.core.constants import normalize_value, PROJECT_STATUSES, TASK_STATUSES, STAGES, NO_STAGE
+from hub.paths import BASE_DIR
 
 LOCALES_FILE = os.path.join(BASE_DIR, "locales.json")
 DEFAULT_LANG = "ru-RU"

@@ -1,7 +1,7 @@
-"""Image format detection by content (common.detect_image_ext)."""
+"""Image format detection by content (imagestore.detect_image_ext)."""
 import pytest
 
-from hub.core.common import detect_image_ext
+from hub.core.imagestore import detect_image_ext
 
 
 def ftyp(major: bytes, *compatible: bytes) -> bytes:

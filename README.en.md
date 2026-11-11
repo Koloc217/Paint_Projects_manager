@@ -272,7 +272,7 @@ hub/web/routes/                                      the API by area: projects, 
 hub/bot/                                             bot (commands, polling), callbacks (buttons), bot_api, bot_views, bot_photos,
                                                      bot_tasks, tgproxy, tgclean
 hub/jobs/                                            scheduler (schedule, subprocesses), notify (notifications)
-hub/core/                                            common (config), lifecycle (statuses), imagestore (pictures), photofiles, trash, database, migrations, i18n, logs, storage, archive,
+hub/core/                                            appconfig (config), constants, convert, formatting, queries, pairing, lifecycle (statuses), imagestore (pictures), photofiles, trash, database, migrations, i18n, logs, storage, archive,
                                                      progress, pipeline, vacation, activity, integrity, spent
 locales.json                                         all texts of the UI, the bot and notifications
 templates/                                           page, login, components (nav, tabs, modals, toasts, pwa_head)

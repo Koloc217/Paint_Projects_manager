@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from hub.core import activity, vacation
-from hub.core.common import DATE_FORMATS, DAY_KEYS, DAY_LABELS, edit_config
-from hub.core.i18n import normalize_lang, tr, tv
+from hub.core.appconfig import edit_config
+from hub.core.constants import DATE_FORMATS, DAY_KEYS
+from hub.core.i18n import normalize_lang, tr
 from hub.jobs.scheduler import spawn_script
 from hub.web.deps import get_db
 from hub.web.responses import fail
@@ -24,7 +25,7 @@ def update_config_route(data: ConfigUpdate):
         if key not in DAY_KEYS:
             return fail(tr("err.unknown_day", key=key))
         if not TIME_RE.match(day.time or ""):
-            return fail(tr("err.bad_time_day", day=tv(DAY_LABELS[key])))
+            return fail(tr("err.bad_time_day", day=tr(f"day.{key}")))
     if data.language is not None and normalize_lang(data.language) is None:
         return fail(tr("err.unknown_language"))
     if data.tg_cleanup is not None and data.tg_cleanup not in ("keep_46h", "latest_only", "off"):

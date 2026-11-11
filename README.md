@@ -269,7 +269,7 @@ hub/web/routes/                                      API по областям: 
 hub/bot/                                             bot (команды, polling), callbacks (кнопки), bot_api, bot_views, bot_photos,
                                                      bot_tasks, tgproxy, tgclean
 hub/jobs/                                            scheduler (расписание, запуск подпроцессов), notify (уведомления)
-hub/core/                                            common (конфиг), lifecycle (статусы), imagestore (картинки), photofiles, trash (корзина), database, migrations, i18n, logs, storage, archive,
+hub/core/                                            appconfig (конфиг), constants, convert, formatting, queries, pairing, lifecycle (статусы), imagestore (картинки), photofiles, trash (корзина), database, migrations, i18n, logs, storage, archive,
                                                      progress, pipeline, vacation, activity, integrity, spent
 locales.json                                         все тексты интерфейса, бота и уведомлений
 templates/                                           страница, вход, компоненты (nav, tabs, modals, toasts, pwa_head)

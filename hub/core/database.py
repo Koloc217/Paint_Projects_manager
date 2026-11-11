@@ -48,8 +48,8 @@ class Project(Base):
     __tablename__ = "projects"
     id = Column(String, primary_key=True, default=gen_proj_id)
     name = Column(String, nullable=False)
-    status = Column(String, default="planned")    # code, see common.PROJECT_STATUSES
-    stage = Column(String, default="none")       # code, see common.STAGES
+    status = Column(String, default="planned")    # code, see constants.PROJECT_STATUSES
+    stage = Column(String, default="none")       # code, see constants.STAGES
     priority = Column(String, default="Medium")
     estimate = Column(DateTime, nullable=True)
     token = Column(Float, default=0.0)
@@ -76,7 +76,7 @@ class Task(Base):
     project_id = Column(String, _project_fk(), nullable=True, index=True)
     task_name = Column(String, nullable=False)
     deadline = Column(DateTime, nullable=True)
-    status = Column(String, default="not_started")   # code, see common.TASK_STATUSES
+    status = Column(String, default="not_started")   # code, see constants.TASK_STATUSES
     postponed = Column(Integer, default=0)
     completed_at = Column(DateTime, nullable=True)
     # set when the task was closed together with its project: the status it had before, so reopening the project
@@ -168,9 +168,9 @@ _ACTIVITY_KINDS = ("project_created", "project_status", "project_stage", "task_s
 
 
 def migrate_value_codes(conn) -> None:
-    """Statuses and stages: old Russian values -> technical codes (common.LEGACY_VALUES).
+    """Statuses and stages: old Russian values -> technical codes (constants.LEGACY_VALUES).
     Idempotent: only rows that still hold an old value are touched, so it is cheap on every start."""
-    from hub.core.common import LEGACY_VALUES    # common imports this module, so the import stays local
+    from hub.core.constants import LEGACY_VALUES
     kinds = ", ".join(f"'{k}'" for k in _ACTIVITY_KINDS)
     for old, new in LEGACY_VALUES.items():
         params = {"old": old, "new": new}

@@ -4,7 +4,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from hub.core.common import live_project, load_config
+from hub.core.appconfig import load_config
+from hub.core.queries import live_project
 from hub.core.database import Project
 from hub.core.i18n import tr
 from hub.core.trash import purge_project

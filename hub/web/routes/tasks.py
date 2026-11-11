@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from hub.core import spent
-from hub.core.common import MAX_TASK_NAME_LEN, TASK_NOT_STARTED, is_done, live_project
+from hub.core.constants import MAX_TASK_NAME_LEN, TASK_NOT_STARTED, is_done
+from hub.core.queries import live_project
 from hub.core.database import Task
 from hub.core.i18n import tr
 from hub.web.deps import get_db

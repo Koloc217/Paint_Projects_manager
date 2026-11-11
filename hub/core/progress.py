@@ -6,7 +6,9 @@ import os
 
 from sqlalchemy.orm import Session
 
-from hub.core.common import DATA_DIR, NO_STAGE, detect_image_ext
+from hub.core.constants import NO_STAGE
+from hub.core.imagestore import detect_image_ext
+from hub.paths import DATA_DIR
 from hub.core import imagestore
 from hub.core.database import Project, ProgressPhoto
 

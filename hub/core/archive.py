@@ -266,7 +266,7 @@ def restore_archive(zip_path: str, with_config: bool = True, log=print) -> dict:
 
             config = False
             if with_config and "config.json" in zf.namelist():
-                from hub.core.common import save_config
+                from hub.core.appconfig import save_config
                 save_config(json.loads(zf.read("config.json").decode("utf-8")))
                 config = True
     finally:

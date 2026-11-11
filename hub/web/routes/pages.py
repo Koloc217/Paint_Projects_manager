@@ -4,7 +4,7 @@ import os
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse
 
-from hub.core.common import load_config
+from hub.core.appconfig import load_config
 from hub.core.i18n import get_lang, table_for
 from hub.paths import BASE_DIR
 from hub.web import ics

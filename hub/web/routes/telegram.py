@@ -5,8 +5,8 @@ import os
 from fastapi import APIRouter
 
 from hub.bot import tgproxy
-from hub.core.common import (ensure_pairing_code, format_pairing_code, is_chat_bound, load_config, new_pairing_code,
-                             unlink_chat)
+from hub.core.appconfig import load_config
+from hub.core.pairing import ensure_pairing_code, format_pairing_code, is_chat_bound, new_pairing_code, unlink_chat
 from hub.core.i18n import tr
 from hub.web.responses import fail
 from hub.web.schemas import ProxyForm

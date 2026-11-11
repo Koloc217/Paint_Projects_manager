@@ -25,7 +25,9 @@ Answer: {"mode": "hot" | "nearest" | "empty", "today": "YYYY-MM-DD", "tasks": [.
 import secrets
 from datetime import date
 
-from hub.core.common import config_value, is_done, live_projects, live_tasks, STATUS_ON_HOLD
+from hub.core.appconfig import config_value
+from hub.core.constants import is_done, STATUS_ON_HOLD
+from hub.core.queries import live_projects, live_tasks
 from hub.core.database import Task
 from hub.core.i18n import tr
 

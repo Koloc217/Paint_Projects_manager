@@ -34,7 +34,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 
-from hub.core.common import DATA_DIR
+from hub.paths import DATA_DIR
 from hub.core.i18n import tr, get_lang, table_for
 
 AUTH_FILE = os.path.join(DATA_DIR, "auth.json")

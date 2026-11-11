@@ -7,9 +7,9 @@ import threading
 import httpx
 from dotenv import load_dotenv
 from hub.bot import tgclean
-from hub.core.common import (
-    DATA_DIR, short_text, TG_ALERT_LIMIT,
-)
+from hub.core.constants import TG_ALERT_LIMIT
+from hub.core.formatting import short_text
+from hub.paths import DATA_DIR
 from hub.bot import tgproxy
 
 load_dotenv(os.path.join(DATA_DIR, ".env"))

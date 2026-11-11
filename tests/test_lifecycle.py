@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from hub.bot import callbacks
 from hub.core import lifecycle
-from hub.core.common import STATUS_FINISHED, TASK_IN_PROGRESS, TASK_NOT_STARTED
+from hub.core.constants import STATUS_FINISHED, TASK_IN_PROGRESS, TASK_NOT_STARTED
 
 NOW = datetime(2026, 11, 11, 12, 0)
 

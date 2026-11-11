@@ -52,7 +52,9 @@ and starting a new project costs tokens. The goal is to finish what you start in
 | `hub/jobs/notify.py` | Building and sending notifications (evening digest, monthly report) |
 | `hub/jobs/scheduler.py` | Built-in schedule (replaces cron), runs scripts as subprocesses |
 | `hub/core/database.py` | SQLAlchemy models and automatic schema migration |
-| `hub/core/common.py` | Config (cached, atomic writes under a lock, `edit_config()`), canonical values, token balance, escaping, trimming Telegram messages, chat linking |
+| `hub/core/appconfig.py` | Config: defaults, validation (rules in tables), cache, atomic writes under a lock, `edit_config()` |
+| `hub/core/constants.py`, `convert.py`, `formatting.py` | Status and stage codes, limits; conversions (tokens, dates); escaping and trimming Telegram texts |
+| `hub/core/queries.py`, `pairing.py`, `filelock.py` | Live projects and tasks, token balance; Telegram chat linking; cross-process file lock |
 | `hub/core/storage.py` | Used space: app, database, photos, logs (folder walk, Windows and Linux) |
 | `hub/core/archive.py` | Data archive: building the zip (database, settings, photos) and restoring from it |
 | `hub/core/pipeline.py` | Pipeline templates: built-in defaults, storage and validation in `config.json` |
@@ -131,7 +133,7 @@ time of the event), `kind`, `old`, `new`, `source` (`web`, `bot`, `history`).
 Statuses and stages are stored as technical codes: project statuses `planned`, `in_work`, `on_hold`, `finished`, task
 statuses `not_started`, `in_progress`, `finished`; stages `none`, `printing`, `sanding`, `assembly`, `priming`,
 `painting`, `finishing`. Labels come from `locales.json` (`status.<code>`, `stage.<code>`). Old Russian values are
-converted to codes once at startup (`migrate_value_codes()` in `hub/core/database.py`, the `LEGACY_VALUES` map in `hub/core/common.py`);
+converted to codes once at startup (`migrate_value_codes()` in `hub/core/database.py`, the `LEGACY_VALUES` map in `hub/core/constants.py`);
 the API and the bot's buttons still accept them as input. "Finished" is `finished` plus the old `закончен`,
 `завершено`, `завершен`, `выполнено`, `completed` (case-insensitive).
 
@@ -729,6 +731,6 @@ PNG, GIF, WebP, AVIF); SVG and a faked extension are rejected.
 - Vacation keeps only the last period. An ended vacation does not move deadlines back (by design).
 - Catching up missed runs is limited by a window (3 hours for pushes, 24 hours for the backup) and takes only the latest run.
 - DEV MODE combines three functions in one switch.
-- The list of stages is defined in code (`common.STAGES`).
+- The list of stages is defined in code (`constants.STAGES`).
 - SQLite without foreign keys. WAL mode is on, but on a file system without WAL support (network drives) the database
   runs in the default mode, and the app says so in the log.

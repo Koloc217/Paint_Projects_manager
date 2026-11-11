@@ -23,7 +23,7 @@ import shutil
 import time
 from datetime import datetime, timedelta
 
-from hub.core.common import DATA_DIR
+from hub.paths import DATA_DIR
 from hub.core.database import Project, Reference, ProgressPhoto
 
 PHOTOS_DIR = os.path.join(DATA_DIR, "photos")

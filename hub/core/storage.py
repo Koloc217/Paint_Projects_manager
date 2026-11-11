@@ -6,7 +6,7 @@ Symlinks are not followed: only what really lies in the app folder is counted.
 """
 import os
 
-from hub.core.common import BASE_DIR, DATA_DIR
+from hub.paths import BASE_DIR, DATA_DIR
 
 PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
 LOGS_DIR = os.path.join(DATA_DIR, "logs")

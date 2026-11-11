@@ -6,8 +6,8 @@ None of them commits: the caller owns the transaction.
 """
 from datetime import datetime, timedelta
 
-from hub.core.common import (STATUS_FINISHED, TASK_IN_PROGRESS, TASK_NOT_STARTED, TASK_STATUSES,
-                             is_done, to_date)
+from hub.core.constants import STATUS_FINISHED, TASK_IN_PROGRESS, TASK_NOT_STARTED, TASK_STATUSES, is_done
+from hub.core.convert import to_date
 from hub.core.database import Project, Task
 
 POSTPONE_DAYS = 2        # how far the "postpone" button moves a deadline

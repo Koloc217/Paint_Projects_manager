@@ -7,9 +7,8 @@ from hub.core.database import SessionLocal, ensure_schema
 from hub.bot import tgclean
 from hub.core import activity
 from hub.web import ics
-from hub.core.common import (
-    load_config, config_value, is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
-)
+from hub.core.appconfig import load_config, config_value
+from hub.core.pairing import is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code
 from hub.core.i18n import tr
 from hub.bot import tgproxy
 from hub.jobs.scheduler import spawn_script, seconds_to_next_run

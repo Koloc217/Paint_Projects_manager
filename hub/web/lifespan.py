@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from hub.bot import tgclean
 from hub.bot.bot import start_bot_polling
 from hub.core import activity, archive, integrity, logs
-from hub.core.common import load_config
+from hub.core.appconfig import load_config
 from hub.core.database import SessionLocal, engine
 from hub.core.i18n import get_lang, normalize_lang
 from hub.core.trash import purge_expired_trash
