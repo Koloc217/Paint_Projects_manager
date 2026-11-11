@@ -25,7 +25,7 @@ and starting a new project costs tokens. The goal is to finish what you start in
                                                          Telegram Bot API
 ```
 
-- **One service.** The web app, the bot and the scheduler start together with the app (`lifespan` in `hub/web/server.py`).
+- **One service.** The web app, the bot and the scheduler start together with the app (`lifespan` in `hub/web/lifespan.py`).
 - **The `hub/jobs/notify.py` script** is started by the scheduler as a separate process with the same
   interpreter (`sys.executable`), so the venv path is not hard-coded anywhere. Its output goes to `logs/notify.log`
   (rotated at 1 MB, three copies, job timeout 180 s; output is unbuffered, so a script killed on timeout still leaves
@@ -38,7 +38,10 @@ and starting a new project costs tokens. The goal is to finish what you start in
 
 | File | Purpose |
 |---|---|
-| `hub/web/server.py` | FastAPI: the page, REST API, photo and reference uploads, starting the bot and the scheduler |
+| `hub/web/server.py` | Assembles the FastAPI app: static files, login, routers; started with `python app.py` |
+| `hub/web/routes/` | The REST API by area (projects, tasks, photos and references, trash, settings, Telegram, backup, calendar, devices, journal, pipeline templates); request bodies in `schemas.py`, value checks in `validation.py` |
+| `hub/web/lifespan.py` | What runs next to the web app: the bot, the scheduler, background housekeeping (trash, photos without a project, DB optimize) |
+| `hub/core/trash.py`, `hub/core/photofiles.py`, `hub/core/imagestore.py`, `hub/core/lifecycle.py` | The trash and final deletion, photo paths and file names, saving pictures with a preview, status rules shared by the web and the bot |
 | `hub/bot/bot.py` | Telegram bot: commands and their registry, button routing, chat linking, long polling, chat cleanup |
 | `hub/bot/bot_api.py` | Telegram Bot API calls: the shared HTTP client (direct or through a proxy), sending, editing, deleting, files |
 | `hub/bot/bot_views.py` | Bot texts and keyboards: project cards, focus, lists, monthly stats |
