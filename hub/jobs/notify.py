@@ -3,7 +3,8 @@ import sys
 import json
 import threading
 import httpx
-from datetime import datetime, date, timedelta
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
 from dotenv import load_dotenv
 from hub.core.database import SessionLocal, Project, Task, ensure_schema
 from hub.core.common import (
@@ -189,17 +190,175 @@ def build_monthly_report(db, now, config):
     return "\n".join(clip_lines(lines, more=more_line)).rstrip()
 
 
+@dataclass
+class Options:
+    """What this run was asked to do (command-line flags)."""
+    test: bool = False        # --test: a test push; ignores the "all quiet" rule and the once-per-slot check
+    monthly: bool = False     # --monthly: only the monthly report
+    now: bool = False         # --now: the "Send now" button, a regular digest on request: ignores the silent mode,
+                              # the vacation and the once-per-slot check
+    force: bool = False       # --force (or --now): skip the once-per-slot check
+    source: str = "cron/manual"
+
+    @property
+    def automatic(self) -> bool:
+        """A run started by the timer rather than by a person: silent mode and vacation apply to it."""
+        return not (self.test or self.monthly or self.now)
+
+
+def parse_options(argv) -> Options:
+    now = "--now" in argv
+    return Options(
+        test="--test" in argv, monthly="--monthly" in argv, now=now, force="--force" in argv or now,
+        source=next((a.split("=", 1)[1] for a in argv if a.startswith("--source=")), "cron/manual"),
+    )
+
+
+def skip_reason(opts: Options, config: dict):
+    """Why an automatic run must send nothing (silent mode, vacation), or None.
+    A run asked for by a person (--test, --now, --monthly) always goes through."""
+    if not opts.automatic:
+        return None
+    if config.get("DEV_MODE", False):
+        return "DEV_MODE (silent mode) is on: the automatic notification is skipped."
+    if vacation.is_active(config):
+        return f"On vacation until {vacation.state(config)['until']}: the automatic notification is skipped."
+    return None
+
+
+@dataclass
+class Digest:
+    """What there is to say: lines per section, the tasks that get buttons, and the live projects."""
+    projects: dict
+    overdue: list = field(default_factory=list)
+    burning: list = field(default_factory=list)
+    action_tasks: list = field(default_factory=list)     # tasks that get buttons under the message
+    stagnant: list = field(default_factory=list)
+    friday_plan: list = field(default_factory=list)
+    no_tasks: list = field(default_factory=list)
+    weekly: bool = False
+
+    @property
+    def has_content(self) -> bool:
+        return bool(self.overdue or self.burning or self.stagnant or (self.weekly and (self.friday_plan or self.no_tasks)))
+
+
+def _stage_info(proj) -> str:
+    return f" [{esc(tv(proj.stage))}]" if proj and (proj.stage or NO_STAGE) != NO_STAGE else ""
+
+
+def _collect_deadlines(digest: Digest, tasks: list, today) -> None:
+    """Overdue and burning (up to 3 days left) tasks of projects that are in play, plus general tasks."""
+    for t in tasks:
+        if is_done(t.status):
+            continue
+        proj = digest.projects.get(t.project_id)
+        if t.project_id is None:
+            proj = None                    # a general task (no project): shown under the "General" label
+        elif not proj or is_done(proj.status) or str(proj.status).strip() == STATUS_ON_HOLD:
+            continue
+        d = to_date(t.deadline)
+        if not d:
+            continue
+
+        diff = (d - today).days
+        label = esc(proj.name) if proj else f"🧰 {esc(tr('general.label'))}"
+        n_post = int(t.postponed or 0)
+        post_info = f" ⏳×{n_post}" if n_post >= 2 else ""
+        head = f"<b>{label}</b>{_stage_info(proj)}: {esc(t.task_name)}{post_info}"
+
+        if diff < 0:
+            digest.overdue.append(f"💀 {head} <i>({tr('notify.overdue_by')} {abs(diff)} {tr('common.days_short')})</i>")
+            digest.action_tasks.append(t)
+        elif diff <= 3:
+            digest.burning.append(f"🔥 {head} <i>({tr('notify.left')} {diff} {tr('common.days_short')})</i>")
+            digest.action_tasks.append(t)
+
+
+def _collect_stagnant(digest: Digest, now: datetime, notify_cfg: dict) -> None:
+    """Stagnation detector: projects "in work" without progress for too long."""
+    if not notify_cfg.get("stagnation_alert", True):
+        return
+    stag_days = int(notify_cfg.get("stagnation_days", 10))
+    for p in digest.projects.values():
+        if p.status == STATUS_IN_WORK and p.updated_at:
+            idle_days = (now - p.updated_at).days
+            if idle_days >= stag_days:
+                digest.stagnant.append(f"🕸 <b>{esc(p.name)}</b> [{esc(tv(p.stage))}] — {tr('notify.idle_for')} <b>{idle_days} {tr('common.days_short')}</b>")
+
+
+def _collect_weekend_plan(digest: Digest, tasks: list) -> None:
+    """Up to three open tasks of every project "in work", nearest deadline first, then the three nearest general
+    tasks; and projects "in work" without a single open task: nothing to plan for them, worth a look."""
+    for p in digest.projects.values():
+        if p.status == STATUS_IN_WORK:
+            p_tasks = [t for t in tasks if t.project_id == p.id and not is_done(t.status)]
+            for t in p_tasks[:3]:
+                digest.friday_plan.append(f"🛠 <b>{esc(p.name)}</b>: {esc(t.task_name)} ({esc(tv(t.status))})")
+            if not p_tasks:
+                digest.no_tasks.append(f"📭 <b>{esc(p.name)}</b>")
+    general = [t for t in tasks if t.project_id is None and not is_done(t.status)]
+    for t in general[:3]:
+        digest.friday_plan.append(f"🧰 <b>{esc(tr('general.label'))}</b>: {esc(t.task_name)} ({esc(tv(t.status))})")
+
+
+def collect_digest(db, now: datetime, opts: Options, notify_cfg: dict) -> Digest:
+    digest = Digest(projects={p.id: p for p in live_projects(db).all()})
+    tasks = sorted(live_tasks(db).all(), key=_deadline_key)    # most overdue first
+    digest.weekly = bool((now.weekday() == 4 or opts.test) and notify_cfg.get("friday_digest", True))
+    _collect_deadlines(digest, tasks, now.date())
+    _collect_stagnant(digest, now, notify_cfg)
+    if digest.weekly:
+        _collect_weekend_plan(digest, tasks)
+    return digest
+
+
+def render_digest(db, digest: Digest, now: datetime) -> str:
+    lines = [f"🚨 <b>{tr('notify.evening_summary')}:</b>", ""]
+    lines += section(f"<b>{tr('deadline.overdue')}:</b>", digest.overdue)
+    lines += section(f"<b>{tr('notify.burning')}:</b>", digest.burning)
+    lines += section(f"<b>{tr('notify.stagnation')}:</b>", digest.stagnant)
+    if digest.weekly:
+        lines += section(f"🍻 <b>{tr('notify.weekend_plan')}:</b>", digest.friday_plan)
+        lines += section(f"<b>{tr('notify.no_open_tasks')}:</b>", digest.no_tasks)
+        # shame metric of the week: deadlines moved later (text only, no token penalty)
+        shame = activity.count_postponements(db, now - timedelta(days=7))
+        if shame:
+            lines += [f"🐌 <b>{tr('shame.week_line', n=shame)}</b> {esc(shame_snark(shame))}", ""]
+    # Each section is capped, but many projects together could still pass Telegram's limit: then the message
+    # would not arrive at all, so the tail is cut by whole lines
+    return "\n".join(clip_lines(lines, more=more_line))
+
+
+def build_keyboard(action_tasks: list, allow_postpone: bool):
+    """Inline buttons: close the task + move it by 2 days (the bot comments on repeated postponing)."""
+    rows = []
+    for t in action_tasks[:MAX_BUTTONS]:
+        short = t.task_name[:16] + ".." if len(t.task_name) > 16 else t.task_name
+        row = [{"text": f"✅ {short}", "callback_data": f"n_done:{t.id}"}]
+        if allow_postpone:
+            row.append({"text": f"⏳ {tr('notify.postpone_short')}: {short}", "callback_data": f"t_postpone:{t.id}"})
+        rows.append(row)
+    return {"inline_keyboard": rows} if rows else None
+
+
+def send_all_clear(chat_id, digest: Digest, opts: Options) -> bool:
+    """Nothing to report: a test push confirms the link works, a regular run says everything is on track."""
+    if opts.test:
+        return send_tg_message(chat_id, f"✅ <b>[{tr('notify.test_title')}]</b>\n{tr('notify.test_ok')}")
+    active = [p for p in digest.projects.values() if p.status == STATUS_IN_WORK]
+    if active:
+        p = active[0]
+        st = p.stage or NO_STAGE
+        return send_tg_message(chat_id, f"✅ <b>{tr('notify.all_on_track')}</b>\n{tr('notify.no_urgent')}\n🎯 {tr('notify.current_focus')}: <b>{esc(p.name)}</b> [{esc(tv(st))}]")
+    return send_tg_message(chat_id, f"✅ <b>{tr('notify.all_on_track')}</b>\n{tr('notify.no_urgent_no_projects')}")
+
+
 def main() -> int:
     ensure_schema()
     config = load_config()
     chat_id = config.get("TG_CHAT_ID")
-    is_test = "--test" in sys.argv
-    is_monthly_flag = "--monthly" in sys.argv
-    # --now: the "Send now" button, a regular digest exactly as the timer would send it, but on request:
-    # it ignores the silent mode (DEV_MODE), the vacation and the once-per-slot check
-    is_now = "--now" in sys.argv
-    is_force = "--force" in sys.argv or is_now
-    source = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--source=")), "cron/manual")
+    opts = parse_options(sys.argv)
 
     if not BOT_TOKEN:
         print("TELEGRAM_BOT_TOKEN is not set in .env; nothing to send.")
@@ -208,142 +367,41 @@ def main() -> int:
         print("The bot is not linked to a chat. Send the bot /start CODE (the code is in the app: Settings → Telegram).")
         return 0
 
-    # DEV_MODE works as a silent mode for automatic pushes
-    if not is_test and not is_monthly_flag and not is_now and config.get("DEV_MODE", False):
-        print("DEV_MODE (silent mode) is on: the automatic notification is skipped.")
-        return 0
-
-    # Vacation: automatic pushes (including the monthly report) are off for its duration
-    if not is_test and not is_monthly_flag and not is_now and vacation.is_active(config):
-        print(f"On vacation until {vacation.state(config)['until']}: the automatic notification is skipped.")
+    reason = skip_reason(opts, config)
+    if reason:
+        print(reason)
         return 0
 
     # An automatic run takes the slot only once (test, --monthly and --force skip the check)
-    if not is_test and not is_monthly_flag and not is_force:
-        ok, prev = claim_run_slot(source)
+    # The run time is decided by the built-in scheduler (SCHEDULE in config.json).
+    if not (opts.test or opts.monthly or opts.force):
+        ok, prev = claim_run_slot(opts.source)
         if not ok:
             print(f"[NOTIFY] Duplicate skipped: already sent at {prev.get('last_run')} "
                   f"(source: {prev.get('source')}, pid {prev.get('pid')}); "
-                  f"this run: {source}, pid {os.getpid()}")
+                  f"this run: {opts.source}, pid {os.getpid()}")
             return 0
 
-    # The run time is decided by the built-in scheduler (SCHEDULE in config.json).
     now = datetime.now()
-    is_friday = now.weekday() == 4
     notify_cfg = config.get("NOTIFY", {})
     sent_ok = True
 
     db = SessionLocal()
     try:
         # 1. Monthly report (on the 1st of the month, or by button / command)
-        if is_monthly_flag or (now.day == 1 and notify_cfg.get("monthly_report", True) and not is_test):
+        if opts.monthly or (now.day == 1 and notify_cfg.get("monthly_report", True) and not opts.test):
             sent_ok &= send_tg_message(chat_id, build_monthly_report(db, now, config), kind="report")
-            if is_monthly_flag:
+            if opts.monthly:
                 return 0 if sent_ok else 1
 
-        projects = {p.id: p for p in live_projects(db).all()}
-        tasks = sorted(live_tasks(db).all(), key=_deadline_key)    # most overdue first
-        today = now.date()
-
-        overdue = []
-        burning = []
-        action_tasks = []  # tasks that get buttons under the message
-
-        for t in tasks:
-            if is_done(t.status):
-                continue
-            proj = projects.get(t.project_id)
-            if t.project_id is None:
-                proj = None                    # a general task (no project): shown under the "General" label
-            elif not proj or is_done(proj.status) or str(proj.status).strip() == STATUS_ON_HOLD:
-                continue
-            d = to_date(t.deadline)
-            if not d:
-                continue
-
-            diff = (d - today).days
-            label = esc(proj.name) if proj else f"🧰 {esc(tr('general.label'))}"
-            stage_info = f" [{esc(tv(proj.stage))}]" if proj and (proj.stage or NO_STAGE) != NO_STAGE else ""
-            n_post = int(t.postponed or 0)
-            post_info = f" ⏳×{n_post}" if n_post >= 2 else ""
-
-            if diff < 0:
-                overdue.append(f"💀 <b>{label}</b>{stage_info}: {esc(t.task_name)}{post_info} <i>({tr('notify.overdue_by')} {abs(diff)} {tr('common.days_short')})</i>")
-                action_tasks.append(t)
-            elif diff <= 3:
-                burning.append(f"🔥 <b>{label}</b>{stage_info}: {esc(t.task_name)}{post_info} <i>({tr('notify.left')} {diff} {tr('common.days_short')})</i>")
-                action_tasks.append(t)
-
-        # 2. Stagnation detector: projects "in work" without progress for too long
-        stagnant = []
-        if notify_cfg.get("stagnation_alert", True):
-            stag_days = int(notify_cfg.get("stagnation_days", 10))
-            for p in projects.values():
-                if p.status == STATUS_IN_WORK and p.updated_at:
-                    idle_days = (now - p.updated_at).days
-                    if idle_days >= stag_days:
-                        stagnant.append(f"🕸 <b>{esc(p.name)}</b> [{esc(tv(p.stage))}] — {tr('notify.idle_for')} <b>{idle_days} {tr('common.days_short')}</b>")
-
-        # 3. Friday plan for the weekend: up to three open tasks of every project "in work", nearest deadline first
-        # ... and projects "in work" without a single open task: there is nothing to plan for them, worth a look
-        friday_plan = []
-        no_tasks = []
-        weekly = (is_friday or is_test) and notify_cfg.get("friday_digest", True)
-        if weekly:
-            for p in projects.values():
-                if p.status == STATUS_IN_WORK:
-                    p_tasks = [t for t in tasks if t.project_id == p.id and not is_done(t.status)]
-                    for t in p_tasks[:3]:
-                        friday_plan.append(f"🛠 <b>{esc(p.name)}</b>: {esc(t.task_name)} ({esc(tv(t.status))})")
-                    if not p_tasks:
-                        no_tasks.append(f"📭 <b>{esc(p.name)}</b>")
-            # general tasks (no project): the three nearest open ones
-            general = [t for t in tasks if t.project_id is None and not is_done(t.status)]
-            for t in general[:3]:
-                friday_plan.append(f"🧰 <b>{esc(tr('general.label'))}</b>: {esc(t.task_name)} ({esc(tv(t.status))})")
-
-        if not overdue and not burning and not stagnant and not (weekly and (friday_plan or no_tasks)):
-            if is_test:
-                sent_ok &= send_tg_message(chat_id, f"✅ <b>[{tr('notify.test_title')}]</b>\n{tr('notify.test_ok')}")
-            else:
-                active_projs = [p for p in projects.values() if p.status == STATUS_IN_WORK]
-                if active_projs:
-                    p = active_projs[0]
-                    st = p.stage or NO_STAGE
-                    sent_ok &= send_tg_message(chat_id, f"✅ <b>{tr('notify.all_on_track')}</b>\n{tr('notify.no_urgent')}\n🎯 {tr('notify.current_focus')}: <b>{esc(p.name)}</b> [{esc(tv(st))}]")
-                else:
-                    sent_ok &= send_tg_message(chat_id, f"✅ <b>{tr('notify.all_on_track')}</b>\n{tr('notify.no_urgent_no_projects')}")
-            return 0 if sent_ok else 1
-
-        msg_lines = [f"🚨 <b>{tr('notify.evening_summary')}:</b>", ""]
-        msg_lines += section(f"<b>{tr('deadline.overdue')}:</b>", overdue)
-        msg_lines += section(f"<b>{tr('notify.burning')}:</b>", burning)
-        msg_lines += section(f"<b>{tr('notify.stagnation')}:</b>", stagnant)
-        if weekly:
-            msg_lines += section(f"🍻 <b>{tr('notify.weekend_plan')}:</b>", friday_plan)
-            msg_lines += section(f"<b>{tr('notify.no_open_tasks')}:</b>", no_tasks)
-            # shame metric of the week: deadlines moved later (text only, no token penalty)
-            shame = activity.count_postponements(db, now - timedelta(days=7))
-            if shame:
-                msg_lines += [f"🐌 <b>{tr('shame.week_line', n=shame)}</b> {esc(shame_snark(shame))}", ""]
-        # Each section is capped, but many projects together could still pass Telegram's limit: then the message
-        # would not arrive at all, so the tail is cut by whole lines
-        msg_lines = clip_lines(msg_lines, more=more_line)
-
-        # Inline buttons: close the task + move it by 2 days (the bot comments on repeated postponing)
-        keyboard = []
-        allow_postpone = notify_cfg.get("allow_postpone", True)
-        for t in action_tasks[:MAX_BUTTONS]:
-            short = t.task_name[:16] + ".." if len(t.task_name) > 16 else t.task_name
-            row = [{"text": f"✅ {short}", "callback_data": f"n_done:{t.id}"}]
-            if allow_postpone:
-                row.append({"text": f"⏳ {tr('notify.postpone_short')}: {short}", "callback_data": f"t_postpone:{t.id}"})
-            keyboard.append(row)
-
-        markup = {"inline_keyboard": keyboard} if keyboard else None
-        sent_ok &= send_tg_message(chat_id, "\n".join(msg_lines), markup)
+        # 2. The digest: deadlines, stagnation, the Friday plan
+        digest = collect_digest(db, now, opts, notify_cfg)
+        if not digest.has_content:
+            sent_ok &= send_all_clear(chat_id, digest, opts)
+        else:
+            markup = build_keyboard(digest.action_tasks, notify_cfg.get("allow_postpone", True))
+            sent_ok &= send_tg_message(chat_id, render_digest(db, digest, now), markup)
         return 0 if sent_ok else 1
-
     finally:
         db.close()
 
