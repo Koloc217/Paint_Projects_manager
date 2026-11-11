@@ -14,12 +14,10 @@ from urllib.parse import urlsplit
 
 import httpcore
 import httpx
-from dotenv import load_dotenv
 
 from hub.core.appconfig import config_value, load_config, edit_config
-from hub.paths import DATA_DIR
+from hub.bot.telegram import api_url
 
-load_dotenv(os.path.join(DATA_DIR, ".env"))
 
 SCHEMES = ("http", "https", "socks5", "socks5h")
 MAX_URL_LEN = 500
@@ -190,7 +188,7 @@ def check(bot_token: Optional[str], url: Optional[str], timeout: float = 12.0) -
     tr_ = make_transport(url)
     try:
         with httpx.Client(transport=tr_, timeout=httpx.Timeout(timeout, connect=min(timeout, 10.0))) as client:
-            data = client.get(f"https://api.telegram.org/bot{bot_token}/getMe").json()
+            data = client.get(api_url(bot_token, "getMe")).json()
     except Exception as e:                         # no connection, the proxy does not answer, no socksio package, etc.
         text = str(e) or e.__class__.__name__
         return {"ok": False, "error": "network", "detail": text.replace(bot_token, "***")[:200]}

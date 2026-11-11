@@ -1,20 +1,14 @@
 """Telegram Bot API calls: one reused HTTP client (direct or through the proxy), sending, editing, deleting,
 uploading and downloading. Every other bot module calls Telegram through here (tests replace these functions).
 """
-import os
 import asyncio
 import threading
 import httpx
-from dotenv import load_dotenv
 from hub.bot import tgclean
+from hub.bot.telegram import BOT_TOKEN, api_url, file_url, text_payload
 from hub.core.constants import TG_ALERT_LIMIT
 from hub.core.formatting import short_text
-from hub.paths import DATA_DIR
 from hub.bot import tgproxy
-
-load_dotenv(os.path.join(DATA_DIR, ".env"))
-
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # ==================== NETWORK LAYER (direct or through a proxy, see tgproxy.py) ====================
 # One HTTP client is kept and reused, so requests share open connections: without it every call (including the
@@ -68,7 +62,7 @@ TRACKED_ENDPOINTS = ("sendMessage", "sendPhoto", "sendDocument", "sendMediaGroup
 
 def _sync_tg_request(method: str, endpoint: str, payload: dict = None, params: dict = None, timeout_sec: float = 20.0):
     """Blocking request to the Bot API (run in a worker thread by tg_request)."""
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}"
+    url = api_url(BOT_TOKEN, endpoint)
     timeout = httpx.Timeout(timeout_sec, connect=10.0)
     client = _http_client()
     if method == "GET":
@@ -93,9 +87,7 @@ async def tg_request(method: str, endpoint: str, payload: dict = None, params: d
         raise httpx.ReadTimeout("Hard async timeout")
 
 async def send_message(chat_id: int, text: str, reply_markup: dict = None):
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
+    payload = text_payload(chat_id, text, reply_markup)
     try:
         res = await tg_request("POST", "sendMessage", payload=payload)
         if not res.get("ok"):
@@ -106,14 +98,7 @@ async def send_message(chat_id: int, text: str, reply_markup: dict = None):
         return {}
 
 async def edit_message_text(chat_id: int, message_id: int, text: str, reply_markup: dict = None):
-    payload = {
-        "chat_id": chat_id,
-        "message_id": message_id,
-        "text": text,
-        "parse_mode": "HTML"
-    }
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
+    payload = text_payload(chat_id, text, reply_markup, message_id=message_id)
     try:
         res = await tg_request("POST", "editMessageText", payload=payload)
         if not res.get("ok") and "not modified" not in str(res.get("description", "")):
@@ -134,11 +119,11 @@ def _sync_tg_download(file_id: str) -> bytes:
     """Downloads a file by file_id (getFile + download) through the same connection as the rest of the bot."""
     client = _http_client()
     timeout = httpx.Timeout(40.0, connect=10.0)
-    info = client.post(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile", json={"file_id": file_id}, timeout=timeout).json()
+    info = client.post(api_url(BOT_TOKEN, "getFile"), json={"file_id": file_id}, timeout=timeout).json()
     path = (info.get("result") or {}).get("file_path")
     if not info.get("ok") or not path:
         raise RuntimeError(f"getFile: {info.get('description')}")
-    resp = client.get(f"https://api.telegram.org/file/bot{BOT_TOKEN}/{path}", timeout=timeout)
+    resp = client.get(file_url(BOT_TOKEN, path), timeout=timeout)
     if resp.status_code != 200:
         raise RuntimeError(f"file download: HTTP {resp.status_code}")     # no URL in the text: it holds the token
     return resp.content
@@ -150,7 +135,7 @@ async def download_file(file_id: str) -> bytes:
 
 def _sync_tg_upload(endpoint: str, data: dict, files: dict, timeout_sec: float = 60.0):
     """A request with files (multipart): sendPhoto, sendMediaGroup and editMessageMedia."""
-    result = _http_client().post(f"https://api.telegram.org/bot{BOT_TOKEN}/{endpoint}", data=data, files=files,
+    result = _http_client().post(api_url(BOT_TOKEN, endpoint), data=data, files=files,
                                  timeout=httpx.Timeout(timeout_sec, connect=10.0)).json()
     if endpoint in TRACKED_ENDPOINTS:
         tgclean.record(data.get("chat_id"), tgclean.ids_from_result(result), "bot")
