@@ -7,8 +7,10 @@ Web UI, Telegram bot, scheduled notifications and a "token" system: starting a n
 finishing one earns a reward. The idea is to finish what you start instead of piling up unpainted models.
 
 > Status: a personal project. Single user, data stays local.
-> Detailed description of the logic and the API: [PROJECT_OVERVIEW.en.md](PROJECT_OVERVIEW.en.md)
-> ([Русский](PROJECT_OVERVIEW.md)).
+> **Documentation:**
+> [Logic and API](docs/PROJECT_OVERVIEW.en.md) ([Русский](docs/PROJECT_OVERVIEW.md)) ·
+> [Theme guide](docs/THEMES_GUIDE.en.md) ([Русский](docs/THEMES_GUIDE.md)) ·
+> [Plans](PLANS.md) (in Russian)
 
 ## Features
 
@@ -63,7 +65,7 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 
 **Look and language**
 - A standard theme plus eight more: Cyberpunk, Hammer, SCP Dossier, Workbench, Synthwave, JRPG (FFVII),
-  Model Manual, Hardware PCB. Charts follow the theme colors. How to add your own: [THEMES_GUIDE.en.md](THEMES_GUIDE.en.md).
+  Model Manual, Hardware PCB. Charts follow the theme colors. How to add your own: [THEMES_GUIDE.en.md](docs/THEMES_GUIDE.en.md).
 - Language of the UI, the bot and notifications: Russian or English. All texts live in one file, `locales.json`.
 - Date format with the year: `21.03.2027` or `03/21/2027`.
 - Phone layout (tabs at the bottom of the screen) and installation on the home screen as an app (PWA), see "Phone".
@@ -289,6 +291,7 @@ tools/                                               check_locales.py, check_the
                                                      check_backup.py, check_data.py, make_thumbs.py, archive_tool.py
 logs/                                                app.log, notify.log (created automatically)
 PLANS.md                                             postponed ideas and decisions (in Russian)
+docs/                                                PROJECT_OVERVIEW, THEMES_GUIDE (ru and en)
 ```
 
 ## Checks

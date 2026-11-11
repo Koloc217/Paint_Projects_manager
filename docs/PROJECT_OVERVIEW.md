@@ -81,7 +81,7 @@
 | `static/card-tab.css` | Карточка проекта в отдельной вкладке (`/?card=`): страница во всю ширину, колонка с фото |
 | `static/dateinput.js` | Поля ввода даты в формате из настроек (обёртка над `<input type="date">`) |
 | `static/sw.js`, `static/manifest.webmanifest`, `static/pwa.js`, `static/icons/`, `static/offline.html`, `templates/components/pwa_head.html` | PWA: service worker (отдаётся как `/sw.js`), манифест, регистрация и кнопка установки, иконки, офлайн-заглушка, теги в `<head>` |
-| `THEMES_GUIDE.md`, `tools/check_theme.py` | Гайд по созданию тем (в том числе для нейросетей) и проверка темы |
+| `docs/THEMES_GUIDE.md`, `tools/check_theme.py` | Гайд по созданию тем (в том числе для нейросетей) и проверка темы |
 | `.env` | `TELEGRAM_BOT_TOKEN`, `PROXY_URL`, `PORT`, `HOST`, `HTTPS`, `TLS_NAMES`, `SSL_CERTFILE`, `SSL_KEYFILE` |
 | `auth.json` | Состояние входа: хэш пароля, секрет сессий (создаётся сам, права 600, в git не класть) |
 

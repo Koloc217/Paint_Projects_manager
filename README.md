@@ -7,7 +7,10 @@
 завершённый приносит награду. Идея в том, чтобы не бросать начатое и не копить нераскрашенные модели.
 
 > Статус: личный проект «для себя». Работает на одном пользователе, данные хранятся локально.
-> Подробное описание логики и API: [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) ([English](PROJECT_OVERVIEW.en.md)).
+> **Документация:**
+> [Логика и API](docs/PROJECT_OVERVIEW.md) ([English](docs/PROJECT_OVERVIEW.en.md)) ·
+> [Гайд по темам](docs/THEMES_GUIDE.md) ([English](docs/THEMES_GUIDE.en.md)) ·
+> [Планы](PLANS.md)
 
 ## Что умеет
 
@@ -60,7 +63,7 @@
 
 **Оформление и язык**
 - Стандартная тема и восемь дополнительных: Cyberpunk, Hammer, SCP Dossier, Workbench, Synthwave, JRPG (FFVII),
-  Model Manual, Hardware PCB. Графики подхватывают цвета темы. Как добавить свою: [THEMES_GUIDE.md](THEMES_GUIDE.md).
+  Model Manual, Hardware PCB. Графики подхватывают цвета темы. Как добавить свою: [THEMES_GUIDE.md](docs/THEMES_GUIDE.md).
 - Язык интерфейса, бота и уведомлений: русский и английский. Все тексты лежат в одном файле `locales.json`.
 - Формат дат с годом на выбор: `21.03.2027` или `03/21/2027`.
 - Телефонная вёрстка (вкладки внизу экрана) и установка на главный экран как приложение (PWA), см. раздел «Телефон».
@@ -286,6 +289,7 @@ tools/                                               check_locales.py, check_the
                                                      check_backup.py, check_data.py, make_thumbs.py, archive_tool.py
 logs/                                                app.log, notify.log (создаётся сам)
 PLANS.md                                             отложенные идеи и решения
+docs/                                                PROJECT_OVERVIEW, THEMES_GUIDE (ru и en)
 ```
 
 ## Проверки

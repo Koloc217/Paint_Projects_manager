@@ -84,7 +84,7 @@ and starting a new project costs tokens. The goal is to finish what you start in
 | `static/card-tab.css` | Project card in a separate tab (`/?card=`): full-width page, photo column |
 | `static/dateinput.js` | Date inputs in the format from the settings (a wrapper over `<input type="date">`) |
 | `static/sw.js`, `static/manifest.webmanifest`, `static/pwa.js`, `static/icons/`, `static/offline.html`, `templates/components/pwa_head.html` | PWA: service worker (served as `/sw.js`), manifest, registration and install button, icons, offline page, `<head>` tags |
-| `THEMES_GUIDE.md` (`THEMES_GUIDE.en.md`), `tools/check_theme.py` | Guide for creating themes (also for AI models) and the theme check |
+| `docs/THEMES_GUIDE.md` (`docs/THEMES_GUIDE.en.md`), `tools/check_theme.py` | Guide for creating themes (also for AI models) and the theme check |
 | `.env` | `TELEGRAM_BOT_TOKEN`, `PROXY_URL`, `PORT`, `HOST`, `HTTPS`, `TLS_NAMES`, `SSL_CERTFILE`, `SSL_KEYFILE` |
 | `auth.json` | Login state: password hash, session secret (created automatically, mode 600, never commit it) |
 
