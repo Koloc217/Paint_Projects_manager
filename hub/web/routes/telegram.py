@@ -1,6 +1,5 @@
 """Settings -> Telegram: linking the chat and the proxy."""
 import asyncio
-import os
 
 from fastapi import APIRouter
 
