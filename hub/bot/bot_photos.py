@@ -8,7 +8,7 @@ import json
 import traceback
 import uuid
 from hub.core.database import SessionLocal, Project, Reference
-from hub.core import progress
+from hub.core import imagestore, progress
 from hub.core.common import (
     esc, short_text, fmt_date, live_project, live_projects, is_done as status_done, NO_STAGE,
 )
@@ -72,7 +72,7 @@ async def _download_thumb(thumb_id):
         return None
     try:
         raw = await bot_api.download_file(thumb_id)
-        return raw if raw.startswith(b"\xff\xd8\xff") and len(raw) <= progress.MAX_THUMB_BYTES else None
+        return raw if imagestore.usable_thumb(raw, progress.MAX_THUMB_BYTES) else None
     except Exception as e:
         print(f"[BOT] preview not downloaded (the photo itself is used): {bot_api.safe_error(e)}")
         return None

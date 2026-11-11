@@ -3,11 +3,11 @@
 Files live in photos/progress/. The database keeps the project, the stage at upload time, a note and the source.
 """
 import os
-import uuid
 
 from sqlalchemy.orm import Session
 
 from hub.core.common import DATA_DIR, NO_STAGE, detect_image_ext
+from hub.core import imagestore
 from hub.core.database import Project, ProgressPhoto
 
 PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
@@ -25,11 +25,6 @@ class ProgressError(ValueError):
         super().__init__(key)
         self.key = key
         self.params = params
-
-
-def _write(name: str, raw: bytes) -> None:
-    with open(os.path.join(PROGRESS_DIR, name), "wb") as f:
-        f.write(raw)
 
 
 def remove_files(*names) -> None:
@@ -52,13 +47,8 @@ def add_photo(db: Session, project_id: str, raw: bytes, thumb_raw: bytes = None,
     ext = detect_image_ext(raw)
     if not ext:
         raise ProgressError("err.supported_formats")
-    base = f"{proj.id}_{uuid.uuid4().hex[:8]}"
-    filename = f"{base}.{ext}"
-    _write(filename, raw)
-    thumb_name = ""
-    if thumb_raw and thumb_raw.startswith(b"\xff\xd8\xff") and len(thumb_raw) <= MAX_THUMB_BYTES:
-        thumb_name = f"{base}_t.jpg"
-        _write(thumb_name, thumb_raw)
+    filename = f"{imagestore.random_base(proj.id)}.{ext}"
+    thumb_name = imagestore.save_with_thumb(PROGRESS_DIR, filename, raw, thumb_raw, MAX_THUMB_BYTES)
     row = ProgressPhoto(
         project_id=project_id, filename=filename, thumb=thumb_name,
         stage=getattr(proj, "stage", None) or NO_STAGE,

@@ -269,7 +269,7 @@ hub/web/                                             server.py (FastAPI, formerl
 hub/bot/                                             bot (commands, polling), callbacks (buttons), bot_api, bot_views, bot_photos,
                                                      bot_tasks, tgproxy, tgclean
 hub/jobs/                                            scheduler (schedule, subprocesses), notify (notifications)
-hub/core/                                            common (config), lifecycle (statuses), database, migrations, i18n, logs, storage, archive,
+hub/core/                                            common (config), lifecycle (statuses), imagestore (pictures), database, migrations, i18n, logs, storage, archive,
                                                      progress, pipeline, vacation, activity, integrity, spent
 locales.json                                         all texts of the UI, the bot and notifications
 templates/                                           page, login, components (nav, tabs, modals, toasts, pwa_head)

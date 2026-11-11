@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from hub.core.database import engine, SessionLocal, Project, Task, Adjustment, Reference, ProgressPhoto, ensure_schema
-from hub.core import progress
+from hub.core import imagestore, progress
 from hub.core.lifecycle import set_project_status, set_task_status, set_stage, touch_project
 from hub.core import logs
 from hub.core.i18n import tr, tv, get_lang, table_for, available_languages, normalize_lang
@@ -245,16 +245,6 @@ def remove_photo_file(filename):
             os.remove(os.path.join(PHOTOS_DIR, name))
         except OSError:
             pass
-
-
-def decode_data_url(data_url: str):
-    m = re.match(r"^data:[^;,]*;base64,(.+)$", data_url or "", re.S)
-    if not m:
-        raise ValueError(tr("err.bad_image_data"))
-    try:
-        return base64.b64decode(m.group(1), validate=True)
-    except Exception:
-        raise ValueError(tr("err.image_unreadable"))
 
 
 def remove_ref_files(*names):
@@ -928,16 +918,7 @@ def set_project_photo(project_id: str, data: PhotoUpload, db: Session = Depends(
 
     # a random suffix: two uploads within one second must not overwrite each other's file
     filename = f"{proj.id}_{int(time.time())}_{uuid.uuid4().hex[:4]}.jpg"
-    with open(os.path.join(PHOTOS_DIR, filename), "wb") as f:
-        f.write(raw)
-    if data.thumb:
-        try:
-            thumb_raw = decode_data_url(data.thumb)
-            if thumb_raw.startswith(b"\xff\xd8\xff") and len(thumb_raw) <= MAX_THUMB_BYTES:
-                with open(os.path.join(PHOTOS_DIR, integrity.cover_thumb_name(filename)), "wb") as f:
-                    f.write(thumb_raw)
-        except ValueError:
-            pass                        # no preview: the phone layout shows the cover itself
+    imagestore.save_with_thumb(PHOTOS_DIR, filename, raw, imagestore.thumb_from_data_url(data.thumb, MAX_THUMB_BYTES), MAX_THUMB_BYTES)
     old = proj.photo
     proj.photo = filename
     db.commit()
@@ -963,7 +944,7 @@ def add_project_ref(project_id: str, data: RefUpload, db: Session = Depends(get_
     if db.query(Reference).filter(Reference.project_id == project_id).count() >= MAX_REFS:
         return {"status": "error", "message": tr("ref.limit", n=MAX_REFS)}
     try:
-        raw = decode_data_url(data.image)
+        raw = imagestore.decode_data_url(data.image)
     except ValueError as e:
         return {"status": "error", "message": str(e)}
     if len(raw) > MAX_REF_BYTES:
@@ -972,21 +953,9 @@ def add_project_ref(project_id: str, data: RefUpload, db: Session = Depends(get_
     if not ext:
         return {"status": "error", "message": tr("err.supported_formats")}
 
-    base = f"{proj.id}_{uuid.uuid4().hex[:8]}"
-    filename = f"{base}.{ext}"
-    with open(os.path.join(REFS_DIR, filename), "wb") as f:
-        f.write(raw)                       # the original is stored byte for byte
-
-    thumb_name = ""
-    if data.thumb:
-        try:
-            thumb_raw = decode_data_url(data.thumb)
-            if thumb_raw.startswith(b"\xff\xd8\xff") and len(thumb_raw) <= MAX_THUMB_BYTES:
-                thumb_name = f"{base}_t.jpg"
-                with open(os.path.join(REFS_DIR, thumb_name), "wb") as f:
-                    f.write(thumb_raw)
-        except ValueError:
-            thumb_name = ""
+    filename = f"{imagestore.random_base(proj.id)}.{ext}"
+    thumb_name = imagestore.save_with_thumb(REFS_DIR, filename, raw,        # the original is stored byte for byte
+                                            imagestore.thumb_from_data_url(data.thumb, MAX_THUMB_BYTES), MAX_THUMB_BYTES)
 
     last = db.query(func.max(Reference.position)).filter(Reference.project_id == project_id).scalar()
     ref = Reference(project_id=project_id, filename=filename, thumb=thumb_name, position=(last or 0) + 1)
@@ -1019,8 +988,8 @@ def delete_project_ref(project_id: str, ref_id: int, db: Session = Depends(get_d
 @app.post("/api/projects/{project_id}/progress")
 def add_progress_photo(project_id: str, data: ProgressUpload, db: Session = Depends(get_db)):
     try:
-        raw = decode_data_url(data.image)
-        thumb = decode_data_url(data.thumb) if data.thumb else None
+        raw = imagestore.decode_data_url(data.image)
+        thumb = imagestore.decode_data_url(data.thumb) if data.thumb else None
         row = progress.add_photo(db, project_id, raw, thumb, data.note, "web")
     except progress.ProgressError as e:
         return {"status": "error", "message": tr(e.key, **e.params)}
