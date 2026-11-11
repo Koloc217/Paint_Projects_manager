@@ -44,6 +44,7 @@ and starting a new project costs tokens. The goal is to finish what you start in
 | `hub/core/trash.py`, `hub/core/photofiles.py`, `hub/core/imagestore.py`, `hub/core/lifecycle.py` | The trash and final deletion, photo paths and file names, saving pictures with a preview, status rules shared by the web and the bot |
 | `hub/bot/bot.py` | Telegram bot: commands and their registry, button routing, chat linking, long polling, chat cleanup |
 | `hub/bot/bot_api.py` | Telegram Bot API calls: the shared HTTP client (direct or through a proxy), sending, editing, deleting, files |
+| `hub/bot/telegram.py` | What every Telegram caller shares: the token from `.env`, API addresses, the shape of a text message |
 | `hub/bot/bot_views.py` | Bot texts and keyboards: project cards, focus, lists, monthly stats |
 | `hub/bot/bot_photos.py` | Photos in the bot: receiving progress photos, the viewer, `/myphotos`, references, the "Share" album |
 | `hub/bot/bot_tasks.py` | The `/task` builder and the time-spent question after a task is closed |

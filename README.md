@@ -266,7 +266,7 @@ hub/web/                                             server.py (сборка п�
                                                      devices, schemas (тела запросов), validation, static, templating
 hub/web/routes/                                      API по областям: projects, tasks, photos, trash, settings, telegram,
                                                      backup, calendar_feed, device_api, journal, pipeline_templates, pages, data
-hub/bot/                                             bot (команды, polling), callbacks (кнопки), bot_api, bot_views, bot_photos,
+hub/bot/                                             bot (команды, polling), callbacks (кнопки), bot_api, telegram, bot_views, bot_photos,
                                                      bot_tasks, tgproxy, tgclean
 hub/jobs/                                            scheduler (расписание, запуск подпроцессов), notify (уведомления)
 hub/core/                                            appconfig (конфиг), constants, convert, formatting, queries, pairing, lifecycle (статусы), imagestore (картинки), photofiles, trash (корзина), database, migrations, i18n, logs, storage, archive,
