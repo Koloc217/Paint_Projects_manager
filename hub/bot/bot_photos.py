@@ -10,7 +10,7 @@ import uuid
 from hub.core.database import SessionLocal, Project, Reference
 from hub.core import progress
 from hub.core.common import (
-    esc, short_text, fmt_date, live_projects, is_done as status_done, NO_STAGE,
+    esc, short_text, fmt_date, live_project, live_projects, is_done as status_done, NO_STAGE,
 )
 from hub.core.i18n import tr, tv
 from hub.bot import bot_api
@@ -233,7 +233,7 @@ def build_share(project_id: str):
     """(files, caption, extra_text) for the project, or None if there is no such project."""
     db = SessionLocal()
     try:
-        proj = bot_views._live_project(db, project_id)
+        proj = live_project(db, project_id)
         if not proj:
             return None
         files = []
@@ -490,7 +490,7 @@ def _project_media_counts(db):
     out = []
     for p in live_projects(db).all():
         photos = progress.count_photos(db, p.id)
-        refs = len(bot_views._ref_rows(db, p.id))
+        refs = len(bot_views.ref_rows(db, p.id))
         if photos or refs:
             out.append((p, photos, refs))
     out.sort(key=lambda x: (status_done(x[0].status), x[0].name.lower()))
@@ -519,11 +519,11 @@ def build_myphotos_projects():
 def build_myphotos_kinds(project_id: str):
     db = SessionLocal()
     try:
-        proj = bot_views._live_project(db, project_id)
+        proj = live_project(db, project_id)
         if not proj:
             return tr("err.project_not_found"), {"inline_keyboard": [[{"text": f"◀ {tr('bot.btn_back_projects')}", "callback_data": "mp_list"}]]}
         photos = progress.count_photos(db, proj.id)
-        refs = len(bot_views._ref_rows(db, proj.id))
+        refs = len(bot_views.ref_rows(db, proj.id))
         name = proj.name
     finally:
         db.close()
@@ -550,8 +550,8 @@ def _ref_view(project_id: str, index: int):
     """Reference number index (in the card's order) as a dict (path, caption, markup, ...), or None."""
     db = SessionLocal()
     try:
-        proj = bot_views._live_project(db, project_id)
-        rows = bot_views._ref_rows(db, project_id) if proj else []
+        proj = live_project(db, project_id)
+        rows = bot_views.ref_rows(db, project_id) if proj else []
         if not rows:
             return None
         total = len(rows)

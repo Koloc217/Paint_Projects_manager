@@ -3,10 +3,10 @@ bot modules (live project/task, "touch" a project).
 """
 import os
 from datetime import datetime, date
-from hub.core.database import SessionLocal, Project, Task, Reference
+from hub.core.database import SessionLocal, Task, Reference
 from hub.core import progress
 from hub.core.common import (
-    esc, to_tokens, clip_lines, short_text, load_config, compute_balance, fmt_date, live_projects, live_tasks, is_done as status_done, STAGES, NO_STAGE, STATUS_IN_WORK,
+    esc, to_date, to_tokens, clip_lines, short_text, load_config, compute_balance, fmt_date, live_project, live_projects, live_tasks, is_done as status_done, STAGES, NO_STAGE, STATUS_IN_WORK,
     STATUS_ON_HOLD, TASK_IN_PROGRESS,
 )
 from hub.core.i18n import tr, tv
@@ -23,13 +23,6 @@ def priority_badge(priority: str) -> str:
     if "high" in p: return "🟠 High"
     if "low" in p: return "🟢 Low"
     return "🟡 Medium"
-
-def to_date(val):
-    if not val: return None
-    if isinstance(val, datetime): return val.date()
-    if isinstance(val, date): return val
-    try: return datetime.strptime(str(val)[:10], "%Y-%m-%d").date()
-    except Exception: return None
 
 def format_deadline(dt, is_done: bool = False) -> str:
     d = to_date(dt)
@@ -281,7 +274,7 @@ def build_view_for(card: str = None):
 def build_stage_menu_view(proj_id: str):
     db = SessionLocal()
     try:
-        proj = _live_project(db, proj_id)
+        proj = live_project(db, proj_id)
         if not proj:
             return tr("err.project_not_found"), None
         stage_str = getattr(proj, 'stage', NO_STAGE) or NO_STAGE
@@ -341,26 +334,6 @@ def build_current_month_stats():
         db.close()
 
 
-def _live_project(db, project_id: str):
-    """A project outside the trash, or None. Buttons of old messages stay clickable after a project is deleted:
-    they must not change a project in the trash."""
-    return db.query(Project).filter(Project.id == project_id, Project.deleted_at.is_(None)).first()
-
-
-def _live_task(db, task_id: str):
-    """A general task or a task whose project is outside the trash, or None."""
-    return live_tasks(db).filter(Task.id == task_id).first()
-
-
-def _touch_project(db, project_id: str, now: datetime) -> None:
-    """Marks progress on a project (resets the stagnation detector). A general task has no project: nothing to do."""
-    if not project_id:
-        return
-    proj = db.query(Project).filter(Project.id == project_id).first()
-    if proj:
-        proj.updated_at = now
-
-
 # ---------- photo counts for the cards ----------
 
 SHARE_REFS_DIR = os.path.join(progress.PHOTOS_DIR, "refs")
@@ -376,7 +349,7 @@ def _count_photos(project_id: str) -> int:
         db.close()
 
 
-def _ref_rows(db, project_id: str) -> list:
+def ref_rows(db, project_id: str) -> list:
     """References of a project in the card's order, only those whose file is on disk."""
     rows = db.query(Reference).filter(Reference.project_id == project_id).order_by(Reference.position, Reference.id).all()
     return [r for r in rows if os.path.exists(os.path.join(SHARE_REFS_DIR, os.path.basename(r.filename)))]
@@ -385,7 +358,7 @@ def _ref_rows(db, project_id: str) -> list:
 def _count_refs(project_id: str) -> int:
     db = SessionLocal()
     try:
-        return len(_ref_rows(db, project_id))
+        return len(ref_rows(db, project_id))
     except Exception:
         return 0
     finally:

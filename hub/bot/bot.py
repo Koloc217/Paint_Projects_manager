@@ -2,16 +2,15 @@ import time
 import asyncio
 import traceback
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime
 from hub.core.database import SessionLocal, ensure_schema
 from hub.bot import tgclean
 from hub.core import activity
 from hub.web import ics
 from hub.core.common import (
-    short_text, MAX_TASK_NAME_LEN, load_config, config_value, fmt_date, is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code, is_done as status_done, STAGES, normalize_value,
-    STATUS_FINISHED, TASK_IN_PROGRESS,
+    load_config, config_value, is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code,
 )
-from hub.core.i18n import tr, tv
+from hub.core.i18n import tr
 from hub.bot import tgproxy
 from hub.jobs.scheduler import spawn_script, seconds_to_next_run
 
@@ -19,6 +18,7 @@ from hub.bot import bot_api
 from hub.bot import bot_views
 from hub.bot import bot_photos
 from hub.bot import bot_tasks
+from hub.bot.callbacks import handle_callback
 
 # ==================== ACCESS: the bot answers only the linked chat ====================
 
@@ -196,19 +196,6 @@ async def start_clear(chat_id: int):
                                 f"<i>{tr('bot.clear_limit_note')}</i>", {"inline_keyboard": rows})
 
 
-async def handle_clear_callback(cb_id: str, chat_id: int, message_id: int, data: str):
-    action = data.split(":", 1)[1] if ":" in data else ""
-    await bot_api.answer_callback(cb_id)
-    if action == "no":
-        await bot_api.delete_messages(chat_id, [message_id])
-        return
-    plan = await asyncio.to_thread(tgclean.clear_plan, chat_id)
-    ids = plan["keep_last"] if action == "keep" else plan["all"]
-    ids = sorted(set(ids) | {message_id})                 # the question itself goes too
-    await bot_api.delete_messages(chat_id, ids)
-    await bot_api.send_self_destructing(chat_id, f"🧹 {tr('bot.clear_done')}")
-
-
 async def cleanup_digests():
     """Digest cleanup by the TG_CLEANUP mode (runs from the polling loop every few minutes)."""
     cfg = load_config()
@@ -221,179 +208,6 @@ async def cleanup_digests():
         await asyncio.to_thread(tgclean.prune)
     except Exception as e:
         print(f"[BOT] digest cleanup failed: {bot_api.safe_error(e)}")
-
-
-
-async def handle_callback(cb: dict):
-    cb_id = cb["id"]
-    data = cb.get("data") or ""
-    msg = cb.get("message") or {}
-    chat_id = (msg.get("chat") or {}).get("id")
-    message_id = msg.get("message_id")
-    now = datetime.now()
-
-    if data.split(":")[0] == "clr":
-        try:
-            await handle_clear_callback(cb_id, chat_id, message_id, data)
-        except Exception as e:
-            print(f"[CALLBACK ERROR]: {bot_api.safe_error(e)}")
-            traceback.print_exc()
-        return
-
-    if data.split(":")[0] in ("tk_new", "tk_p", "tk_d", "tk_x"):
-        try:
-            if await bot_tasks.handle_task_callback(cb, data):
-                return
-        except Exception as e:
-            print(f"[CALLBACK ERROR]: {bot_api.safe_error(e)}")
-            traceback.print_exc()
-            return
-
-    if data == "noop" or data.split(":")[0] in ("ph_to", "ph_cancel", "ph_undo", "ph_v", "ph_d", "ph_dy",
-                                                        "mp_list", "mp_p", "rf_v", "rf_o"):
-        try:
-            if await bot_photos.handle_photo_callback(cb, data):
-                return
-        except Exception as e:
-            print(f"[CALLBACK ERROR]: {bot_api.safe_error(e)}")
-            traceback.print_exc()
-            return
-
-    if data.split(":")[0] in ("tm", "tm_own", "tm_x"):
-        try:
-            await bot_tasks.handle_time_callback(cb, data)
-        except Exception as e:
-            print(f"[CALLBACK ERROR]: {bot_api.safe_error(e)}")
-            traceback.print_exc()
-        return
-
-    db = SessionLocal()
-    try:
-        if data.startswith("t_done:") or data.startswith("n_done:"):
-            # t_done comes from a project card, n_done straight from a push notification
-            parts = data.split(":")
-            from_push = parts[0] == "n_done"
-            task = bot_views._live_task(db, parts[1])
-            if not task:
-                await bot_api.answer_callback(cb_id, tr("bot.task_not_found"))
-                return
-            newly_closed = not status_done(task.status)
-            if newly_closed:                           # a second press must not move the completion date
-                task.status = STATUS_FINISHED
-                task.completed_at = now
-                task.closed_from = ""
-                bot_views._touch_project(db, task.project_id, now)
-                db.commit()
-            if from_push:
-                await bot_api.answer_callback(cb_id, f"✅ {tr('bot.task_closed_named', name=short_text(task.task_name, MAX_TASK_NAME_LEN))}", show_alert=True)
-            else:
-                await bot_api.answer_callback(cb_id, f"✅ {tr('bot.task_closed')}")
-            card_project = task.project_id if from_push else (parts[2] if len(parts) > 2 else None)
-            ask_time = newly_closed and not task.spent_min
-            task_id, task_name = task.id, task.task_name
-            text, markup = await asyncio.to_thread(bot_views.build_view_for, card_project)
-            await bot_api.edit_message_text(chat_id, message_id, text, markup)
-            if ask_time:
-                await bot_tasks.ask_spent_time(chat_id, task_id, task_name)
-
-        elif data.startswith("t_postpone:"):
-            # Moves the deadline by +2 days from a push. The first time silently, repeated ones with a snarky
-            # comment (text only, no token penalty).
-            task_id = data.split(":", 1)[1]
-            task = bot_views._live_task(db, task_id)
-            if not task:
-                await bot_api.answer_callback(cb_id, tr("bot.task_not_found"))
-                return
-            if status_done(task.status):
-                await bot_api.answer_callback(cb_id, f"✅ {tr('bot.task_closed')}")
-                return
-            if not load_config().get("NOTIFY", {}).get("allow_postpone", True):
-                await bot_api.answer_callback(cb_id, tr("bot.postpone_disabled"), show_alert=True)
-                return
-            base_date = bot_views.to_date(task.deadline) or now.date()
-            if base_date < now.date():
-                base_date = now.date()
-            new_deadline = base_date + timedelta(days=2)
-            task.deadline = datetime.combine(new_deadline, datetime.min.time())
-            count = int(task.postponed or 0) + 1
-            task.postponed = count
-            bot_views._touch_project(db, task.project_id, now)
-            db.commit()
-            reply = f"⏳ {tr('bot.postponed', date=fmt_date(new_deadline))}"
-            snark = bot_views.postpone_snark(count)
-            if snark:
-                reply += f"\n\n{snark}"
-            await bot_api.answer_callback(cb_id, reply, show_alert=True)
-            text, markup = await asyncio.to_thread(bot_views.build_view_for, task.project_id or bot_views.GENERAL)
-            await bot_api.edit_message_text(chat_id, message_id, text, markup)
-
-        elif data.startswith("t_prog:"):
-            parts = data.split(":")
-            task_id, proj_id = parts[1], (parts[2] if len(parts) > 2 else None)
-            task = bot_views._live_task(db, task_id)
-            if task and not status_done(task.status):   # an old button must not reopen a closed task
-                task.status = TASK_IN_PROGRESS
-                task.completed_at = None
-                bot_views._touch_project(db, task.project_id, now)
-                db.commit()
-                await bot_api.answer_callback(cb_id, f"🔄 {tr('bot.task_in_progress')}")
-            elif task:
-                await bot_api.answer_callback(cb_id, f"✅ {tr('bot.task_closed')}")
-            else:
-                await bot_api.answer_callback(cb_id, tr("bot.task_not_found"))
-            text, markup = await asyncio.to_thread(bot_views.build_view_for, proj_id)
-            await bot_api.edit_message_text(chat_id, message_id, text, markup)
-
-        elif data.startswith("stage_menu:"):
-            proj_id = data.split(":", 1)[1]
-            await bot_api.answer_callback(cb_id)
-            text, markup = await asyncio.to_thread(bot_views.build_stage_menu_view, proj_id)
-            await bot_api.edit_message_text(chat_id, message_id, text, markup)
-
-        elif data.startswith("p_stage:"):
-            _, proj_id, new_stage = data.split(":", 2)
-            new_stage = normalize_value(new_stage)     # buttons sent before the switch to codes carry Russian names
-            proj = bot_views._live_project(db, proj_id)
-            if proj and new_stage in STAGES:
-                proj.stage = new_stage
-                proj.updated_at = now
-                db.commit()
-                await bot_api.answer_callback(cb_id, f"🎨 {tr('project.stage')}: {tv(new_stage)}")
-            elif not proj:
-                await bot_api.answer_callback(cb_id, tr("err.project_not_found"))
-            else:
-                await bot_api.answer_callback(cb_id)
-            text, markup = await asyncio.to_thread(bot_views.build_current_focus_view, proj_id)
-            await bot_api.edit_message_text(chat_id, message_id, text, markup)
-
-        elif data == "gen_v":
-            await bot_api.answer_callback(cb_id)
-            text, markup = await asyncio.to_thread(bot_views.build_general_view)
-            await bot_api.edit_message_text(chat_id, message_id, text, markup)
-
-        elif data == "show_all_proj":
-            await bot_api.answer_callback(cb_id)
-            text, markup = await asyncio.to_thread(bot_views.build_all_projects_view)
-            await bot_api.edit_message_text(chat_id, message_id, text, markup)
-
-        elif data.startswith("share:"):
-            await bot_api.answer_callback(cb_id, tr("bot.share_preparing"))
-            await bot_photos.send_project_share(chat_id, data.split(":", 1)[1])
-
-        elif data.startswith("open_p:"):
-            proj_id = data.split(":", 1)[1]
-            await bot_api.answer_callback(cb_id)
-            text, markup = await asyncio.to_thread(bot_views.build_current_focus_view, proj_id)
-            await bot_api.edit_message_text(chat_id, message_id, text, markup)
-
-        else:
-            await bot_api.answer_callback(cb_id)                # unknown or outdated button: stop the spinner
-    except Exception as e:
-        print(f"[CALLBACK ERROR]: {bot_api.safe_error(e)}")
-        traceback.print_exc()
-    finally:
-        db.close()
-
 
 
 

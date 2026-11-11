@@ -6,7 +6,7 @@ from datetime import datetime, date, timedelta
 from hub.core.database import SessionLocal, Project, Task
 from hub.core import spent
 from hub.core.common import (
-    esc, short_text, MAX_TASK_NAME_LEN, config_value, fmt_date, STATUS_PLANNED, TASK_NOT_STARTED,
+    esc, short_text, MAX_TASK_NAME_LEN, config_value, fmt_date, live_task, to_date, STATUS_PLANNED, TASK_NOT_STARTED,
 )
 from hub.core.i18n import tr
 from hub.bot import bot_api
@@ -80,7 +80,7 @@ def _date_choice_view(project_id: str, name: str):
         proj = db.query(Project).filter(Project.id == project_id, Project.deleted_at.is_(None)).first()
         # a general task may have no deadline (like a task of a "planned" project)
         planned = project_id == bot_views.GENERAL or (bool(proj) and str(proj.status).strip() == STATUS_PLANNED)
-        estimate = bot_views.to_date(proj.estimate) if proj and proj.estimate else None
+        estimate = to_date(proj.estimate) if proj and proj.estimate else None
     finally:
         db.close()
     rows = [
@@ -253,7 +253,7 @@ async def handle_task_callback(cb: dict, data: str) -> bool:
             db = SessionLocal()
             try:
                 proj = db.query(Project).filter(Project.id == d["project"]).first()
-                deadline = bot_views.to_date(proj.estimate) if proj and proj.estimate else None
+                deadline = to_date(proj.estimate) if proj and proj.estimate else None
             finally:
                 db.close()
         else:
@@ -305,7 +305,7 @@ def _save_task_time(task_id: str, minutes: int):
     """Saves the time. Returns the task name, or None if the task is gone."""
     db = SessionLocal()
     try:
-        task = bot_views._live_task(db, task_id)
+        task = live_task(db, task_id)
         if not task:
             return None
         spent.set_task_spent(db, task, minutes)

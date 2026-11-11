@@ -10,7 +10,7 @@ import secrets
 import tempfile
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, date
 
 try:
     import fcntl          # Linux / Raspberry Pi
@@ -165,6 +165,20 @@ def parse_iso_date(value):
     if value in (None, ""):
         return None
     return datetime.strptime(str(value).strip()[:10], "%Y-%m-%d")
+
+
+def to_date(val):
+    """date / datetime / 'YYYY-MM-DD...' -> date; empty or unparsable -> None."""
+    if not val:
+        return None
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
+        return val
+    try:
+        return datetime.strptime(str(val)[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
 
 
 def iso_date(value):
@@ -501,6 +515,17 @@ def save_config(cfg: dict) -> None:
 def live_projects(db):
     """Query for projects outside the trash: used everywhere projects are shown or counted."""
     return db.query(Project).filter(Project.deleted_at.is_(None))
+
+
+def live_project(db, project_id: str):
+    """One project outside the trash, or None. Buttons of old bot messages stay clickable after a project is deleted:
+    they must not change a project in the trash."""
+    return live_projects(db).filter(Project.id == project_id).first()
+
+
+def live_task(db, task_id: str):
+    """One task (a general task or a task whose project is outside the trash), or None."""
+    return live_tasks(db).filter(Task.id == task_id).first()
 
 
 def live_tasks(db):

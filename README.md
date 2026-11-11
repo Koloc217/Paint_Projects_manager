@@ -263,10 +263,10 @@ Chrome) браузер включает только на `https` с серти�
 app.py                                               запуск: веб, бот и планировщик одним процессом
 hub/paths.py                                         папки кода и данных (BASE_DIR, DATA_DIR) в одном месте
 hub/web/                                             server.py (FastAPI, бывший app.py), auth, tls, ics, devices
-hub/bot/                                             bot (команды, кнопки, polling), bot_api, bot_views, bot_photos,
+hub/bot/                                             bot (команды, polling), callbacks (кнопки), bot_api, bot_views, bot_photos,
                                                      bot_tasks, tgproxy, tgclean
 hub/jobs/                                            scheduler (расписание, запуск подпроцессов), notify (уведомления)
-hub/core/                                            common (конфиг), database, migrations, i18n, logs, storage, archive,
+hub/core/                                            common (конфиг), lifecycle (статусы), database, migrations, i18n, logs, storage, archive,
                                                      progress, pipeline, vacation, activity, integrity, spent
 locales.json                                         все тексты интерфейса, бота и уведомлений
 templates/                                           страница, вход, компоненты (nav, tabs, modals, toasts, pwa_head)

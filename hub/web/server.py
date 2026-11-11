@@ -22,11 +22,12 @@ import uvicorn
 
 from hub.core.database import engine, SessionLocal, Project, Task, Adjustment, Reference, ProgressPhoto, ensure_schema
 from hub.core import progress
+from hub.core.lifecycle import set_project_status, set_task_status, set_stage, touch_project
 from hub.core import logs
 from hub.core.i18n import tr, tv, get_lang, table_for, available_languages, normalize_lang
 from hub.core.common import (
     BASE_DIR, DATA_DIR, DEFAULT_NOTIFY_SETTINGS, DEFAULT_SCHEDULE, DAY_KEYS, DAY_LABELS,
-    PROJECT_STATUSES, TASK_STATUSES, STAGES, PRIORITIES, STATUS_PLANNED, TASK_NOT_STARTED, STATUS_FINISHED,
+    PROJECT_STATUSES, TASK_STATUSES, STAGES, PRIORITIES, STATUS_PLANNED, TASK_NOT_STARTED,
     NO_STAGE, normalize_value,
     is_done, load_config, edit_config, compute_balance, DATE_FORMATS, detect_image_ext, live_projects, live_tasks,
     is_chat_bound, ensure_pairing_code, new_pairing_code, unlink_chat, format_pairing_code, parse_iso_date, iso_date,
@@ -794,42 +795,6 @@ async def restore_archive_route(request: Request):
     return {"status": "ok", **summary}
 
 
-def set_project_status(proj: Project, status: str, db: Session, now: datetime) -> None:
-    """Changes the status. Finishing a project closes its open tasks and remembers their previous status;
-    reopening it brings exactly those tasks back (tasks closed by hand stay closed) and clears the finish date.
-    Dates that are already set are kept, so the analytics charts do not move when nothing really changed."""
-    was_done = is_done(proj.status)
-    proj.status = status
-    proj.updated_at = now
-    tasks = db.query(Task).filter(Task.project_id == proj.id)
-    if is_done(status):
-        if not was_done or proj.completed_at is None:
-            proj.completed_at = now
-        for task in tasks:
-            if not is_done(task.status):
-                task.closed_from = task.status if task.status in TASK_STATUSES else TASK_NOT_STARTED
-                task.status = STATUS_FINISHED
-                task.completed_at = now
-    else:
-        proj.completed_at = None
-        if was_done:
-            for task in tasks:
-                if task.closed_from and is_done(task.status):
-                    task.status = task.closed_from
-                    task.completed_at = None
-                task.closed_from = ""
-
-
-def set_task_status(task: Task, status: str, now: datetime) -> None:
-    was_done = is_done(task.status)
-    task.closed_from = ""                  # changed by hand: no longer "closed together with the project"
-    task.status = status
-    if not is_done(status):
-        task.completed_at = None
-    elif not was_done or task.completed_at is None:
-        task.completed_at = now
-
-
 @app.post("/api/action")
 def do_action(payload: ActionPayload, db: Session = Depends(get_db)):
     now = datetime.now()
@@ -851,8 +816,7 @@ def do_action(payload: ActionPayload, db: Session = Depends(get_db)):
         proj = get_project(db, payload.id)
         if not proj:
             return {"status": "error", "message": tr("err.project_not_found")}
-        proj.stage = payload.stage
-        proj.updated_at = now
+        set_stage(proj, payload.stage, now)
         db.commit()
         return {"status": "ok"}
 
@@ -863,9 +827,7 @@ def do_action(payload: ActionPayload, db: Session = Depends(get_db)):
         if not task:
             return {"status": "error", "message": tr("bot.task_not_found")}
         set_task_status(task, payload.status, now)
-        proj = get_project(db, task.project_id) if task.project_id else None
-        if proj:
-            proj.updated_at = now
+        touch_project(db, task.project_id, now)
         db.commit()
         return {"status": "ok"}
     return {"status": "unknown_action"}
