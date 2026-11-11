@@ -12,8 +12,8 @@ Without SSL_CERTFILE / SSL_KEYFILE the hub uses certs/server.crt and certs/serve
 with the openssl command on first start. A self-signed certificate gives encryption, but browsers warn
 about it once per device (see README: "HTTPS").
 
-  python tls.py status          show settings and certificate validity
-  python tls.py cert [--force]  create (or re-create) the self-signed certificate
+  python -m hub.web.tls status          show settings and certificate validity
+  python -m hub.web.tls cert [--force]  create (or re-create) the self-signed certificate
 """
 import os
 import re
@@ -24,8 +24,7 @@ from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.abspath(os.environ.get("PROJECT_HUB_DATA_DIR") or BASE_DIR)   # same rule as database.DATA_DIR
+from hub.paths import BASE_DIR, DATA_DIR
 CERT_DIR = os.path.join(BASE_DIR, "certs")
 DEFAULT_CERT = os.path.join(CERT_DIR, "server.crt")
 DEFAULT_KEY = os.path.join(CERT_DIR, "server.key")
@@ -166,9 +165,9 @@ def uvicorn_options(port=None, host=None) -> dict:
         create_certificate(cfg["cert"], cfg["key"], cfg["names"])
     left = days_left(cfg["cert"])
     if left is not None and left < 0:
-        raise TlsError("the certificate has expired; run: python tls.py cert --force")
+        raise TlsError("the certificate has expired; run: python -m hub.web.tls cert --force")
     if left is not None and left < 30:
-        print(f"Warning: the certificate expires in {left} days (python tls.py cert --force)")
+        print(f"Warning: the certificate expires in {left} days (python -m hub.web.tls cert --force)")
     opts.update(ssl_certfile=cfg["cert"], ssl_keyfile=cfg["key"])
     return opts
 

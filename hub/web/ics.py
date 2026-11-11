@@ -16,14 +16,14 @@ with a stable UID, so a subscribed calendar updates moved dates instead of addin
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from common import live_projects, live_tasks, is_done, edit_config, config_value, STATUS_ON_HOLD, NO_STAGE
+from hub.core.common import live_projects, live_tasks, is_done, edit_config, config_value, STATUS_ON_HOLD, NO_STAGE
 
 
 def enabled() -> bool:
     """Export to devices is an option (CALENDAR_EXPORT, off by default): the file, /calendar and the feed.
     The Calendar tab in the app does not depend on it."""
     return bool(config_value("CALENDAR_EXPORT"))
-from i18n import tr, tv
+from hub.core.i18n import tr, tv
 
 PRODID = "-//Project Hub//Deadlines//EN"
 UID_DOMAIN = "project-hub.local"

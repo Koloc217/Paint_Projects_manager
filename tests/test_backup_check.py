@@ -7,8 +7,8 @@ import sys
 
 from PIL import Image
 
-import database
-import migrations
+from hub.core import database
+from hub.core import migrations
 from helpers import make_project, make_task, project
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))

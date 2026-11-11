@@ -8,14 +8,14 @@ import sqlite3
 import sys
 from datetime import date, timedelta
 
-import bot
-import bot_api
-import bot_tasks
-import bot_views
-import ics
-import migrations
-import notify
-from database import SessionLocal
+from hub.bot import bot
+from hub.bot import bot_api
+from hub.bot import bot_tasks
+from hub.bot import bot_views
+from hub.web import ics
+from hub.core import migrations
+from hub.jobs import notify
+from hub.core.database import SessionLocal
 from helpers import action, data, make_project, make_task, task
 
 CHAT = 777

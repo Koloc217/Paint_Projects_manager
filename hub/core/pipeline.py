@@ -8,7 +8,7 @@ If the config has no templates, the two built-in ones apply: "3D print" and "Kit
 import re
 import secrets
 
-from i18n import translate, tr, DEFAULT_LANG, available_languages
+from hub.core.i18n import translate, tr, DEFAULT_LANG, available_languages
 
 MAX_TEMPLATES = 20
 MAX_STEPS = 30

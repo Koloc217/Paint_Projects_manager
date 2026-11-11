@@ -20,8 +20,8 @@ from datetime import datetime
 
 from sqlalchemy import event, inspect
 
-from database import SessionLocal, Activity, Project, Task, gen_proj_id, gen_task_id
-from common import is_done, iso_date
+from hub.core.database import SessionLocal, Activity, Project, Task, gen_proj_id, gen_task_id
+from hub.core.common import is_done, iso_date
 
 KINDS = ("project_created", "project_status", "project_stage", "project_deadline", "project_deleted",
          "project_restored", "task_created", "task_status", "task_deadline", "task_deleted", "vacation")
@@ -186,12 +186,12 @@ def backfill_once() -> int:
 
 
 def _label(kind: str, value: str) -> str:
-    from i18n import tr, tv
+    from hub.core.i18n import tr, tv
     if not value:
         return tr("journal.none")
     if kind.endswith("_deadline") or kind == "task_created":
         try:
-            from common import fmt_date, parse_iso_date
+            from hub.core.common import fmt_date, parse_iso_date
             return fmt_date(parse_iso_date(value))
         except (TypeError, ValueError):
             return value
@@ -200,7 +200,7 @@ def _label(kind: str, value: str) -> str:
 
 def describe(ev: Activity) -> str:
     """One journal line in the interface language (the project name is shown separately)."""
-    from i18n import tr
+    from hub.core.i18n import tr
     old, new = _label(ev.kind, ev.old), _label(ev.kind, ev.new)
     task = ev.task_name or ""
     if ev.kind == "project_created":

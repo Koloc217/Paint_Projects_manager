@@ -1,7 +1,7 @@
 """Time spent: parsing what is typed, saving per task and per project, the stage of the breakdown."""
 import pytest
 
-import spent
+from hub.core import spent
 from helpers import action, make_project, make_task, project, task
 
 

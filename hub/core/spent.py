@@ -9,7 +9,7 @@ Time never affects tokens.
 """
 import re
 
-from i18n import tr
+from hub.core.i18n import tr
 
 MAX_SPENT_MIN = 60_000            # 1000 hours: more is a typo
 
@@ -76,7 +76,7 @@ def format_minutes(minutes) -> str:
 def set_task_spent(db, task, minutes) -> None:
     """Sets (or clears, for None) the time spent on a task; the caller commits. The project stage is remembered
     the first time, so changing the number later does not move the time to another stage of the breakdown."""
-    from database import Project
+    from hub.core.database import Project
     task.spent_min = minutes
     if minutes is None:
         task.spent_stage = ""

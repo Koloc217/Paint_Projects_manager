@@ -4,10 +4,8 @@ from datetime import datetime
 from sqlalchemy import create_engine, event, Column, String, Float, DateTime, Integer, Text, ForeignKey, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Folder with the app's data (database, config, .env, photos, logs). Default: next to the code.
-# PROJECT_HUB_DATA_DIR moves it elsewhere (the tests point it to a temp folder). Same rule as common.DATA_DIR.
-DATA_DIR = os.path.abspath(os.environ.get("PROJECT_HUB_DATA_DIR") or BASE_DIR)
+from hub.paths import BASE_DIR, DATA_DIR      # noqa: F401  (re-exported: other modules import them from here)
+
 os.makedirs(DATA_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "tracker.db")
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
@@ -151,7 +149,7 @@ class Adjustment(Base):
 def ensure_schema():
     """Creates missing tables and runs the pending versioned migrations (migrations.py), then the cheap idempotent
     clean-up of old status/stage values. Safe to call from every entry point (app, bot, scripts) on every start."""
-    import migrations
+    from hub.core import migrations
     had_data = os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) > 0
     Base.metadata.create_all(bind=engine)
     migrations.migrate(DB_PATH, had_data=had_data)
@@ -172,7 +170,7 @@ _ACTIVITY_KINDS = ("project_created", "project_status", "project_stage", "task_s
 def migrate_value_codes(conn) -> None:
     """Statuses and stages: old Russian values -> technical codes (common.LEGACY_VALUES).
     Idempotent: only rows that still hold an old value are touched, so it is cheap on every start."""
-    from common import LEGACY_VALUES    # common imports this module, so the import stays local
+    from hub.core.common import LEGACY_VALUES    # common imports this module, so the import stays local
     kinds = ", ".join(f"'{k}'" for k in _ACTIVITY_KINDS)
     for old, new in LEGACY_VALUES.items():
         params = {"old": old, "new": new}

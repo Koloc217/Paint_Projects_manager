@@ -2,9 +2,9 @@
 import sys
 from datetime import date, datetime, timedelta
 
-import activity
-import notify
-from database import SessionLocal
+from hub.core import activity
+from hub.jobs import notify
+from hub.core.database import SessionLocal
 from helpers import data, make_project, make_task, task
 
 

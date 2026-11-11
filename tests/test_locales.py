@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-import common
+from hub.core import common
 
 
 def test_locales_complete():

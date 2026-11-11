@@ -22,7 +22,7 @@ Settings → General → Interface language right away. Completeness check: pyth
 import os
 import json
 
-from common import (BASE_DIR, config_value, normalize_value,
+from hub.core.common import (BASE_DIR, config_value, normalize_value,
                     PROJECT_STATUSES, TASK_STATUSES, STAGES, NO_STAGE)
 
 LOCALES_FILE = os.path.join(BASE_DIR, "locales.json")

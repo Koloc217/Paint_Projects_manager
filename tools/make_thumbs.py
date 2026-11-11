@@ -47,9 +47,9 @@ def main() -> int:
     except ImportError:
         print("Pillow is not installed: pip install pillow")
         return 1
-    from database import SessionLocal, Project, ProgressPhoto, ensure_schema
-    import integrity
-    import progress
+    from hub.core.database import SessionLocal, Project, ProgressPhoto, ensure_schema
+    from hub.core import integrity
+    from hub.core import progress
 
     ensure_schema()
     db = SessionLocal()

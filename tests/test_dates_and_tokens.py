@@ -3,9 +3,9 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-import scheduler
-import vacation
-from database import SessionLocal, Project
+from hub.jobs import scheduler
+from hub.core import vacation
+from hub.core.database import SessionLocal, Project
 from helpers import action, data, make_project, make_task, project, task
 
 

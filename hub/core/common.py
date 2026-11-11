@@ -21,11 +21,11 @@ try:
 except ImportError:
     msvcrt = None
 
-from database import Project, Task, Adjustment, DATA_DIR
+from hub.core.database import Project, Task, Adjustment
+from hub.paths import BASE_DIR, DATA_DIR      # noqa: F401  (re-exported: other modules import them from here)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))     # the code: templates, static, locales.json, scripts
-# DATA_DIR (from database.py): tracker.db, config.json, .env, auth.json, photos/, logs/ and service files.
-# Next to the code unless PROJECT_HUB_DATA_DIR says otherwise.
+# BASE_DIR: the code and its assets (templates, static, locales.json). DATA_DIR: tracker.db, config.json, .env,
+# auth.json, photos/, logs/ and service files (see hub/paths.py).
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 CONFIG_LOCK_FILE = os.path.join(DATA_DIR, ".config.lock")
 

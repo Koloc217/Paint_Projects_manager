@@ -12,7 +12,7 @@ import sqlite3
 
 import pytest
 
-import database
+from hub.core import database
 from conftest import clear_database, write_config
 
 SOURCE = os.environ.get("PROJECT_HUB_TEST_DB")
@@ -41,7 +41,7 @@ def test_real_database_copy(client):
         res = client.get("/api/data")
         assert res.status_code == 200
         d = res.json()
-        from common import PROJECT_STATUSES, STAGES, TASK_STATUSES
+        from hub.core.common import PROJECT_STATUSES, STAGES, TASK_STATUSES
         assert {p["Status"] for p in d["projects"]} <= set(PROJECT_STATUSES), "unknown project status after migration"
         assert {p["Stage"] for p in d["projects"]} <= set(STAGES), "unknown stage after migration"
         assert {t["Status"] for t in d["tasks"]} <= set(TASK_STATUSES), "unknown task status after migration"

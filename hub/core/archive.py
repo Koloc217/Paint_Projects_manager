@@ -32,8 +32,8 @@ import tempfile
 import zipfile
 from datetime import datetime
 
-from database import DATA_DIR, DB_PATH, engine
-import migrations
+from hub.core.database import DATA_DIR, DB_PATH, engine
+from hub.core import migrations
 
 FORMAT = 1
 PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
@@ -266,7 +266,7 @@ def restore_archive(zip_path: str, with_config: bool = True, log=print) -> dict:
 
             config = False
             if with_config and "config.json" in zf.namelist():
-                from common import save_config
+                from hub.core.common import save_config
                 save_config(json.loads(zf.read("config.json").decode("utf-8")))
                 config = True
     finally:

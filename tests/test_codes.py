@@ -1,9 +1,9 @@
 """Status/stage codes: migration of old Russian values, old input still accepted, translation."""
 import sqlite3
 
-import common
-import database
-from i18n import tv
+from hub.core import common
+from hub.core import database
+from hub.core.i18n import tv
 from helpers import action, make_project, project
 
 

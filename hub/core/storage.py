@@ -6,7 +6,7 @@ Symlinks are not followed: only what really lies in the app folder is counted.
 """
 import os
 
-from common import BASE_DIR, DATA_DIR
+from hub.core.common import BASE_DIR, DATA_DIR
 
 PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
 LOGS_DIR = os.path.join(DATA_DIR, "logs")
@@ -157,7 +157,7 @@ def usage() -> dict:
 
 
 if __name__ == "__main__":
-    # quick check from the console: python storage.py
+    # quick check from the console: python -m hub.core.storage
     data = usage()
     for it in data["items"]:
         print(f"{it['key']:<16} {it['bytes']:>14,} B  {it['files']:>6} files")

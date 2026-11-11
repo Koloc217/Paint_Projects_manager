@@ -18,7 +18,7 @@ How it works
   • The calendar subscription /cal/<token>.ics is open without login (phone calendars cannot log in): it is off by
     default and the long token in the address is its password (see ics.py).
 
-Forgot the password:  python auth.py reset   (resets to admin / 123456 and turns login off)
+Forgot the password:  python -m hub.web.auth reset   (resets to admin / 123456 and turns login off)
 """
 import os
 import sys
@@ -34,8 +34,8 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 
-from common import DATA_DIR
-from i18n import tr, get_lang, table_for
+from hub.core.common import DATA_DIR
+from hub.core.i18n import tr, get_lang, table_for
 
 AUTH_FILE = os.path.join(DATA_DIR, "auth.json")
 COOKIE_NAME = "ph_session"
@@ -342,4 +342,4 @@ if __name__ == "__main__":
         print(f"Login: {'on' if st['enabled'] else 'off'}; user: {st['username']}; "
               f"{'default password, must be changed' if st['must_change'] else 'password changed'}")
     else:
-        print("Usage: python auth.py [status|reset]")
+        print("Usage: python -m hub.web.auth [status|reset]")

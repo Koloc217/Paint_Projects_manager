@@ -6,11 +6,11 @@ import asyncio
 import threading
 import httpx
 from dotenv import load_dotenv
-import tgclean
-from common import (
+from hub.bot import tgclean
+from hub.core.common import (
     DATA_DIR, short_text, TG_ALERT_LIMIT,
 )
-import tgproxy
+from hub.bot import tgproxy
 
 load_dotenv(os.path.join(DATA_DIR, ".env"))
 

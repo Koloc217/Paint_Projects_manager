@@ -3,13 +3,13 @@ bot modules (live project/task, "touch" a project).
 """
 import os
 from datetime import datetime, date
-from database import SessionLocal, Project, Task, Reference
-import progress
-from common import (
+from hub.core.database import SessionLocal, Project, Task, Reference
+from hub.core import progress
+from hub.core.common import (
     esc, to_tokens, clip_lines, short_text, load_config, compute_balance, fmt_date, live_projects, live_tasks, is_done as status_done, STAGES, NO_STAGE, STATUS_IN_WORK,
     STATUS_ON_HOLD, TASK_IN_PROGRESS,
 )
-from i18n import tr, tv
+from hub.core.i18n import tr, tv
 
 PENDING_TTL_SEC = 3600                 # drafts and pending photos live this long
 GENERAL = "_g"                         # in callback data: "general tasks" (no project) instead of a project id

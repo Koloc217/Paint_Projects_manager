@@ -95,7 +95,7 @@ def _rebuild_table(conn, name: str, keep_where: str) -> None:
     renamed, the new one created, the rows copied, the old table dropped."""
     from sqlalchemy.dialects import sqlite as sqlite_dialect
     from sqlalchemy.schema import CreateIndex, CreateTable
-    import database
+    from hub.core import database
 
     dialect = sqlite_dialect.dialect()
     table = database.Base.metadata.tables[name]

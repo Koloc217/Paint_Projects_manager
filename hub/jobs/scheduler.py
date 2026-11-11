@@ -1,7 +1,7 @@
 """Built-in scheduler (replaces cron) and running scripts as subprocesses.
 
 The schedule comes from config.json (the SCHEDULE section) and is edited in the UI.
-Scripts run with the same interpreter as the app (sys.executable),
+Jobs run as modules (python -m hub.jobs.notify) with the same interpreter as the app (sys.executable),
 so the venv path is not hard-coded anywhere.
 """
 import os
@@ -12,8 +12,8 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta, time as dtime
 
-import logs
-from common import BASE_DIR, DATA_DIR, DAY_KEYS, load_config, normalize_schedule
+from hub.core import logs
+from hub.core.common import BASE_DIR, DATA_DIR, DAY_KEYS, load_config, normalize_schedule
 
 JOB_TIMEOUT_SEC = 180
 TICK_SEC = 20
@@ -50,7 +50,7 @@ def build_jobs(cfg: dict) -> list:
         for weekday, key in enumerate(DAY_KEYS):
             day = s["notify_days"][key]
             if day["enabled"]:
-                jobs.append(Job(f"notify_{key}", "notify.py", frozenset({weekday}), str(day["time"]), ("--source=scheduler",),
+                jobs.append(Job(f"notify_{key}", "hub.jobs.notify", frozenset({weekday}), str(day["time"]), ("--source=scheduler",),
                                 catchup_hours=3, catchup_same_day=True))
     return jobs
 
@@ -159,9 +159,9 @@ def seconds_to_next_run(cfg=None, now=None):
 
 
 async def run_script(script: str, args=(), timeout: float = JOB_TIMEOUT_SEC):
-    """Runs a script from the project folder as a separate process; output goes to logs/<name>.log (rotated)."""
-    script_path = os.path.join(BASE_DIR, script)
-    log_path = logs.log_path(os.path.splitext(script)[0] + ".log")
+    """Runs a module (`python -m <script>`) as a separate process from the project folder; output goes to
+    logs/<last part of the name>.log (rotated)."""
+    log_path = logs.log_path(script.rsplit(".", 1)[-1] + ".log")
     logs.rotate_file(log_path)
     args = [str(a) for a in args]
 
@@ -170,7 +170,7 @@ async def run_script(script: str, args=(), timeout: float = JOB_TIMEOUT_SEC):
         log.write(f"\n[{stamp}] ▶ {script} {' '.join(args)}\n".encode("utf-8"))
         log.flush()
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, script_path, *args,
+            sys.executable, "-m", script, *args,
             cwd=BASE_DIR, stdout=log, stderr=asyncio.subprocess.STDOUT,
             # unbuffered: lines reach the log at once, so a killed (timed-out) script still shows how far it got
             env={**os.environ, "PYTHONUNBUFFERED": "1"},

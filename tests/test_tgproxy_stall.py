@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import httpx
 import pytest
 
-import tgproxy
+from hub.bot import tgproxy
 
 
 def _listen():

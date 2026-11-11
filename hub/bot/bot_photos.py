@@ -7,14 +7,14 @@ import asyncio
 import json
 import traceback
 import uuid
-from database import SessionLocal, Project, Reference
-import progress
-from common import (
+from hub.core.database import SessionLocal, Project, Reference
+from hub.core import progress
+from hub.core.common import (
     esc, short_text, fmt_date, live_projects, is_done as status_done, NO_STAGE,
 )
-from i18n import tr, tv
-import bot_api
-import bot_views
+from hub.core.i18n import tr, tv
+from hub.bot import bot_api
+from hub.bot import bot_views
 
 # ==================== PROGRESS PHOTOS ====================
 # A photo sent to the bot goes to the project timeline (the photo caption becomes the note).

@@ -1,7 +1,7 @@
 """Device API (/api/v1/hot): which tasks a small screen gets, the "nearest" and "empty" fallbacks, access rules."""
 from datetime import date, timedelta
 
-import auth
+from hub.web import auth
 from helpers import action, make_project, make_task
 
 ON = {"enabled": True, "key": "", "hot_days": 3}

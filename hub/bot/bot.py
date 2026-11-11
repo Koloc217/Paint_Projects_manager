@@ -3,22 +3,22 @@ import asyncio
 import traceback
 import httpx
 from datetime import datetime, timedelta
-from database import SessionLocal, ensure_schema
-import tgclean
-import activity
-import ics
-from common import (
+from hub.core.database import SessionLocal, ensure_schema
+from hub.bot import tgclean
+from hub.core import activity
+from hub.web import ics
+from hub.core.common import (
     short_text, MAX_TASK_NAME_LEN, load_config, config_value, fmt_date, is_chat_bound, ensure_pairing_code, check_pairing_code, bind_chat, format_pairing_code, is_done as status_done, STAGES, normalize_value,
     STATUS_FINISHED, TASK_IN_PROGRESS,
 )
-from i18n import tr, tv
-import tgproxy
-from scheduler import spawn_script, seconds_to_next_run
+from hub.core.i18n import tr, tv
+from hub.bot import tgproxy
+from hub.jobs.scheduler import spawn_script, seconds_to_next_run
 
-import bot_api
-import bot_views
-import bot_photos
-import bot_tasks
+from hub.bot import bot_api
+from hub.bot import bot_views
+from hub.bot import bot_photos
+from hub.bot import bot_tasks
 
 # ==================== ACCESS: the bot answers only the linked chat ====================
 
@@ -138,11 +138,11 @@ async def sync_menu_commands():
 async def cmd_summary():
     """/summary: the regular digest right now, exactly as the scheduled one (like "Send now" in the app).
     No "started" reply: the digest itself is the answer, so the chat stays clean."""
-    spawn_script("notify.py", ["--now", "--source=bot"])
+    spawn_script("hub.jobs.notify", ["--now", "--source=bot"])
 
 
 async def cmd_test_notify(chat_id: int):
-    spawn_script("notify.py", ["--test"])
+    spawn_script("hub.jobs.notify", ["--test"])
     await bot_api.send_message(chat_id, f"🧪 {tr('bot.test_started')}...")
 
 

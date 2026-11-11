@@ -28,9 +28,9 @@ for secret in ("TELEGRAM_BOT_TOKEN", "PROXY_URL"):
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-import app as app_module          # noqa: E402
-import common                     # noqa: E402
-import database                   # noqa: E402
+from hub.web import server as app_module
+from hub.core import common
+from hub.core import database
 
 assert database.DATA_DIR == os.path.abspath(DATA_DIR), "the app must use the temp data folder"
 assert os.path.dirname(database.DB_PATH) == database.DATA_DIR

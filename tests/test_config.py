@@ -1,7 +1,7 @@
 """config.json: invalid values are replaced by defaults and reported, one line per value."""
 import json
 
-import common
+from hub.core import common
 
 
 def _load_raw(cfg: dict):

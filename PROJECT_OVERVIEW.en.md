@@ -15,22 +15,22 @@ and starting a new project costs tokens. The goal is to finish what you start in
 
 ```
                    ┌──────────────────────────── one process: python app.py (uvicorn, port 8000) ──┐
- Browser ───────►  │  FastAPI (app.py)  ── REST API + the page                                     │
-                   │  Bot (bot.py)      ── Telegram long polling (direct or through a proxy)       │
-                   │  Scheduler (scheduler.py) ── checks the schedule every 20 s                   │
+ Browser ───────►  │  FastAPI (hub/web/server.py)  ── REST API + the page                                     │
+                   │  Bot (hub/bot/bot.py)      ── Telegram long polling (direct or through a proxy)       │
+                   │  Scheduler (hub/jobs/scheduler.py) ── checks the schedule every 20 s                   │
                    └───────────┬───────────────────────────────┬───────────────────────────────────┘
                                │                               │ on schedule, as separate processes
-                  SQLite tracker.db + photos/          notify.py (pushes)
+                  SQLite tracker.db + photos/          hub/jobs/notify.py (pushes)
                   config.json (settings, chat link)            │
                                                          Telegram Bot API
 ```
 
-- **One service.** The web app, the bot and the scheduler start together with the app (`lifespan` in `app.py`).
-- **The `notify.py` script** is started by the scheduler as a separate process with the same
+- **One service.** The web app, the bot and the scheduler start together with the app (`lifespan` in `hub/web/server.py`).
+- **The `hub/jobs/notify.py` script** is started by the scheduler as a separate process with the same
   interpreter (`sys.executable`), so the venv path is not hard-coded anywhere. Its output goes to `logs/notify.log`
   (rotated at 1 MB, three copies, job timeout 180 s; output is unbuffered, so a script killed on timeout still leaves
   in the log how far it got). Everything the app prints to the console is
-  copied to `logs/app.log` with the same rotation (`logs.py`, pure Python, so it works the same on Windows and Linux).
+  copied to `logs/app.log` with the same rotation (`hub/core/logs.py`, pure Python, so it works the same on Windows and Linux).
 - **Data.** `tracker.db` (SQLite), the `photos/` folder (photos and references), `config.json` (settings and the chat
   link), `.env` (secrets).
 
@@ -38,29 +38,29 @@ and starting a new project costs tokens. The goal is to finish what you start in
 
 | File | Purpose |
 |---|---|
-| `app.py` | FastAPI: the page, REST API, photo and reference uploads, starting the bot and the scheduler |
-| `bot.py` | Telegram bot: commands and their registry, button routing, chat linking, long polling, chat cleanup |
-| `bot_api.py` | Telegram Bot API calls: the shared HTTP client (direct or through a proxy), sending, editing, deleting, files |
-| `bot_views.py` | Bot texts and keyboards: project cards, focus, lists, monthly stats |
-| `bot_photos.py` | Photos in the bot: receiving progress photos, the viewer, `/myphotos`, references, the "Share" album |
-| `bot_tasks.py` | The `/task` builder and the time-spent question after a task is closed |
-| `logs.py` | Size-rotated logs: `logs/app.log` (console copy), script logs |
-| `progress.py` | Progress photos: saving, listing, deleting (shared by the web app and the bot) |
-| `notify.py` | Building and sending notifications (evening digest, monthly report) |
-| `scheduler.py` | Built-in schedule (replaces cron), runs scripts as subprocesses |
-| `database.py` | SQLAlchemy models and automatic schema migration |
-| `common.py` | Config (cached, atomic writes under a lock, `edit_config()`), canonical values, token balance, escaping, trimming Telegram messages, chat linking |
-| `storage.py` | Used space: app, database, photos, logs (folder walk, Windows and Linux) |
-| `archive.py` | Data archive: building the zip (database, settings, photos) and restoring from it |
-| `pipeline.py` | Pipeline templates: built-in defaults, storage and validation in `config.json` |
-| `vacation.py` | Vacation: moving deadlines, state, ending early |
-| `activity.py` | Activity journal: events recorded on database writes, restoring the past, texts |
-| `tgclean.py` | Bot chat cleanup: message tracking, `/clear`, automatic removal of old digests |
-| `ics.py` | Deadlines in iCalendar format: a file and a subscription for a phone calendar |
-| `tgproxy.py` | Optional proxy for Telegram: where the address comes from, validation, password masking, connection check |
-| `i18n.py`, `static/i18n.js` | Localization of the server/bot and of the browser |
-| `auth.py`, `static/auth.js`, `templates/login.html` | Optional password login (off by default) |
-| `tls.py` | Basic HTTPS: a self-signed certificate via `openssl`, uvicorn options, `python tls.py status \| cert [--force]` |
+| `hub/web/server.py` | FastAPI: the page, REST API, photo and reference uploads, starting the bot and the scheduler |
+| `hub/bot/bot.py` | Telegram bot: commands and their registry, button routing, chat linking, long polling, chat cleanup |
+| `hub/bot/bot_api.py` | Telegram Bot API calls: the shared HTTP client (direct or through a proxy), sending, editing, deleting, files |
+| `hub/bot/bot_views.py` | Bot texts and keyboards: project cards, focus, lists, monthly stats |
+| `hub/bot/bot_photos.py` | Photos in the bot: receiving progress photos, the viewer, `/myphotos`, references, the "Share" album |
+| `hub/bot/bot_tasks.py` | The `/task` builder and the time-spent question after a task is closed |
+| `hub/core/logs.py` | Size-rotated logs: `logs/app.log` (console copy), script logs |
+| `hub/core/progress.py` | Progress photos: saving, listing, deleting (shared by the web app and the bot) |
+| `hub/jobs/notify.py` | Building and sending notifications (evening digest, monthly report) |
+| `hub/jobs/scheduler.py` | Built-in schedule (replaces cron), runs scripts as subprocesses |
+| `hub/core/database.py` | SQLAlchemy models and automatic schema migration |
+| `hub/core/common.py` | Config (cached, atomic writes under a lock, `edit_config()`), canonical values, token balance, escaping, trimming Telegram messages, chat linking |
+| `hub/core/storage.py` | Used space: app, database, photos, logs (folder walk, Windows and Linux) |
+| `hub/core/archive.py` | Data archive: building the zip (database, settings, photos) and restoring from it |
+| `hub/core/pipeline.py` | Pipeline templates: built-in defaults, storage and validation in `config.json` |
+| `hub/core/vacation.py` | Vacation: moving deadlines, state, ending early |
+| `hub/core/activity.py` | Activity journal: events recorded on database writes, restoring the past, texts |
+| `hub/bot/tgclean.py` | Bot chat cleanup: message tracking, `/clear`, automatic removal of old digests |
+| `hub/web/ics.py` | Deadlines in iCalendar format: a file and a subscription for a phone calendar |
+| `hub/bot/tgproxy.py` | Optional proxy for Telegram: where the address comes from, validation, password masking, connection check |
+| `hub/core/i18n.py`, `static/i18n.js` | Localization of the server/bot and of the browser |
+| `hub/web/auth.py`, `static/auth.js`, `templates/login.html` | Optional password login (off by default) |
+| `hub/web/tls.py` | Basic HTTPS: a self-signed certificate via `openssl`, uvicorn options, `python -m hub.web.tls status \| cert [--force]` |
 | `locales.json` | All texts in one file, blocks per language (`ru-RU`, `en-US`) |
 | `tools/check_locales.py` | Checks `locales.json` |
 | `tools/build_assets.py` | Builds `static/vendor/` (Tailwind CSS, Chart.js) and `static/fonts/` (theme fonts) |
@@ -128,7 +128,7 @@ time of the event), `kind`, `old`, `new`, `source` (`web`, `bot`, `history`).
 Statuses and stages are stored as technical codes: project statuses `planned`, `in_work`, `on_hold`, `finished`, task
 statuses `not_started`, `in_progress`, `finished`; stages `none`, `printing`, `sanding`, `assembly`, `priming`,
 `painting`, `finishing`. Labels come from `locales.json` (`status.<code>`, `stage.<code>`). Old Russian values are
-converted to codes once at startup (`migrate_value_codes()` in `database.py`, the `LEGACY_VALUES` map in `common.py`);
+converted to codes once at startup (`migrate_value_codes()` in `hub/core/database.py`, the `LEGACY_VALUES` map in `hub/core/common.py`);
 the API and the bot's buttons still accept them as input. "Finished" is `finished` plus the old `закончен`,
 `завершено`, `завершен`, `выполнено`, `completed` (case-insensitive).
 
@@ -182,7 +182,7 @@ deadline, and allows creating projects without tokens.
 - **Calendar.** A month grid (the week always starts on Monday, in any date format): deadlines of open tasks
   and 📌 project deadlines. Overdue items are red, closed ones struck through; a cell shows three entries and
   "N more". Clicking a day opens its list, clicking an entry opens the project. Finished projects are not shown.
-  **Export to devices** (`ics.py`) is the `CALENDAR_EXPORT` option, off by default, turned on in Settings → General →
+  **Export to devices** (`hub/web/ics.py`) is the `CALENDAR_EXPORT` option, off by default, turned on in Settings → General →
   Deadlines to phone calendar. While it is off there is no "To phone" button, `/calendar` disappears from the bot menu
   and `/help`, and the file and the subscription answer 404; the tab itself always works. The subscription token is
   kept, so the old address works again after turning it back on. The "To phone" button hands the same deadlines to a
@@ -194,7 +194,7 @@ deadline, and allows creating projects without tokens.
     (`webcal://`); Android needs the ICSx⁵ app, since Google Calendar cannot reach a home server.
 - **Feed.** All progress photos by day, newest first, with a project filter. A click opens the photo full screen with a
   caption (project, date, stage, note) and arrow navigation. A "Photos / Journal" switch (remembered in the browser):
-  the **Journal** (`activity.py`) shows by day what happened to projects: creation, status and stage changes, new
+  the **Journal** (`hub/core/activity.py`) shows by day what happened to projects: creation, status and stage changes, new
   tasks, task status and deadline changes, trash and restore, vacation. Time, project (a click opens the card) and a
   "via the bot" note for actions from Telegram. Project filter, 200 events per page, "Show more". Events are written
   in one place, right before changes reach the database, so the web UI, the bot and templates are covered alike. Not
@@ -314,7 +314,7 @@ stagnation detector, Friday plan, monthly report, connection test), **Schedule**
 templates), **Backup** (data archive and used space), **Telegram** (chat link, digest cleanup, optional proxy, a "What the bot can do" guide with the same texts as `/help`), **Access** (password
 login, password change, logout).
 
-**Pipeline templates** (`pipeline.py`, `static/templates.js`). Stored in `config.json` (`PIPELINE_TEMPLATES`); while the
+**Pipeline templates** (`hub/core/pipeline.py`, `static/templates.js`). Stored in `config.json` (`PIPELINE_TEMPLATES`); while the
 key is absent, the two built-in ones apply. The editor can rename a template, add, delete, reorder and rename steps,
 create a template or delete any of them, including built-in ones (at least one must remain). "Reset to defaults" brings
 back the two built-in ones. Changes are saved with the common "Save" button. Limits: up to 20 templates, up to 30 steps,
@@ -324,7 +324,7 @@ is saved as plain text. If the saved list equals the built-in one, the key is re
 created from a template are not changed by editing it. `POST /api/pipeline-templates` accepts
 `{"templates": [{"id", "name", "steps": [...]}]}` or `{"reset": true}`.
 
-**Vacation** (`vacation.py`, Settings → Notifications). A "Days" field (1–30) and a "Start vacation" button with a
+**Vacation** (`hub/core/vacation.py`, Settings → Notifications). A "Days" field (1–30) and a "Start vacation" button with a
 confirmation. Takes effect right away, without the "Save" button:
 - deadlines of all unfinished projects outside the trash (including those on hold) and of their open tasks move by N days;
   tasks without a deadline, finished projects and finished tasks do not change;
@@ -351,7 +351,7 @@ proxy changes and at the planned reconnect: every 3 hours and about 10 minutes b
 - Cards and lists are built from the database in a worker thread and do not hold up the web interface.
 
 ### Proxy (optional)
-Only needed if Telegram is not reachable directly (`tgproxy.py`, Settings → Telegram → "Proxy for Telegram").
+Only needed if Telegram is not reachable directly (`hub/bot/tgproxy.py`, Settings → Telegram → "Proxy for Telegram").
 - **Where the address comes from.** Until the block has been saved in the UI, `PROXY_URL` from `.env` applies, as before
   (empty = direct). After "Apply" only the UI setting counts (`config.json`, `TG_PROXY` = `{"enabled", "url"}`):
   off means direct, even if `PROXY_URL` in `.env` is set.
@@ -364,7 +364,7 @@ Only needed if Telegram is not reachable directly (`tgproxy.py`, Settings → Te
   "Apply" keeps the saved address (or the one from `.env`, which is then copied into `config.json`).
 - **A stuck proxy does not hang the bot.** httpx reads the SOCKS5 handshake replies with no timeout: a proxy that
   accepted the connection and stays silent would hold the request (and its worker thread) forever, and piled-up threads
-  stopped the bot entirely. So every connection to Telegram (the bot, `notify.py`, "Check connection") goes through
+  stopped the bot entirely. So every connection to Telegram (the bot, `hub/jobs/notify.py`, "Check connection") goes through
   `tgproxy.make_transport`: any read or write without its own timeout is limited to `STALL_TIMEOUT_SEC` (15 s), then it
   is an ordinary network error and a retry.
 - **"Check connection"** sends a `getMe` request with what is in the form right now (before saving) and shows the bot
@@ -388,7 +388,7 @@ All user text is escaped before sending (HTML mode).
 | `/start` | greeting and the list of commands |
 | `/current_task` | the project in focus: status, stage, priority, reward, balance, tasks with buttons |
 | `/projects` | all active projects with navigation buttons |
-| `/help` | commands and features of the bot; the list comes from the `COMMANDS` and `FEATURES` registry in `bot.py`, which also builds the "/" menu in Telegram |
+| `/help` | commands and features of the bot; the list comes from the `COMMANDS` and `FEATURES` registry in `hub/bot/bot.py`, which also builds the "/" menu in Telegram |
 | `/task [name]` | task builder: project, name, deadline (buttons "Today", "Tomorrow", "In 3 days", "In a week", "Project deadline", "Pick a date", "No deadline"); a date can be typed in the format from the settings |
 | `/photo` | the latest progress photo across all projects; ◀ ▶ buttons flip through, "Delete" asks for confirmation |
 | `/myphotos` | pick a project (only those with photos or references are listed, finished ones too), then "Progress" or "References" |
@@ -428,7 +428,7 @@ must be added to the `COMMANDS` or `FEATURES` registry, then `/help` updates its
 - Photos waiting for an answer are kept in memory for one hour; after a bot restart the "which project" question
   expires and the photo has to be sent again.
 
-### Chat cleanup (`tgclean.py`)
+### Chat cleanup (`hub/bot/tgclean.py`)
 Telegram lets a bot delete only messages younger than 48 hours, and a bot cannot read the chat history. So the bot
 records every message it sends and receives (`tg_messages`) and deletes only those; anything from before this feature
 is unknown to it.
@@ -438,7 +438,7 @@ is unknown to it.
   - "Keep for 46 hours" (default): old digests are removed at 46 hours, the latest one always stays;
   - "Latest only": a new digest removes the previous ones;
   - "Don't delete".
-  Digests are the `notify.py` messages (evening summary, Friday plan, test push); the monthly report is never deleted.
+  Digests are the `hub/jobs/notify.py` messages (evening summary, Friday plan, test push); the monthly report is never deleted.
   If the bot was off during the 46–48 hour window, that digest stays for good.
 
 ### Buttons
@@ -459,7 +459,7 @@ task shows ⏳ (or ⏳×N); in the push the ⏳×N counter appears from the seco
 
 ## 6. Notifications
 
-`notify.py` sends one message per run to the linked chat:
+`hub/jobs/notify.py` sends one message per run to the linked chat:
 
 1. **Overdue** and **Urgent (3 days or less)**: open tasks with a deadline in projects that are neither finished nor on
    hold, from the most overdue to the nearest. Tasks without a deadline are not included. Below the message there are up
@@ -504,7 +504,7 @@ means Telegram did not accept it or there is no token; the code is visible in `l
 
 ## 8. Backup
 
-**Data archive** (`archive.py`, Settings → Backup, `tools/archive_tool.py`). A full copy in one zip file:
+**Data archive** (`hub/core/archive.py`, Settings → Backup, `tools/archive_tool.py`). A full copy in one zip file:
 `manifest.json` (format, date, schema version, number of projects, tasks and photos), `tracker.db` (a snapshot through
 the sqlite3 backup API, no need to stop the app), `config.json` and the `photos/` folder as is (covers, previews,
 references, progress; images are stored without compressing them again). Not included: `.env`, `auth.json`, `tls/`,
@@ -527,7 +527,7 @@ logs, `orphans/`, `backups/`.
 `tracker.db-shm` appear next to `tracker.db`. Do not copy the file while the app is running (fresh writes are in `-wal`):
 stop the app or make a copy with `sqlite3 tracker.db ".backup copy.db"`.
 
-**Used space** (Settings → Backup, `storage.py`, `GET /api/storage`). Computed when the section opens and with the
+**Used space** (Settings → Backup, `hub/core/storage.py`, `GET /api/storage`). Computed when the section opens and with the
 "Refresh" button, by walking folders, without external commands. Rows: app files (everything in the app folder except the
 data below), the database (`tracker.db` with `-wal`/`-shm`), photos (covers, references, progress photos), logs (`logs/`
 and old `*.log` files in the root). If present, database copies from `tools/deploy.sh` (`backups/`), `.venv` and `.git`
@@ -561,7 +561,7 @@ are shown separately. The size is the file length, not the space allocated on di
   itself is shown. A placeholder error (`{n}` not passed) does not crash the app.
 - Project and task names are never translated. Statuses and stages are stored as codes (`in_work`,
   `painting`...), weekdays as Russian abbreviations (`Пн`...); for display they are
-  translated by `tv(value)`, which also understands the old Russian values (the `VALUE_KEYS` table in `i18n.py`). Pipeline step names are inserted in the language
+  translated by `tv(value)`, which also understands the old Russian values (the `VALUE_KEYS` table in `hub/core/i18n.py`). Pipeline step names are inserted in the language
   active at the moment of clicking and are then stored as ordinary task text.
 - **A new language:** add a block with its code and a `meta.name` key to `locales.json`; it appears in the list right
   away. A stub with all keys: `python tools/check_locales.py --create de-DE --name Deutsch`.
@@ -595,7 +595,7 @@ are shown separately. The size is the file length, not the space allocated on di
 
 The file is written atomically (a temporary file and `os.replace`); missing keys are filled with defaults.
 The parsed config is cached and re-read only when the file on disk changes (time, size, inode), so changes from another
-process (`notify.py`) and manual edits are picked up without a restart. If `config.json` is damaged (not valid JSON), it
+process (`hub/jobs/notify.py`) and manual edits are picked up without a restart. If `config.json` is damaged (not valid JSON), it
 is renamed to `config.json.broken-<time>`, the app starts with default settings and says so in the log; the bot link and
 the settings can be restored from the saved copy.
 
@@ -676,18 +676,18 @@ PNG, GIF, WebP, AVIF); SVG and a faked extension are rejected.
     a phone calendar cannot log in, so the long token in the address acts as the password.
   - The password check (scrypt) runs in a worker thread and does not hold up other requests.
   - The Telegram bot, notifications and the scheduler do not go through the web app; login does not affect them.
-  - **Forgot the password:** `python auth.py reset` (resets to `admin`/`123456` and turns login off);
-    `python auth.py status` shows the state.
-- **HTTPS** (`tls.py`, off by default):
-  - `HTTPS=1` in `.env` turns on TLS on the same port (`PORT`, 8000 by default). `app.py` takes the options from
+  - **Forgot the password:** `python -m hub.web.auth reset` (resets to `admin`/`123456` and turns login off);
+    `python -m hub.web.auth status` shows the state.
+- **HTTPS** (`hub/web/tls.py`, off by default):
+  - `HTTPS=1` in `.env` turns on TLS on the same port (`PORT`, 8000 by default). `hub/web/server.py` takes the options from
     `tls.uvicorn_options()` at start-up; a configuration error stops the start with a clear message.
   - Certificate: if `SSL_CERTFILE` and `SSL_KEYFILE` are not set, `certs/server.crt` and `certs/server.key` are created on
     the first start (RSA 2048, SHA-256, 825 days, key with mode 600) with `openssl`. `subjectAltName` includes
     `localhost`, `127.0.0.1`, the host name and `name.local`, the host's network addresses and everything in
-    `TLS_NAMES`. If the address changed: `python tls.py cert --force`. Less than 30 days left: a warning at start-up;
+    `TLS_NAMES`. If the address changed: `python -m hub.web.tls cert --force`. Less than 30 days left: a warning at start-up;
     expired: the app refuses to start.
   - Your own certificate (mkcert, Let's Encrypt): set both paths in `.env`; nothing is created then.
-  - The session cookie gets the `Secure` flag automatically (`auth.py` looks at the request scheme and at
+  - The session cookie gets the `Secure` flag automatically (`hub/web/auth.py` looks at the request scheme and at
     `X-Forwarded-Proto`). If a reverse proxy (Caddy, nginx) sits in front of the app, TLS can be left to it and `HTTPS`
     kept off.
   - The "Access" tab shows which connection the page was opened with (from `location.protocol`).

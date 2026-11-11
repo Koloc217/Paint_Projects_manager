@@ -5,16 +5,16 @@ import threading
 import httpx
 from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
-from database import SessionLocal, Project, Task, ensure_schema
-from common import (
+from hub.core.database import SessionLocal, Project, Task, ensure_schema
+from hub.core.common import (
     DATA_DIR, esc, to_tokens, load_config, compute_balance, live_projects, live_tasks,
     is_done, STATUS_IN_WORK, STATUS_ON_HOLD, NO_STAGE, FileLock, clip_lines,
 )
-from i18n import tr, tv
-import tgproxy
-import vacation
-import activity
-import tgclean
+from hub.core.i18n import tr, tv
+from hub.bot import tgproxy
+from hub.core import vacation
+from hub.core import activity
+from hub.bot import tgclean
 
 # Duplicate protection: the automatic digest goes out at most once per MIN_GAP_SEC, even if two sources start it
 # at the same time (an old cron entry + the built-in scheduler, two copies of the app).
@@ -92,7 +92,7 @@ def send_tg_message(chat_id, text, reply_markup=None, kind="digest") -> bool:
 
 def cleanup_digests(chat_id) -> None:
     """Removes older digests right after a new one (TG_CLEANUP mode). The bot also checks every few minutes,
-    but notify.py runs as its own process, so without this "latest only" left the old digest for up to 10 minutes."""
+    but hub.jobs.notify runs as its own process, so without this "latest only" left the old digest for up to 10 minutes."""
     try:
         ids = tgclean.digest_candidates(chat_id)
         if not ids:

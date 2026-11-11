@@ -3,15 +3,15 @@ import time
 import asyncio
 import re
 from datetime import datetime, date, timedelta
-from database import SessionLocal, Project, Task
-import spent
-from common import (
+from hub.core.database import SessionLocal, Project, Task
+from hub.core import spent
+from hub.core.common import (
     esc, short_text, MAX_TASK_NAME_LEN, config_value, fmt_date, STATUS_PLANNED, TASK_NOT_STARTED,
 )
-from i18n import tr
-import bot_api
-import bot_photos
-import bot_views
+from hub.core.i18n import tr
+from hub.bot import bot_api
+from hub.bot import bot_photos
+from hub.bot import bot_views
 
 # ==================== TASK BUILDER ====================
 # /task or the "Task" button: project (or "no project": a general task) -> name -> deadline -> created.

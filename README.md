@@ -79,7 +79,7 @@
   Пароль входа, `.env` и сертификаты в архив не попадают.
 - Если приложение было выключено во время пуша, после запуска пропущенный запуск выполняется сам.
 - База SQLite в режиме WAL: веб, бот и скрипты пишут в неё одновременно без блокировок.
-- Версионированные миграции схемы (`migrations.py`, версия в `PRAGMA user_version`): каждый шаг выполняется один раз,
+- Версионированные миграции схемы (`hub/core/migrations.py`, версия в `PRAGMA user_version`): каждый шаг выполняется один раз,
   в транзакции; перед миграцией копия базы сохраняется в `backups/tracker-before-v<N>-<дата>.db` (5 последних).
 - Внешние ключи: задачи, референсы и фото прогресса не могут ссылаться на несуществующий проект.
 - Фото, на которые не ссылается ни одна запись, раз в 6 часов переносятся в `orphans/<дата>/` и удаляются через 30 дней
@@ -179,10 +179,10 @@ HTTPS=1
 - **Предупреждение браузера.** Сертификат самоподписанный, поэтому на каждом устройстве один раз появится
   «соединение не защищено». Нажмите «Дополнительно → Перейти на сайт». Чтобы предупреждение исчезло, добавьте
   `certs/server.crt` в доверенные сертификаты устройства.
-- **Если адрес устройства поменялся**, пересоздайте сертификат: `python tls.py cert --force`
+- **Если адрес устройства поменялся**, пересоздайте сертификат: `python -m hub.web.tls cert --force`
   (или добавьте новый адрес в `TLS_NAMES`).
 - **Свой сертификат** (например, от mkcert или Let's Encrypt): укажите оба пути, `SSL_CERTFILE` и `SSL_KEYFILE`.
-- **Проверка:** `python tls.py status` показывает режим, порт и сколько дней осталось у сертификата.
+- **Проверка:** `python -m hub.web.tls status` показывает режим, порт и сколько дней осталось у сертификата.
   Во вкладке «Доступ» в настройках видно, по какому соединению открыта страница.
 - Ключ `certs/server.key` никому не передавайте, папка `certs/` в git не попадает.
 
@@ -222,7 +222,7 @@ Chrome) браузер включает только на `https` с серти�
 | Порт и адрес (`PORT`, `HOST`), секреты (токен бота, прокси), HTTPS | `.env` (шаблон: `.env.example`), см. «Порт и адрес» |
 | Язык, формат даты, цена проекта, сроки в календарь телефона, расписание, уведомления | Настройки в интерфейсе, хранится в `config.json` |
 | API для внешних устройств (`DEVICE_API`) | `config.json`, см. «Внешние устройства» |
-| Пароль | Настройки → Доступ; сброс из консоли: `python auth.py reset` |
+| Пароль | Настройки → Доступ; сброс из консоли: `python -m hub.web.auth reset` |
 | Фоновые картинки тем | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` лежат в репозитории, `wh40k_bg.jpg` нужно положить самому (без картинки тема рисует фон сама), см. [static/backgrounds/README.md](static/backgrounds/README.md) |
 
 ## Внешние устройства
@@ -260,12 +260,14 @@ Chrome) браузер включает только на `https` с серти�
 ## Структура
 
 ```
-app.py, bot.py, notify.py, scheduler.py             сервер, бот, уведомления, расписание
-bot_api.py, bot_views.py, bot_photos.py, bot_tasks.py   бот: запросы к Telegram, карточки, фото, конструктор задач и время
-auth.py, tls.py, common.py, database.py, i18n.py     вход, HTTPS, общие функции и конфиг, модели БД, переводы
-pipeline.py, vacation.py, tgproxy.py, storage.py     шаблоны пайплайна, отпуск, прокси для Telegram, занятое место
-archive.py, devices.py                               архив с данными (скачать и восстановить), API для устройств
-progress.py, logs.py                                 фото прогресса (веб и бот), журналы с ротацией
+app.py                                               запуск: веб, бот и планировщик одним процессом
+hub/paths.py                                         папки кода и данных (BASE_DIR, DATA_DIR) в одном месте
+hub/web/                                             server.py (FastAPI, бывший app.py), auth, tls, ics, devices
+hub/bot/                                             bot (команды, кнопки, polling), bot_api, bot_views, bot_photos,
+                                                     bot_tasks, tgproxy, tgclean
+hub/jobs/                                            scheduler (расписание, запуск подпроцессов), notify (уведомления)
+hub/core/                                            common (конфиг), database, migrations, i18n, logs, storage, archive,
+                                                     progress, pipeline, vacation, activity, integrity, spent
 locales.json                                         все тексты интерфейса, бота и уведомлений
 templates/                                           страница, вход, компоненты (nav, tabs, modals, toasts, pwa_head)
 static/app.js, i18n.js, auth.js, dateinput.js        ядро интерфейса, переводы, хэш пароля, поля даты
@@ -277,7 +279,6 @@ static/themes.css, mobile.css, card-tab.css          темы, телефонн�
 static/sw.js, manifest.webmanifest, pwa.js, icons/, offline.html   PWA: service worker, манифест, установка, иконки, заглушка
 static/backgrounds/                                  фоновые картинки тем
 static/vendor/, static/fonts/                        Tailwind CSS, Chart.js и шрифты (собираются tools/build_assets.py)
-migrations.py, integrity.py, spent.py                миграции схемы, целостность данных и фото, затраченное время
 tools/                                               check_locales.py, check_theme.py, build_assets.py, deploy.sh, clean.sh,
                                                      check_backup.py, check_data.py, make_thumbs.py, archive_tool.py
 logs/                                                app.log, notify.log (создаётся сам)

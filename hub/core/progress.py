@@ -7,8 +7,8 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from common import DATA_DIR, NO_STAGE, detect_image_ext
-from database import Project, ProgressPhoto
+from hub.core.common import DATA_DIR, NO_STAGE, detect_image_ext
+from hub.core.database import Project, ProgressPhoto
 
 PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
 PROGRESS_DIR = os.path.join(PHOTOS_DIR, "progress")

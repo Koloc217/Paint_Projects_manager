@@ -5,8 +5,8 @@ The vacation is active while today < until. Cancelling brings notifications back
 """
 from datetime import date, datetime, timedelta
 
-from common import load_config, edit_config, is_done, live_projects, live_tasks
-from database import Task
+from hub.core.common import load_config, edit_config, is_done, live_projects, live_tasks
+from hub.core.database import Task
 
 MAX_DAYS = 30
 
