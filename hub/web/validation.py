@@ -1,7 +1,8 @@
 """Checks of values that come from the client. Each returns (value, None) or (None, error text)."""
 import math
 
-from hub.core.common import MAX_PROJECT_NAME_LEN, MAX_TOKENS, parse_iso_date
+from hub.core.constants import MAX_PROJECT_NAME_LEN, MAX_TOKENS
+from hub.core.convert import parse_iso_date
 from hub.core.i18n import tr
 
 MAX_NAME_LEN = MAX_PROJECT_NAME_LEN

@@ -34,7 +34,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from pydantic import BaseModel
 
-from hub.core.common import DATA_DIR
+from hub.paths import DATA_DIR
 from hub.core.i18n import tr, get_lang, table_for
 
 AUTH_FILE = os.path.join(DATA_DIR, "auth.json")
@@ -191,6 +191,22 @@ def _register_fail(ip: str) -> None:
     _fails.setdefault(ip, []).append(time.time())
 
 
+def _locked_response(ip: str):
+    """The 429 answer while this address is locked out, otherwise None."""
+    wait = locked_minutes(ip)
+    return _err(tr("auth.err_locked", minutes=wait), status=429) if wait else None
+
+
+async def _penalize(ip: str) -> None:
+    """A wrong password: count it and slow the answer down."""
+    _register_fail(ip)
+    await asyncio.sleep(0.6)
+
+
+def _forgive(ip: str) -> None:
+    _fails.pop(ip, None)
+
+
 # ---------------------------------------------------------------- wiring into the app
 class LoginBody(BaseModel):
     username: str = ""
@@ -253,16 +269,15 @@ def setup(app, templates) -> None:
         if not state.get("enabled"):
             return _err(tr("auth.err_invalid"))
         ip = _client_ip(request)
-        wait = locked_minutes(ip)
-        if wait:
-            return _err(tr("auth.err_locked", minutes=wait), status=429)
+        locked = _locked_response(ip)
+        if locked:
+            return locked
         ok_user = hmac.compare_digest(body.username.strip().lower().encode(), state["username"].lower().encode())
         ok_pass = await asyncio.to_thread(verify_password, body.digest, state)   # always computed, so timing does not reveal the user name
         if not (ok_user and ok_pass):
-            _register_fail(ip)
-            await asyncio.sleep(0.6)
+            await _penalize(ip)
             return _err(tr("auth.err_invalid"), status=401)
-        _fails.pop(ip, None)
+        _forgive(ip)
         resp = JSONResponse({"status": "ok", "must_change": bool(state.get("must_change"))})
         set_session_cookie(resp, request, state)
         return resp
@@ -283,20 +298,19 @@ def setup(app, templates) -> None:
     async def api_change(body: ChangeBody, request: Request):
         state = load_state()
         ip = _client_ip(request)
-        wait = locked_minutes(ip)
-        if wait:
-            return _err(tr("auth.err_locked", minutes=wait), status=429)
+        locked = _locked_response(ip)
+        if locked:
+            return locked
         if not _is_hex64(body.new_digest):
             return _err(tr("auth.err_bad_request"))
         if not await asyncio.to_thread(verify_password, body.old_digest, state):
-            _register_fail(ip)
-            await asyncio.sleep(0.6)
+            await _penalize(ip)
             return _err(tr("auth.err_old"))
         if body.new_digest == body.old_digest:
             return _err(tr("auth.err_same"))
         if body.new_digest == make_digest(state["username"], DEFAULT_PASSWORD):
             return _err(tr("auth.err_default"))
-        _fails.pop(ip, None)
+        _forgive(ip)
         salt = secrets.token_hex(16)
         state = {**state, "salt": salt, "hash": await asyncio.to_thread(_scrypt, body.new_digest, salt),
                  "must_change": False, "secret": secrets.token_hex(32)}     # a new secret: old sessions become invalid
@@ -314,14 +328,13 @@ def setup(app, templates) -> None:
         if not body.enabled:
             # only a logged-in user (middleware) with the current password may turn it off
             ip = _client_ip(request)
-            wait = locked_minutes(ip)
-            if wait:
-                return _err(tr("auth.err_locked", minutes=wait), status=429)
+            locked = _locked_response(ip)
+            if locked:
+                return locked
             if not await asyncio.to_thread(verify_password, body.digest, state):
-                _register_fail(ip)
-                await asyncio.sleep(0.6)
+                await _penalize(ip)
                 return _err(tr("auth.err_old"))
-            _fails.pop(ip, None)
+            _forgive(ip)
         state = {**state, "enabled": body.enabled}
         _write(state)
         resp = JSONResponse({"status": "ok", "enabled": body.enabled, "must_change": bool(state.get("must_change"))})

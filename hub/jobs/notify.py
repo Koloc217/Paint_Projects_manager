@@ -5,14 +5,17 @@ import threading
 import httpx
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from dotenv import load_dotenv
 from hub.core.database import SessionLocal, Project, Task, ensure_schema
-from hub.core.common import (
-    DATA_DIR, esc, to_date, to_tokens, load_config, compute_balance, live_projects, live_tasks,
-    is_done, STATUS_IN_WORK, STATUS_ON_HOLD, NO_STAGE, FileLock, clip_lines,
-)
+from hub.core.appconfig import load_config
+from hub.core.constants import is_done, STATUS_IN_WORK, STATUS_ON_HOLD, NO_STAGE
+from hub.core.convert import to_date, to_tokens
+from hub.core.filelock import FileLock
+from hub.core.formatting import esc, clip_lines
+from hub.core.queries import compute_balance, live_projects, live_tasks
+from hub.paths import DATA_DIR
 from hub.core.i18n import tr, tv
 from hub.bot import tgproxy
+from hub.bot.telegram import BOT_TOKEN, api_url, text_payload
 from hub.core import vacation
 from hub.core import activity
 from hub.bot import tgclean
@@ -29,9 +32,6 @@ MAX_SECTION_ITEMS = 12    # lines per section (overdue, burning, ...); the rest 
 # So every request also gets a hard limit of its own, and a hung one is tried once more on a fresh connection.
 REQUEST_DEADLINE_SEC = 30
 REQUEST_ATTEMPTS = 2
-
-load_dotenv(os.path.join(DATA_DIR, ".env"))
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 
 def _post_once(url, payload):
@@ -69,10 +69,8 @@ def tg_post(url, payload, deadline=None, attempts=None, post=None):
 def send_tg_message(chat_id, text, reply_markup=None, kind="digest") -> bool:
     """Sends one message to the linked chat. Returns True if Telegram accepted it.
     kind is how the chat cleanup treats it (tgclean.py): digests are cleaned up automatically, a report is not."""
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
+    url = api_url(BOT_TOKEN, "sendMessage")
+    payload = text_payload(chat_id, text, reply_markup)
     # The proxy is optional: Settings → Telegram or PROXY_URL in .env (see tgproxy.py)
     try:
         resp = tg_post(url, payload)
@@ -99,7 +97,7 @@ def cleanup_digests(chat_id) -> None:
         if not ids:
             return
         for batch in tgclean.batches(ids):
-            resp = tg_post(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteMessages",
+            resp = tg_post(api_url(BOT_TOKEN, "deleteMessages"),
                            {"chat_id": chat_id, "message_ids": batch}, attempts=1)
             if resp.status_code != 200:
                 print(f"[NOTIFY] deleteMessages: Telegram returned {resp.status_code}: {resp.text[:200]}")

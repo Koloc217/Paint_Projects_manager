@@ -15,6 +15,38 @@ from hub.core.integrity import cover_thumb_name
 JPEG_SIGNATURE = b"\xff\xd8\xff"
 
 
+def detect_image_ext(raw: bytes):
+    """Image format by the file content, not by what the client claims."""
+    if raw.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if raw[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "webp"
+    if _is_avif(raw):
+        return "avif"
+    return None
+
+
+AVIF_BRANDS = (b"avif", b"avis")     # still image / image sequence
+
+
+def _is_avif(raw: bytes) -> bool:
+    """AVIF is an ISO BMFF file that starts with an 'ftyp' box naming avif/avis as the major or a compatible brand.
+    HEIC uses the same container with other brands (heic, mif1 without avif) and is not accepted: browsers can't show it."""
+    if len(raw) < 16 or raw[4:8] != b"ftyp":
+        return False
+    size = int.from_bytes(raw[:4], "big")
+    if size < 16 or size > min(len(raw), 4096):
+        return False
+    if raw[8:12] in AVIF_BRANDS:
+        return True
+    brands = raw[16:size]                 # after major brand (4) and minor version (4)
+    return any(brands[i:i + 4] in AVIF_BRANDS for i in range(0, len(brands) - 3, 4))
+
+
 def decode_data_url(data_url: str) -> bytes:
     """'data:image/...;base64,XXXX' -> bytes. ValueError carries a translated message for the user."""
     m = re.match(r"^data:[^;,]*;base64,(.+)$", data_url or "", re.S)

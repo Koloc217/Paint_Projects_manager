@@ -9,7 +9,7 @@ import zipfile
 from PIL import Image
 
 from hub.core import archive
-from hub.core import common
+from hub.core import appconfig
 from hub.core import database
 from helpers import data, make_project, make_task
 
@@ -79,7 +79,7 @@ def test_restore_round_trip(client, config):
     names = [p["Name"] for p in data(client)["projects"]]
     assert names == ["Before"]
     assert os.path.isfile(os.path.join(database.DATA_DIR, "photos", cover))
-    assert common.load_config()["INITIAL_TOKENS"] == 100
+    assert appconfig.load_config()["INITIAL_TOKENS"] == 100
     assert os.path.isfile(os.path.join(database.DATA_DIR, "backups", res["saved_copy"]))
     _no_temp_left()
 

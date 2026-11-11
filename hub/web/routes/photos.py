@@ -9,7 +9,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from hub.core import imagestore, progress
-from hub.core.common import detect_image_ext, live_project
+from hub.core.imagestore import detect_image_ext
+from hub.core.queries import live_project
 from hub.core.database import ProgressPhoto, Reference
 from hub.core.i18n import tr
 from hub.core.photofiles import PHOTOS_DIR, REFS_DIR, remove_photo_file, remove_ref_files

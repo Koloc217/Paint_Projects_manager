@@ -1,12 +1,12 @@
 """Settings -> Telegram: linking the chat and the proxy."""
 import asyncio
-import os
 
 from fastapi import APIRouter
 
 from hub.bot import tgproxy
-from hub.core.common import (ensure_pairing_code, format_pairing_code, is_chat_bound, load_config, new_pairing_code,
-                             unlink_chat)
+from hub.bot.telegram import BOT_TOKEN
+from hub.core.appconfig import load_config
+from hub.core.pairing import ensure_pairing_code, format_pairing_code, is_chat_bound, new_pairing_code, unlink_chat
 from hub.core.i18n import tr
 from hub.web.responses import fail
 from hub.web.schemas import ProxyForm
@@ -68,7 +68,7 @@ async def telegram_proxy_check(data: ProxyForm):
         err = tgproxy.validate(url)
         if err:
             return {"ok": False, "message": tr(PROXY_ERRORS[err])}
-    res = await asyncio.to_thread(tgproxy.check, os.getenv("TELEGRAM_BOT_TOKEN"), url)
+    res = await asyncio.to_thread(tgproxy.check, BOT_TOKEN, url)
     via = tr("tg.proxy_via", url=tgproxy.mask(url)) if url else tr("tg.proxy_direct")
     if res["ok"]:
         return {"ok": True, "message": tr("tg.proxy_check_ok", bot="@" + str(res.get("username")), via=via)}

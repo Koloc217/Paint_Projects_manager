@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
-from hub.core.common import STATUS_PLANNED
+from hub.core.constants import STATUS_PLANNED
 
 class ActionPayload(BaseModel):
     action: str

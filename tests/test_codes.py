@@ -1,7 +1,7 @@
 """Status/stage codes: migration of old Russian values, old input still accepted, translation."""
 import sqlite3
 
-from hub.core import common
+from hub.core import constants
 from hub.core import database
 from hub.core.i18n import tv
 from helpers import action, make_project, project
@@ -60,6 +60,6 @@ def test_translation_of_codes(client, config):
 
 def test_done_detection():
     for value in ("finished", "Закончен", "завершено", "Выполнено", "Completed"):
-        assert common.is_done(value), value
+        assert constants.is_done(value), value
     for value in ("in_work", "not_started", "", None):
-        assert not common.is_done(value), value
+        assert not constants.is_done(value), value

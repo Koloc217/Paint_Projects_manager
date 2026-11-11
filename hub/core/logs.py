@@ -11,7 +11,7 @@ import sys
 import threading
 from logging.handlers import RotatingFileHandler
 
-from hub.core.common import DATA_DIR
+from hub.paths import DATA_DIR
 
 LOG_DIR = os.path.join(DATA_DIR, "logs")
 MAX_BYTES = 1_000_000

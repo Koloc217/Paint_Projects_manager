@@ -1,14 +1,14 @@
 """config.json: invalid values are replaced by defaults and reported, one line per value."""
 import json
 
-from hub.core import common
+from hub.core import appconfig
 
 
 def _load_raw(cfg: dict):
-    with open(common.CONFIG_FILE, "w", encoding="utf-8") as f:
+    with open(appconfig.CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f)
-    common._config_cache["stamp"] = None
-    return common.load_config()
+    appconfig._config_cache["stamp"] = None
+    return appconfig.load_config()
 
 
 def test_bad_values_fall_back_and_are_reported(client, capsys):
@@ -40,8 +40,8 @@ def test_good_config_is_silent(client, capsys):
 
 def test_reported_once_per_file_change(client, capsys):
     _load_raw({"TRASH_DAYS": -1})
-    common.load_config()
-    common.load_config()
+    appconfig.load_config()
+    appconfig.load_config()
     assert capsys.readouterr().out.count("TRASH_DAYS") == 1
 
 
@@ -49,3 +49,13 @@ def test_old_backup_settings_are_dropped(client, capsys):
     cfg = _load_raw({"SCHEDULE": {"backup_enabled": True, "backup_time": "03:00"}})
     assert "backup_enabled" not in cfg["SCHEDULE"] and "backup_time" not in cfg["SCHEDULE"]
     assert "[CONFIG]" not in capsys.readouterr().out
+
+
+def test_wrong_types_never_crash_the_loader(client, capsys):
+    # a list or a dict where a string is expected used to raise TypeError and take the whole app down
+    cfg = _load_raw({"DATE_FORMAT": [], "LANGUAGE": {"a": 1}, "TG_CLEANUP": ["off"], "NOTIFY": [], "ICS_FEED": "x",
+                     "DEVICE_API": {"hot_days": 5000, "key": 7}})
+    assert cfg["DATE_FORMAT"] == "dmy" and cfg["LANGUAGE"] == "ru-RU" and cfg["TG_CLEANUP"] == "keep_46h"
+    assert cfg["NOTIFY"]["stagnation_days"] == 10 and cfg["ICS_FEED"]["enabled"] is False
+    assert cfg["DEVICE_API"]["hot_days"] == 3 and cfg["DEVICE_API"]["key"] == ""
+    assert "[CONFIG]" in capsys.readouterr().out

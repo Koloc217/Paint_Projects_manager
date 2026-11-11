@@ -16,7 +16,9 @@ with a stable UID, so a subscribed calendar updates moved dates instead of addin
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from hub.core.common import live_projects, live_tasks, is_done, edit_config, config_value, STATUS_ON_HOLD, NO_STAGE
+from hub.core.appconfig import edit_config, config_value
+from hub.core.constants import is_done, STATUS_ON_HOLD, NO_STAGE
+from hub.core.queries import live_projects, live_tasks
 
 
 def enabled() -> bool:

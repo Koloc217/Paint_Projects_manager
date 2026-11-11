@@ -29,7 +29,7 @@ if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
 from hub.web import server as app_module
-from hub.core import common
+from hub.core import appconfig
 from hub.core import database
 
 assert database.DATA_DIR == os.path.abspath(DATA_DIR), "the app must use the temp data folder"
@@ -44,9 +44,9 @@ def pytest_sessionfinish(session, exitstatus):
 
 def write_config(**overrides) -> None:
     """Replaces config.json of the test copy (BASE_CONFIG + overrides) and drops the config cache."""
-    with open(common.CONFIG_FILE, "w", encoding="utf-8") as f:
+    with open(appconfig.CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump({**BASE_CONFIG, **overrides}, f, ensure_ascii=False)
-    common._config_cache["stamp"] = None
+    appconfig._config_cache["stamp"] = None
 
 
 def clear_database() -> None:

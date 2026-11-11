@@ -21,7 +21,8 @@ from datetime import datetime
 from sqlalchemy import event, inspect
 
 from hub.core.database import SessionLocal, Activity, Project, Task, gen_proj_id, gen_task_id
-from hub.core.common import is_done, iso_date
+from hub.core.constants import is_done
+from hub.core.convert import iso_date
 
 KINDS = ("project_created", "project_status", "project_stage", "project_deadline", "project_deleted",
          "project_restored", "task_created", "task_status", "task_deadline", "task_deleted", "vacation")
@@ -191,7 +192,8 @@ def _label(kind: str, value: str) -> str:
         return tr("journal.none")
     if kind.endswith("_deadline") or kind == "task_created":
         try:
-            from hub.core.common import fmt_date, parse_iso_date
+            from hub.core.convert import parse_iso_date
+            from hub.core.formatting import fmt_date
             return fmt_date(parse_iso_date(value))
         except (TypeError, ValueError):
             return value
