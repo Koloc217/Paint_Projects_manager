@@ -8,9 +8,9 @@ import zipfile
 
 from PIL import Image
 
-import archive
-import common
-import database
+from hub.core import archive
+from hub.core import common
+from hub.core import database
 from helpers import data, make_project, make_task
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))

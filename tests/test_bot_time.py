@@ -3,9 +3,9 @@ import asyncio
 
 import pytest
 
-import bot
-import bot_api
-import bot_tasks
+from hub.bot import bot
+from hub.bot import bot_api
+from hub.bot import bot_tasks
 from helpers import make_project, make_task, task
 
 

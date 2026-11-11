@@ -82,7 +82,7 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
   The login password, `.env` and certificates are not included.
 - If the app was off when a push was due, the missed run is done after start-up.
 - SQLite in WAL mode: the web app, the bot and the scripts write to it concurrently without lock errors.
-- Versioned schema migrations (`migrations.py`, version in `PRAGMA user_version`): each step runs once, in a
+- Versioned schema migrations (`hub/core/migrations.py`, version in `PRAGMA user_version`): each step runs once, in a
   transaction; before migrating, a copy of the database goes to `backups/tracker-before-v<N>-<date>.db` (last 5 kept).
 - Foreign keys: tasks, references and progress photos cannot point to a project that does not exist.
 - Photos no row points to are moved to `orphans/<date>/` every 6 hours and erased after 30 days (files younger
@@ -182,10 +182,10 @@ address, and everything listed in `TLS_NAMES` (for example `TLS_NAMES=hub.local,
 
 - **Browser warning.** The certificate is self-signed, so every device shows "connection is not private" once.
   Click "Advanced → Proceed". To get rid of the warning, add `certs/server.crt` to the device's trusted certificates.
-- **If the device address changed**, re-create the certificate: `python tls.py cert --force`
+- **If the device address changed**, re-create the certificate: `python -m hub.web.tls cert --force`
   (or add the new address to `TLS_NAMES`).
 - **Your own certificate** (for example from mkcert or Let's Encrypt): set both paths, `SSL_CERTFILE` and `SSL_KEYFILE`.
-- **Check:** `python tls.py status` shows the mode, the port and how many days the certificate has left.
+- **Check:** `python -m hub.web.tls status` shows the mode, the port and how many days the certificate has left.
   The "Access" tab in the settings shows which connection the page was opened with.
 - Never share `certs/server.key`; the `certs/` folder is not committed to git.
 
@@ -225,7 +225,7 @@ Password login does not break installation: `/sw.js` and `/manifest.webmanifest`
 | Port and address (`PORT`, `HOST`), secrets (bot token, proxy), HTTPS | `.env` (template: `.env.example`), see "Port and address" |
 | Language, date format, project cost, deadlines to phone calendar, schedule, notifications | Settings in the UI, stored in `config.json` |
 | API for external devices (`DEVICE_API`) | `config.json`, see "External devices" |
-| Password | Settings → Access; reset from the console: `python auth.py reset` |
+| Password | Settings → Access; reset from the console: `python -m hub.web.auth reset` |
 | Theme background images | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` ship with the repository, `wh40k_bg.jpg` you add yourself (without an image the theme draws its own background), see [static/backgrounds/README.en.md](static/backgrounds/README.en.md) |
 
 ## External devices
@@ -263,12 +263,14 @@ Tasks without a deadline do not count. Closed tasks, finished and paused project
 ## Layout
 
 ```
-app.py, bot.py, notify.py, scheduler.py             server, bot, notifications, schedule
-bot_api.py, bot_views.py, bot_photos.py, bot_tasks.py   bot: Telegram calls, cards, photos, task builder and time
-auth.py, tls.py, common.py, database.py, i18n.py     login, HTTPS, shared helpers and config, DB models, translations
-pipeline.py, vacation.py, tgproxy.py, storage.py     pipeline templates, vacation, Telegram proxy, used space
-archive.py, devices.py                               data archive (download and restore), API for devices
-progress.py, logs.py                                 progress photos (web and bot), rotating logs
+app.py                                               launcher: web, bot and scheduler in one process
+hub/paths.py                                         code and data folders (BASE_DIR, DATA_DIR) in one place
+hub/web/                                             server.py (FastAPI, formerly app.py), auth, tls, ics, devices
+hub/bot/                                             bot (commands, polling), callbacks (buttons), bot_api, bot_views, bot_photos,
+                                                     bot_tasks, tgproxy, tgclean
+hub/jobs/                                            scheduler (schedule, subprocesses), notify (notifications)
+hub/core/                                            common (config), lifecycle (statuses), imagestore (pictures), database, migrations, i18n, logs, storage, archive,
+                                                     progress, pipeline, vacation, activity, integrity, spent
 locales.json                                         all texts of the UI, the bot and notifications
 templates/                                           page, login, components (nav, tabs, modals, toasts, pwa_head)
 static/app.js, i18n.js, auth.js, dateinput.js        UI core, translations, password hashing, date fields
@@ -280,7 +282,6 @@ static/themes.css, mobile.css, card-tab.css          themes, phone layout, card 
 static/sw.js, manifest.webmanifest, pwa.js, icons/, offline.html   PWA: service worker, manifest, install, icons, offline page
 static/backgrounds/                                  theme background images
 static/vendor/, static/fonts/                        Tailwind CSS, Chart.js and fonts (built by tools/build_assets.py)
-migrations.py, integrity.py, spent.py                schema migrations, data and photo integrity, time spent
 tools/                                               check_locales.py, check_theme.py, build_assets.py, deploy.sh, clean.sh,
                                                      check_backup.py, check_data.py, make_thumbs.py, archive_tool.py
 logs/                                                app.log, notify.log (created automatically)

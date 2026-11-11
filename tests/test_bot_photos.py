@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 
 from PIL import Image
 
-import bot_photos
-import progress
-from database import SessionLocal
+from hub.bot import bot_photos
+from hub.core import progress
+from hub.core.database import SessionLocal
 from helpers import make_project
 
 
@@ -71,7 +71,7 @@ def test_preview_size_is_picked():
 
 def test_telegram_photo_saved_with_preview(client, monkeypatch):
     import asyncio
-    import bot_api
+    from hub.bot import bot_api
     files = {"s1280": _jpeg((1280, 960)), "s320": _jpeg((320, 240))}
 
     async def fake_download(fid):

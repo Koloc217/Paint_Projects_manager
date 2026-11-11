@@ -27,7 +27,15 @@ DEFAULT_LANG = "ru-RU"
 NAME_KEY = "meta.name"
 
 KEY_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
-PY_FILES = ["app.py", "bot.py", "bot_api.py", "bot_views.py", "bot_photos.py", "bot_tasks.py", "notify.py", "common.py", "scheduler.py", "database.py", "i18n.py", "auth.py", "pipeline.py", "vacation.py", "tgproxy.py", "ics.py", "tgclean.py", "activity.py", "spent.py", "archive.py", "devices.py", "tools/archive_tool.py"]
+def _py_files():
+    """Every module of the app (hub/**), found by walking the package, so a new module needs no registration here."""
+    found = []
+    for folder, _dirs, files in os.walk(os.path.join(ROOT, "hub")):
+        found += [os.path.relpath(os.path.join(folder, f), ROOT) for f in files if f.endswith(".py")]
+    return sorted(found) + ["app.py", "tools/archive_tool.py"]
+
+
+PY_FILES = _py_files()
 JS_FILES = ["static/app.js", "static/photos.js", "static/settings.js", "static/cards.js", "static/analytics.js", "static/main.js", "static/themes.js", "static/progress.js", "static/dropzone.js", "static/trash.js", "static/calendar.js", "static/i18n.js", "static/auth.js", "static/pwa.js", "static/dateinput.js", "static/templates.js"]
 HTML_FILES = ["templates/index.html", "templates/components/nav.html", "templates/components/tabs.html",
               "templates/components/modals.html", "templates/components/toasts.html", "templates/login.html"]
@@ -76,7 +84,7 @@ def scan_code():
     # database values that are shown through tv()
     sys.path.insert(0, ROOT)
     try:
-        from i18n import VALUE_KEYS
+        from hub.core.i18n import VALUE_KEYS
         for key in VALUE_KEYS.values():
             add(key, "i18n.VALUE_KEYS")
     finally:

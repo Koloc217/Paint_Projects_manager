@@ -21,9 +21,9 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-import archive                      # noqa: E402
-from database import ensure_schema  # noqa: E402
-from i18n import tr                 # noqa: E402
+from hub.core import archive
+from hub.core.database import ensure_schema  # noqa: E402
+from hub.core.i18n import tr                 # noqa: E402
 
 
 def _mb(path: str) -> str:

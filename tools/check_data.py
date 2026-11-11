@@ -23,8 +23,8 @@ def main() -> int:
     ap.add_argument("--fix", action="store_true", help="move unreferenced photos to orphans/")
     args = ap.parse_args()
 
-    from database import SessionLocal, ensure_schema
-    import integrity
+    from hub.core.database import SessionLocal, ensure_schema
+    from hub.core import integrity
 
     ensure_schema()
     db = SessionLocal()

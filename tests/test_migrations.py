@@ -4,8 +4,8 @@ import sqlite3
 
 import pytest
 
-import database
-import migrations
+from hub.core import database
+from hub.core import migrations
 
 # Schema of a database from before versioned migrations: no foreign keys, no time columns, no refs position.
 OLD_SCHEMA = """

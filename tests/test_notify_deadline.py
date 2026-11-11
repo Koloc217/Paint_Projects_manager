@@ -5,7 +5,7 @@ import time
 import httpx
 import pytest
 
-import notify
+from hub.jobs import notify
 
 
 def test_hung_request_is_abandoned_and_retried():

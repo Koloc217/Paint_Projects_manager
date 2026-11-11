@@ -51,8 +51,8 @@ def read_numbers(db_path: str, photos_dir: str) -> dict:
     """Opens the database with the app's models and counts what the app would show."""
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    import database
-    from common import compute_balance, load_config
+    from hub.core import database
+    from hub.core.common import compute_balance, load_config
 
     engine = create_engine(f"sqlite:///{db_path}")
     try:
@@ -84,8 +84,8 @@ def read_numbers(db_path: str, photos_dir: str) -> dict:
 
 
 def check(backup_path: str, data_dir: str, out=print) -> bool:
-    import migrations
-    import database
+    from hub.core import migrations
+    from hub.core import database
     from sqlalchemy import create_engine
 
     out(f"Backup: {backup_path} ({os.path.getsize(backup_path) / 1024:.0f} KB)")
@@ -152,7 +152,7 @@ def check(backup_path: str, data_dir: str, out=print) -> bool:
 
 
 def main() -> int:
-    from common import DATA_DIR
+    from hub.core.common import DATA_DIR
     ap = argparse.ArgumentParser(description="Checks that a database backup restores (read-only).")
     ap.add_argument("path", nargs="?", help="backup file (default: the newest in backups/)")
     args = ap.parse_args()
