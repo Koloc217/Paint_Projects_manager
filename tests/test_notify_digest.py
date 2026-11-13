@@ -175,3 +175,23 @@ def test_data_has_last_activity_for_sorting(client):
     from helpers import data
     make_project(client, "Sortable")
     assert data(client)["projects"][0]["UpdatedAt"]
+
+
+def test_weekly_flag_forces_the_friday_digest_on_any_day_even_when_switched_off(client):
+    pid = make_project(client, "Any day", status="in_work")
+    make_task(client, pid, "Plan me", day(20))
+    opts = notify.parse_options(["n", "--weekly"])
+    assert opts.weekly and opts.force and not opts.automatic            # skips silent mode, vacation, the slot check
+    assert notify.skip_reason(opts, {"DEV_MODE": True}) is None
+    db = SessionLocal()
+    try:
+        d = notify.collect_digest(db, MONDAY, opts, {"friday_digest": False})
+    finally:
+        db.close()
+    assert d.weekly and any("Plan me" in line for line in d.friday_plan)
+
+
+def test_bot_has_weekly_and_monthly_commands():
+    from hub.bot import bot
+    commands = [c for c, _key in bot.COMMANDS]
+    assert "weekly" in commands and "monthly" in commands

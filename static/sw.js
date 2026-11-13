@@ -10,7 +10,7 @@
  *
  * After editing this file, increase VERSION: old caches are deleted on activation.
  */
-const VERSION = 'v4';
+const VERSION = 'v5';      // v5: new app icons
 const STATIC_CACHE = `ph-static-${VERSION}`;
 const OFFLINE_URL = '/static/offline.html';
 const PRECACHE = [

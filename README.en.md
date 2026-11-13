@@ -1,8 +1,8 @@
-# RPi5 Project Hub
+# Project Hub
 
 [Русский](README.md) · **English**
 
-A local tracker for hobby projects (3D printing and miniature painting) built for a Raspberry Pi 5.
+A local tracker for hobby projects (3D printing and miniature painting). Built for a Raspberry Pi 5, but it also runs on a regular Windows or Linux machine.
 Web UI, Telegram bot, scheduled notifications and a "token" system: starting a new project costs tokens,
 finishing one earns a reward. The idea is to finish what you start instead of piling up unpainted models.
 
@@ -58,7 +58,7 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
   the latest photos and lets you flip through them. `/myphotos`: pick a project, then its progress photos or paint
   references. If a photo could not be saved, the bot tells you.
 - Evening digest, Friday plan, monthly report, stagnation warning. `/summary` sends the digest right away, without
-  waiting for the schedule.
+  waiting for the schedule; `/weekly` and `/monthly` do the same for the Friday digest and the monthly report.
 - The chat stays tidy: old digests remove themselves (the latest stays; mode in Settings → Telegram), and `/clear` wipes
   the whole chat for the last 48 hours (Telegram does not let a bot delete anything older).
 - The schedule is set per weekday in the UI.

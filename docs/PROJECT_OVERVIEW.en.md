@@ -1,8 +1,8 @@
-# RPi5 Project Hub — logic and features
+# Project Hub — logic and features
 
 [Русский](PROJECT_OVERVIEW.md) · **English**
 
-A local tracker for hobby projects (3D printing and miniature painting) built for a Raspberry Pi 5.
+A local tracker for hobby projects (3D printing and miniature painting). Built for a Raspberry Pi 5, but it also runs on a regular Windows or Linux machine.
 It is a web app with a Telegram bot, notifications and a "token" system: finished projects earn a reward,
 and starting a new project costs tokens. The goal is to finish what you start instead of piling up unpainted models.
 
@@ -409,6 +409,8 @@ All user text is escaped before sending (HTML mode).
 | `/clear` | clear the chat: asks "Delete all (N)" or "All but the latest digest", then "Chat cleared", which removes itself after 5 seconds |
 | `/stats` | statistics of the current month: tasks closed, projects finished, tokens earned, balance |
 | `/summary` | the summary right now, as the scheduled one (same as "Send now" in the app: silent mode and vacation don't block it) |
+| `/weekly` | the Friday digest right now, on any day (for checking the weekly blocks) |
+| `/monthly` | the previous month report right now |
 | `/test_notify` | starts a test notification |
 
 **Project in focus:** among active projects, "In progress" first, then by priority (Critical → Low), then by the nearest
@@ -494,7 +496,7 @@ In DEV MODE and during a vacation (see "Settings window") automatic pushes are s
 app) produce one message. The lock works on Linux (`fcntl`) and on Windows (`msvcrt`). A skipped run writes to
 `logs/notify.log` who took the slot. Flags: `--test` (test, skips the protection), `--force` (skips the protection),
 `--now` (the regular digest at once: the "Send now" button and `/summary`; skips the protection, silent mode and the
-vacation), `--monthly` (report only), `--source=name`. Every request to Telegram is limited to 30 seconds and, if it
+vacation), `--weekly` (the Friday digest at once, on any day and even if it is switched off in the settings: the `/weekly` bot command; skips the protection, silent mode and the vacation), `--monthly` (report only: the `/monthly` bot command), `--source=name`. Every request to Telegram is limited to 30 seconds and, if it
 hangs, is retried once on a fresh connection; the log then has a `Telegram did not answer in 30 s` line. Exit code 0 means the message was sent (or there was nothing to send), 1
 means Telegram did not accept it or there is no token; the code is visible in `logs/notify.log`.
 
