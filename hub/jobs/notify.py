@@ -194,6 +194,8 @@ class Options:
     """What this run was asked to do (command-line flags)."""
     test: bool = False        # --test: a test push; ignores the "all quiet" rule and the once-per-slot check
     monthly: bool = False     # --monthly: only the monthly report
+    weekly: bool = False      # --weekly: the Friday digest right now (any day, even if switched off in the settings):
+                              # ignores the silent mode, the vacation and the once-per-slot check
     now: bool = False         # --now: the "Send now" button, a regular digest on request: ignores the silent mode,
                               # the vacation and the once-per-slot check
     force: bool = False       # --force (or --now): skip the once-per-slot check
@@ -202,20 +204,22 @@ class Options:
     @property
     def automatic(self) -> bool:
         """A run started by the timer rather than by a person: silent mode and vacation apply to it."""
-        return not (self.test or self.monthly or self.now)
+        return not (self.test or self.monthly or self.now or self.weekly)
 
 
 def parse_options(argv) -> Options:
     now = "--now" in argv
+    weekly = "--weekly" in argv
     return Options(
-        test="--test" in argv, monthly="--monthly" in argv, now=now, force="--force" in argv or now,
+        test="--test" in argv, monthly="--monthly" in argv, now=now, weekly=weekly,
+        force="--force" in argv or now or weekly,
         source=next((a.split("=", 1)[1] for a in argv if a.startswith("--source=")), "cron/manual"),
     )
 
 
 def skip_reason(opts: Options, config: dict):
     """Why an automatic run must send nothing (silent mode, vacation), or None.
-    A run asked for by a person (--test, --now, --monthly) always goes through."""
+    A run asked for by a person (--test, --now, --weekly, --monthly) always goes through."""
     if not opts.automatic:
         return None
     if config.get("DEV_MODE", False):
@@ -351,7 +355,7 @@ def _collect_week_ahead(digest: Digest, tasks: list, today) -> None:
 def collect_digest(db, now: datetime, opts: Options, notify_cfg: dict) -> Digest:
     digest = Digest(projects={p.id: p for p in live_projects(db).all()})
     tasks = sorted(live_tasks(db).all(), key=_deadline_key)    # most overdue first
-    digest.weekly = bool((now.weekday() == 4 or opts.test) and notify_cfg.get("friday_digest", True))
+    digest.weekly = opts.weekly or bool((now.weekday() == 4 or opts.test) and notify_cfg.get("friday_digest", True))
     _collect_deadlines(digest, tasks, now.date())
     _collect_stagnant(digest, now, notify_cfg)
     if digest.weekly:
