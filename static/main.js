@@ -1,6 +1,7 @@
 /* Starts the page: runs after the other app scripts (see templates/index.html). */
 
 fillTimeSelects();
+renderFilterBar();        // filters of the project list (static/filters.js)
 
 // Card tab: /?card=<id> shows only the project card
 const standaloneCardId = new URLSearchParams(location.search).get('card');

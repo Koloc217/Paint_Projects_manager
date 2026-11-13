@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="{{ static_url('mobile.css') }}"> <!-- phone layout: after the themes -->
 <link rel="stylesheet" href="{{ static_url('card-tab.css') }}"> <!-- project card in a separate tab (/?card=) -->
 <link rel="stylesheet" href="{{ static_url('dropzone.css') }}"> <!-- drag and drop of images -->
+<link rel="stylesheet" href="{{ static_url('filters.css') }}"> <!-- project filters and search highlight -->
 </head>
 <body class="bg-slate-900 text-slate-300 font-sans antialiased min-h-screen">
     
@@ -41,6 +42,7 @@
     <script src="{{ static_url('photos.js') }}"></script>
     <script src="{{ static_url('settings.js') }}"></script>
     <script src="{{ static_url('cards.js') }}"></script>
+    <script src="{{ static_url('filters.js') }}"></script>  <!-- filters, sorting and search highlight of the project list -->
     <script src="{{ static_url('analytics.js') }}"></script>
     <script src="{{ static_url('main.js') }}"></script>  <!-- starts the page: after the app scripts above -->
     <script src="{{ static_url('themes.js') }}"></script>  <!-- THEMES registry and the skin switcher -->

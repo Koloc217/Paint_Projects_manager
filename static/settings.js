@@ -354,6 +354,8 @@ function openSettingsModal(tab = 'general') {
     document.getElementById('cfgStagnationAlert').checked = notifySettings.stagnation_alert ?? true;
     document.getElementById('cfgStagnationDays').value = notifySettings.stagnation_days ?? 10;
     document.getElementById('cfgFridayDigest').checked = notifySettings.friday_digest ?? true;
+    document.getElementById('cfgWeeklyDone').checked = notifySettings.weekly_done ?? true;
+    document.getElementById('cfgWeeklyAhead').checked = notifySettings.weekly_ahead ?? true;
     document.getElementById('cfgMonthlyReport').checked = notifySettings.monthly_report ?? true;
     document.getElementById('cfgNotifyEnabled').checked = scheduleSettings.notify_enabled ?? true;
     DAY_KEYS.forEach(k => {
@@ -379,6 +381,8 @@ async function saveSettings() {
         stagnation_alert: document.getElementById('cfgStagnationAlert').checked,
         stagnation_days: parseInt(document.getElementById('cfgStagnationDays').value) || 10,
         friday_digest: document.getElementById('cfgFridayDigest').checked,
+        weekly_done: document.getElementById('cfgWeeklyDone').checked,
+        weekly_ahead: document.getElementById('cfgWeeklyAhead').checked,
         monthly_report: document.getElementById('cfgMonthlyReport').checked,
         notify_enabled: document.getElementById('cfgNotifyEnabled').checked,
         notify_days: Object.fromEntries(DAY_KEYS.map(k => [k, {

@@ -57,6 +57,7 @@ def collect_data(db: Session) -> dict:
         "PhotoThumb": photo_thumb_url(p.photo, covers),
         "ExtraSpent": int(p.extra_spent_min or 0),
         "CompletedAt": iso_date(p.completed_at),
+        "UpdatedAt": p.updated_at.isoformat(timespec="seconds") if p.updated_at else "",   # sort key: last activity
     } for p in projects]
 
     ref_files = list_dir_names(REFS_DIR)

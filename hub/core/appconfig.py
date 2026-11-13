@@ -27,6 +27,8 @@ DEFAULT_NOTIFY_SETTINGS = {
     "stagnation_alert": True,
     "stagnation_days": 10,
     "friday_digest": True,
+    "weekly_done": True,        # Friday digest: what was closed over the last 7 days
+    "weekly_ahead": True,       # Friday digest: deadlines of the coming 7 days
     "monthly_report": True,
 }
 

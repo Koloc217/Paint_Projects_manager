@@ -62,11 +62,13 @@ function onProjectSearch(which, value) {
 function renderProjects() {
     const container = document.getElementById('projectsContainer');
     const allActive = currentProjects.filter(p => !isDoneStatus(p.Status));
-    const activeProjects = allActive.filter(p => projectMatches(p, searchQuery.active));
+    const today = localIsoToday();
+    const activeProjects = sortProjects(allActive.filter(p => projectMatches(p, searchQuery.active) && projectPassesFilters(p, today)));
     const searching = searchQuery.active.trim() !== '';
-    document.getElementById('projectCount').innerText = searching ? `${activeProjects.length} / ${allActive.length}` : allActive.length;
-    if (searching && !activeProjects.length) {
-        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-800">${tr('search.nothing')}</div>`;
+    const narrowed = searching || hasActiveFilters();
+    document.getElementById('projectCount').innerText = narrowed ? `${activeProjects.length} / ${allActive.length}` : allActive.length;
+    if (narrowed && allActive.length && !activeProjects.length) {
+        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500 bg-slate-800/40 rounded-2xl border border-slate-800">${tr('search.nothing')}${hasActiveFilters() ? `<div class="mt-3"><button type="button" onclick="resetProjectView()" class="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg">✕ ${esc(tr('filter.reset'))}</button></div>` : ''}</div>`;
         return;
     }
     if (!allActive.length) {
@@ -101,7 +103,8 @@ function renderProjects() {
                 </div>
 
                 <div onclick="openProjectDetails('${p.ID}')" class="cursor-pointer flex-grow min-w-0">
-                    <h3 class="text-base font-semibold text-white mb-2 pr-14 sm:pr-16 line-clamp-2 sm:truncate break-words" title="${esc(p.Name)}">${esc(p.Name)}</h3>
+                    <h3 class="text-base font-semibold text-white mb-2 pr-14 sm:pr-16 line-clamp-2 sm:truncate break-words" title="${esc(p.Name)}">${highlightText(p.Name, searchQuery.active)}</h3>
+                    ${searching ? (searchMatchHint(p, searchQuery.active) ? `<div class="search-hint">${searchMatchHint(p, searchQuery.active)}</div>` : '') : ''}
 
                     <div class="flex items-center gap-2 mb-3 flex-wrap">
                         ${p['Token Reward'] > 0 ? `<span class="text-[10px] text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">+${p['Token Reward']}</span>` : ''}

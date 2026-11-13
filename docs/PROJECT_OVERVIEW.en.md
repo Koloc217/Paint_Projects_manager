@@ -184,6 +184,13 @@ deadline, and allows creating projects without tokens.
     not matter. Searches the name, id, priority, status, stage (both the stored code and its translation),
     the notes text and the project's task names. The counter shows "found / total", Esc clears the field, the filter
     survives data refreshes. Runs in the browser; nothing is sent to the server.
+    In the active list matches are highlighted in the name, and when a word was found elsewhere a line under the name
+    says "found in notes / in task".
+  - **Filters and sorting** (active projects only, `static/filters.js`): the "Status", "Stage" and "Priority" lists
+    with several checkboxes ("or" inside a group, "and" between groups) and an "Overdue" button (the project deadline
+    or the deadline of any of its open tasks has passed). Sorting: default, by deadline, by priority, by last activity
+    (`UpdatedAt` in `/api/data`); projects without a deadline always go last. The choice is kept in the browser's
+    `localStorage`, the search text is not; "Reset" clears the filters and the sorting.
 - **All tasks.** "General tasks" first (no project: tidying, tool maintenance), then tasks grouped by active project.
 - **Calendar.** A month grid (the week always starts on Monday, in any date format): deadlines of open tasks
   and 📌 project deadlines. Overdue items are red, closed ones struck through; a cell shows three entries and
@@ -472,7 +479,11 @@ task shows ⏳ (or ⏳×N); in the push the ⏳×N counter appears from the seco
    to 4 "close" and "+2d" buttons for the most urgent tasks.
 2. **Stagnation detector:** projects "In progress" without progress for `stagnation_days` days (10 by default).
 3. **Friday plan** (on Fridays): up to three open tasks of every project "In progress", nearest deadline first, and
-   a separate list of projects "In progress" without a single open task (nothing to plan for them).
+   a separate list of projects "In progress" without a single open task (nothing to plan for them). Before the plan
+   come two blocks that can be switched off in Settings → Notifications (`weekly_done`, `weekly_ahead`):
+   **Done this week** (tasks closed over the last 7 days, finished projects, tokens earned; tasks closed together with
+   their project are not counted) and **Deadlines in the coming week** (tasks due in 4 to 7 days, which are not in
+   "Urgent" yet, and project deadlines within 7 days, nearest first).
 4. **Report for the previous month** is sent on the 1st (if enabled) before the evening digest.
 5. If there is nothing to say, an "All on track!" message with the current focus is sent.
 
@@ -589,7 +600,7 @@ are shown separately. The size is the file length, not the space allocated on di
 | `TRASH_DAYS` | how many days a project stays in the trash before it is erased (1–3650, 30 by default) |
 | `LANGUAGE` | language code from `locales.json`: `ru-RU`, `en-US` (old `ru`/`en` are migrated automatically) |
 | `DATE_FORMAT` | date format: `dmy` (default) or `mdy`; an unknown value falls back to `dmy` |
-| `NOTIFY` | `allow_postpone`, `stagnation_alert`, `stagnation_days`, `friday_digest`, `monthly_report` |
+| `NOTIFY` | `allow_postpone`, `stagnation_alert`, `stagnation_days`, `friday_digest`, `weekly_done`, `weekly_ahead`, `monthly_report` |
 | `SCHEDULE` | `notify_enabled`, `notify_days` (per day: `enabled`, `time`); old `backup_enabled`/`backup_time` are dropped on read |
 | `PIPELINE_TEMPLATES` | pipeline templates (no key = the two built-in ones), edited in Settings → Templates |
 | `VACATION` | vacation: `start`, `until` (first day after the vacation), `days` |

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from hub.core.database import SessionLocal
 from hub.jobs import notify
 
-from helpers import make_project, make_task
+from helpers import action, make_project, make_task
 
 FRIDAY = datetime(2026, 11, 13, 18, 5)      # a Friday
 MONDAY = datetime(2026, 11, 9, 18, 5)
@@ -78,3 +78,100 @@ def test_weekly_plan_only_on_friday_or_test(client):
         assert not notify.collect_digest(db, FRIDAY, notify.parse_options(["n"]), {"friday_digest": False}).weekly
     finally:
         db.close()
+
+
+def _digest(db, now, cfg=None):
+    return notify.collect_digest(db, now, notify.parse_options(["n"]), {"friday_digest": True, **(cfg or {})})
+
+
+def test_week_done_counts_closed_tasks_and_finished_projects(client):
+    pid = make_project(client, "Finished one", status="in_work", token_reward=7)
+    other = make_project(client, "Still going", status="in_work")
+    t1, t2 = make_task(client, other, "Closed a"), make_task(client, other, "Closed b")
+    make_task(client, other, "Open one")
+    action(client, action="update_task_status", id=t1, status="finished")
+    action(client, action="update_task_status", id=t2, status="finished")
+    action(client, action="update_project_status", id=pid, status="finished")
+    db = SessionLocal()
+    try:
+        weekly = notify.collect_digest(db, datetime.now(), notify.parse_options(["n", "--test"]), {})
+        ordinary = _digest(db, MONDAY)
+    finally:
+        db.close()
+    assert weekly.weekly
+    text = "\n".join(weekly.week_done)
+    assert "2" in text and "Finished one" in text and "+7" in text
+    db = SessionLocal()
+    try:
+        message = notify.render_digest(db, weekly, datetime.now())
+    finally:
+        db.close()
+    assert "Finished one" in message and "+7" in message          # the block reaches the message
+    assert not ordinary.weekly and not ordinary.week_done      # only the weekly digest has the block
+
+
+def test_week_done_ignores_tasks_closed_together_with_their_project(client):
+    pid = make_project(client, "Closed whole", status="in_work")
+    make_task(client, pid, "Dragged along")
+    action(client, action="update_project_status", id=pid, status="finished")
+    db = SessionLocal()
+    try:
+        d = notify.collect_digest(db, datetime.now(), notify.parse_options(["n", "--test"]), {})
+    finally:
+        db.close()
+    lines = "\n".join(d.week_done)
+    assert "Closed whole" in lines                                # the project counts
+    assert not any(line.startswith("✅") for line in d.week_done)   # its task does not
+
+
+def test_week_ahead_window_and_project_deadlines(client):
+    pid = make_project(client, "Ahead", status="in_work", estimate=day(5, FRIDAY))
+    make_task(client, pid, "Burning", day(2, FRIDAY))          # already in "burning"
+    make_task(client, pid, "Next week", day(5, FRIDAY))
+    make_task(client, pid, "Far", day(20, FRIDAY))
+    db = SessionLocal()
+    try:
+        d = _digest(db, FRIDAY)
+    finally:
+        db.close()
+    text = "\n".join(d.week_ahead)
+    assert "Next week" in text and "Burning" not in text and "Far" not in text
+    assert any(line.startswith("🎯") and "Ahead" in line for line in d.week_ahead)   # the project deadline
+
+
+def test_week_blocks_can_be_switched_off(client):
+    pid = make_project(client, "Quiet", status="in_work", estimate=day(5, FRIDAY))
+    make_task(client, pid, "Soon", day(5, FRIDAY))
+    db = SessionLocal()
+    try:
+        d = _digest(db, FRIDAY, {"weekly_done": False, "weekly_ahead": False})
+    finally:
+        db.close()
+    assert d.weekly and not d.week_done and not d.week_ahead
+
+
+def test_week_ahead_skips_projects_on_hold_and_not_weekly_days(client):
+    pid = make_project(client, "Paused", status="on_hold", estimate=day(4, FRIDAY))
+    make_task(client, pid, "Paused task", day(5, FRIDAY))
+    db = SessionLocal()
+    try:
+        assert not _digest(db, FRIDAY).week_ahead
+        assert not _digest(db, MONDAY).week_ahead              # only the weekly digest has the block
+    finally:
+        db.close()
+
+
+def test_settings_save_weekly_flags_and_keep_them_when_the_page_does_not_send_them(client):
+    from hub.core.appconfig import load_config
+    body = {"dev_mode": False, "project_cost": 10}
+    assert client.post("/api/config", json={**body, "weekly_done": False}).json()["status"] == "ok"
+    notify_cfg = load_config()["NOTIFY"]
+    assert notify_cfg["weekly_done"] is False and notify_cfg["weekly_ahead"] is True
+    assert client.post("/api/config", json=body).json()["status"] == "ok"          # an older page: no such fields
+    assert load_config()["NOTIFY"]["weekly_done"] is False
+
+
+def test_data_has_last_activity_for_sorting(client):
+    from helpers import data
+    make_project(client, "Sortable")
+    assert data(client)["projects"][0]["UpdatedAt"]

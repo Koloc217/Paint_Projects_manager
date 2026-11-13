@@ -424,7 +424,9 @@ document.addEventListener('keydown', function(e) {
         else if (e.key === 'ArrowRight') lightboxStep(1);
         return;
     }
-    if (document.activeElement && document.activeElement.tagName === 'TEXTAREA' && e.key === 'Enter') {
+    // In a multi-line field Enter is a line break; Ctrl+Enter (Cmd+Enter) saves the dialog like Enter elsewhere
+    const inTextarea = document.activeElement && document.activeElement.tagName === 'TEXTAREA';
+    if (inTextarea && e.key === 'Enter' && !(e.ctrlKey || e.metaKey)) {
         return;
     }
     const topModal = topDialogId();
@@ -441,6 +443,7 @@ document.addEventListener('keydown', function(e) {
         else if (topModal === 'taskModal') createTask();
         else if (topModal === 'editTaskModal') saveTaskEdit();
         else if (topModal === 'settingsModal') saveSettings();
+        else if (inTextarea) document.activeElement.blur();      // notes in the project card are saved on blur
     }
 });
 

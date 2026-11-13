@@ -36,7 +36,7 @@ def _py_files():
 
 
 PY_FILES = _py_files()
-JS_FILES = ["static/app.js", "static/photos.js", "static/settings.js", "static/cards.js", "static/analytics.js", "static/main.js", "static/themes.js", "static/progress.js", "static/dropzone.js", "static/trash.js", "static/calendar.js", "static/i18n.js", "static/auth.js", "static/pwa.js", "static/dateinput.js", "static/templates.js"]
+JS_FILES = ["static/app.js", "static/photos.js", "static/settings.js", "static/cards.js", "static/filters.js", "static/analytics.js", "static/main.js", "static/themes.js", "static/progress.js", "static/dropzone.js", "static/trash.js", "static/calendar.js", "static/i18n.js", "static/auth.js", "static/pwa.js", "static/dateinput.js", "static/templates.js"]
 HTML_FILES = ["templates/index.html", "templates/components/nav.html", "templates/components/tabs.html",
               "templates/components/modals.html", "templates/components/toasts.html", "templates/login.html"]
 
