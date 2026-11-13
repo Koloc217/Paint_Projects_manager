@@ -76,6 +76,8 @@ class ConfigUpdate(BaseModel):
     stagnation_alert: bool = True
     stagnation_days: int = 10
     friday_digest: bool = True
+    weekly_done: Optional[bool] = None          # Friday digest blocks; None: keep the setting
+    weekly_ahead: Optional[bool] = None
     monthly_report: bool = True
     notify_enabled: bool = True
     notify_days: Optional[Dict[str, DaySchedule]] = None

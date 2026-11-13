@@ -135,6 +135,22 @@
 
                     <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
                         <div>
+                            <div class="font-semibold text-white">{{ tr('settings.notify.weekly_done') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.notify.weekly_done_hint') }}</div>
+                        </div>
+                        <input type="checkbox" id="cfgWeeklyDone" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                    </label>
+
+                    <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                        <div>
+                            <div class="font-semibold text-white">{{ tr('settings.notify.weekly_ahead') }}</div>
+                            <div class="text-xs text-slate-400">{{ tr('settings.notify.weekly_ahead_hint') }}</div>
+                        </div>
+                        <input type="checkbox" id="cfgWeeklyAhead" class="w-5 h-5 accent-indigo-500 rounded cursor-pointer ml-3">
+                    </label>
+
+                    <label class="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-700 cursor-pointer">
+                        <div>
                             <div class="font-semibold text-white">{{ tr('settings.notify.monthly') }}</div>
                             <div class="text-xs text-slate-400">{{ tr('settings.notify.monthly_hint') }}</div>
                         </div>

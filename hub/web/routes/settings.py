@@ -53,11 +53,14 @@ def update_config_route(data: ConfigUpdate):
             cfg["DATE_FORMAT"] = data.date_format
         if data.ask_spent_time is not None:
             cfg["ASK_SPENT_TIME"] = data.ask_spent_time
+        old_notify = cfg.get("NOTIFY") or {}
         cfg["NOTIFY"] = {
             "allow_postpone": data.allow_postpone,
             "stagnation_alert": data.stagnation_alert,
             "stagnation_days": min(90, max(1, data.stagnation_days)),
             "friday_digest": data.friday_digest,
+            "weekly_done": old_notify.get("weekly_done", True) if data.weekly_done is None else data.weekly_done,
+            "weekly_ahead": old_notify.get("weekly_ahead", True) if data.weekly_ahead is None else data.weekly_ahead,
             "monthly_report": data.monthly_report
         }
         cfg["SCHEDULE"] = {

@@ -16,7 +16,7 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 
 **Projects and tasks**
 - Project cards: status, stage (printing, sanding, assembly, priming, painting, finishing), priority, deadline, photo.
-- Search in the active list and in the Hall of Fame: by name, id, status, stage, notes and task names.
+- Search in the active list and in the Hall of Fame: by name, id, status, stage, notes and task names; in the active list matches are highlighted, and the filters (status, stage, priority, overdue) and sorting are remembered in the browser.
 - Tasks with deadlines, statuses, postponing and editing.
 - Wall of shame: a counter of deadline postponements (the bot's "+2 days" and a later date in the web editor; a
   vacation doesn't count). A ⏳×N badge on the task, a block in Analytics (total, last 30 days, record holders), a line

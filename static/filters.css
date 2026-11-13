@@ -1,0 +1,37 @@
+/* Filter bar of the project list and the search highlight (static/filters.js).
+ * Colours are translucent, so the bar fits every theme without its own overrides. */
+
+#projectFilters { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+.pf-group { position: relative; }
+
+.pf-btn, .pf-reset {
+    font-size: 0.75rem; line-height: 1rem; padding: 0.375rem 0.75rem; border-radius: 0.5rem;
+    border: 1px solid rgba(100, 116, 139, 0.45); background: rgba(30, 41, 59, 0.6); color: #cbd5e1;
+    cursor: pointer; white-space: nowrap; transition: background-color .15s, border-color .15s;
+}
+.pf-btn:hover, .pf-reset:hover { background: rgba(51, 65, 85, 0.8); }
+.pf-btn.pf-on { background: rgba(99, 102, 241, 0.2); border-color: rgba(129, 140, 248, 0.6); color: #c7d2fe; }
+.pf-reset { background: transparent; color: #94a3b8; }
+.pf-caret { font-size: 0.65rem; opacity: 0.7; }
+.pf-count {
+    display: inline-block; min-width: 1.1rem; padding: 0 0.3rem; margin-left: 0.15rem; text-align: center;
+    border-radius: 999px; background: rgba(99, 102, 241, 0.55); color: #fff; font-size: 0.65rem;
+}
+
+.pf-pop {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 11rem; padding: 0.35rem;
+    border-radius: 0.75rem; border: 1px solid rgba(100, 116, 139, 0.5); background: #0f172a;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+.pf-pop.hidden { display: none; }
+.pf-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: 0.5rem; font-size: 0.8rem; color: #e2e8f0; cursor: pointer; }
+.pf-item:hover { background: rgba(51, 65, 85, 0.7); }
+.pf-item input { accent-color: #6366f1; width: 1rem; height: 1rem; cursor: pointer; }
+
+/* The sort list keeps the look of the other selects (see the base select rule in themes.css) */
+.pf-sort { font-size: 0.75rem; line-height: 1rem; padding-top: 0.375rem; padding-bottom: 0.375rem; padding-left: 0.6rem;
+           border-radius: 0.5rem; border: 1px solid rgba(100, 116, 139, 0.45); outline: none; cursor: pointer; }
+
+mark.hl { background: rgba(250, 204, 21, 0.3); color: inherit; border-radius: 3px; padding: 0 1px; }
+.search-hint { font-size: 0.6875rem; color: #94a3b8; margin: -0.25rem 0 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

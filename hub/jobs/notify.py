@@ -10,7 +10,7 @@ from hub.core.appconfig import load_config
 from hub.core.constants import is_done, STATUS_IN_WORK, STATUS_ON_HOLD, NO_STAGE
 from hub.core.convert import to_date, to_tokens
 from hub.core.filelock import FileLock
-from hub.core.formatting import esc, clip_lines
+from hub.core.formatting import esc, clip_lines, fmt_date
 from hub.core.queries import compute_balance, live_projects, live_tasks
 from hub.paths import DATA_DIR
 from hub.core.i18n import tr, tv
@@ -27,6 +27,7 @@ LOCK_FILE = os.path.join(DATA_DIR, ".notify.lock")
 MIN_GAP_SEC = 600
 MAX_BUTTONS = 4           # task buttons under the message, so the push stays readable
 MAX_SECTION_ITEMS = 12    # lines per section (overdue, burning, ...); the rest becomes "…and N more"
+WEEK_DAYS = 7             # the weekly digest looks this far back (what got done) and ahead (what is due)
 # httpx applies no timeout to the SOCKS5 handshake: a proxy that accepts the connection but never answers it hangs
 # the request for good (the scheduler then kills the script after 3 minutes and nothing reaches the chat).
 # So every request also gets a hard limit of its own, and a hung one is tried once more on a fresh connection.
@@ -234,26 +235,37 @@ class Digest:
     stagnant: list = field(default_factory=list)
     friday_plan: list = field(default_factory=list)
     no_tasks: list = field(default_factory=list)
+    week_done: list = field(default_factory=list)       # weekly: closed over the last 7 days
+    week_ahead: list = field(default_factory=list)      # weekly: due within the next 7 days
     weekly: bool = False
 
     @property
     def has_content(self) -> bool:
-        return bool(self.overdue or self.burning or self.stagnant or (self.weekly and (self.friday_plan or self.no_tasks)))
+        return bool(self.overdue or self.burning or self.stagnant or (self.weekly and (self.friday_plan or self.no_tasks or self.week_done or self.week_ahead)))
 
 
 def _stage_info(proj) -> str:
     return f" [{esc(tv(proj.stage))}]" if proj and (proj.stage or NO_STAGE) != NO_STAGE else ""
 
 
+def _task_in_play(digest: Digest, t):
+    """(True, project or None) for an open task that belongs in the digest: a task of a project that is in play
+    (not finished, not on hold) or a general task (no project: the project is None). (False, None) otherwise."""
+    if is_done(t.status):
+        return False, None
+    if t.project_id is None:
+        return True, None
+    proj = digest.projects.get(t.project_id)
+    if not proj or is_done(proj.status) or str(proj.status).strip() == STATUS_ON_HOLD:
+        return False, None
+    return True, proj
+
+
 def _collect_deadlines(digest: Digest, tasks: list, today) -> None:
     """Overdue and burning (up to 3 days left) tasks of projects that are in play, plus general tasks."""
     for t in tasks:
-        if is_done(t.status):
-            continue
-        proj = digest.projects.get(t.project_id)
-        if t.project_id is None:
-            proj = None                    # a general task (no project): shown under the "General" label
-        elif not proj or is_done(proj.status) or str(proj.status).strip() == STATUS_ON_HOLD:
+        in_play, proj = _task_in_play(digest, t)
+        if not in_play:
             continue
         d = to_date(t.deadline)
         if not d:
@@ -300,6 +312,42 @@ def _collect_weekend_plan(digest: Digest, tasks: list) -> None:
         digest.friday_plan.append(f"🧰 <b>{esc(tr('general.label'))}</b>: {esc(t.task_name)} ({esc(tv(t.status))})")
 
 
+def _collect_week_done(digest: Digest, db, now: datetime) -> None:
+    """What got done over the last 7 days: closed tasks, finished projects and the tokens they brought.
+    Tasks closed together with their project (closed_from is set) are not counted: that was one action, not many."""
+    since = now - timedelta(days=WEEK_DAYS)
+    closed = [t for t in live_tasks(db).filter(Task.completed_at >= since).all()
+              if is_done(t.status) and not t.closed_from]
+    finished = [p for p in live_projects(db).filter(Project.completed_at >= since).all() if is_done(p.status)]
+    if closed:
+        digest.week_done.append(f"✅ {tr('notify.week_done_tasks', n=len(closed))}")
+    if finished:
+        names = ", ".join(f"<b>{esc(p.name)}</b>" for p in finished)
+        digest.week_done.append(f"🏆 {tr('notify.week_done_projects', n=len(finished))} — {names}")
+    earned = sum(to_tokens(p.token_reward) for p in finished)
+    if earned:
+        digest.week_done.append(f"💰 {tr('notify.week_done_tokens', n=earned)}")
+
+
+def _collect_week_ahead(digest: Digest, tasks: list, today) -> None:
+    """Deadlines of the coming 7 days. Tasks due within 3 days are already in "burning", so they start after that;
+    project deadlines are listed here (they appear nowhere else in the digest). Nearest first."""
+    items = []
+    for t in tasks:
+        in_play, proj = _task_in_play(digest, t)
+        d = to_date(t.deadline)
+        if not in_play or not d or not 3 < (d - today).days <= WEEK_DAYS:
+            continue
+        label = esc(proj.name) if proj else f"🧰 {esc(tr('general.label'))}"
+        items.append((d, f"📅 {fmt_date(d)} <b>{label}</b>{_stage_info(proj)}: {esc(t.task_name)}"))
+    for p in digest.projects.values():
+        d = to_date(p.estimate)
+        if is_done(p.status) or str(p.status).strip() == STATUS_ON_HOLD or not d or not 0 <= (d - today).days <= WEEK_DAYS:
+            continue
+        items.append((d, f"🎯 {fmt_date(d)} <b>{esc(p.name)}</b> — {esc(tr('notify.project_deadline'))}"))
+    digest.week_ahead = [line for _d, line in sorted(items, key=lambda it: it[0])]
+
+
 def collect_digest(db, now: datetime, opts: Options, notify_cfg: dict) -> Digest:
     digest = Digest(projects={p.id: p for p in live_projects(db).all()})
     tasks = sorted(live_tasks(db).all(), key=_deadline_key)    # most overdue first
@@ -307,6 +355,10 @@ def collect_digest(db, now: datetime, opts: Options, notify_cfg: dict) -> Digest
     _collect_deadlines(digest, tasks, now.date())
     _collect_stagnant(digest, now, notify_cfg)
     if digest.weekly:
+        if notify_cfg.get("weekly_done", True):
+            _collect_week_done(digest, db, now)
+        if notify_cfg.get("weekly_ahead", True):
+            _collect_week_ahead(digest, tasks, now.date())
         _collect_weekend_plan(digest, tasks)
     return digest
 
@@ -317,6 +369,8 @@ def render_digest(db, digest: Digest, now: datetime) -> str:
     lines += section(f"<b>{tr('notify.burning')}:</b>", digest.burning)
     lines += section(f"<b>{tr('notify.stagnation')}:</b>", digest.stagnant)
     if digest.weekly:
+        lines += section(f"📆 <b>{tr('notify.week_done')}:</b>", digest.week_done)
+        lines += section(f"🗓 <b>{tr('notify.week_ahead')}:</b>", digest.week_ahead)
         lines += section(f"🍻 <b>{tr('notify.weekend_plan')}:</b>", digest.friday_plan)
         lines += section(f"<b>{tr('notify.no_open_tasks')}:</b>", digest.no_tasks)
         # shame metric of the week: deadlines moved later (text only, no token penalty)
