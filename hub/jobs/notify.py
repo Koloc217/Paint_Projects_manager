@@ -368,7 +368,9 @@ def collect_digest(db, now: datetime, opts: Options, notify_cfg: dict) -> Digest
 
 
 def render_digest(db, digest: Digest, now: datetime) -> str:
-    lines = [f"🚨 <b>{tr('notify.evening_summary')}:</b>", ""]
+    # weekend digests go out around noon by default, so "evening" would be wrong there
+    title = "notify.today_summary" if now.weekday() >= 5 else "notify.evening_summary"
+    lines = [f"🚨 <b>{tr(title)}:</b>", ""]
     lines += section(f"<b>{tr('deadline.overdue')}:</b>", digest.overdue)
     lines += section(f"<b>{tr('notify.burning')}:</b>", digest.burning)
     lines += section(f"<b>{tr('notify.stagnation')}:</b>", digest.stagnant)
