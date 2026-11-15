@@ -195,3 +195,16 @@ def test_bot_has_weekly_and_monthly_commands():
     from hub.bot import bot
     commands = [c for c, _key in bot.COMMANDS]
     assert "weekly" in commands and "monthly" in commands
+
+
+def test_digest_title_says_today_on_weekends_and_evening_on_weekdays():
+    saturday = datetime(2026, 11, 14, 12, 5)
+    db = SessionLocal()
+    try:
+        digest = notify.Digest(projects={})
+        evening = notify.render_digest(db, digest, MONDAY)
+        today = notify.render_digest(db, digest, saturday)
+    finally:
+        db.close()
+    assert notify.tr("notify.evening_summary") in evening
+    assert notify.tr("notify.today_summary") in today and notify.tr("notify.evening_summary") not in today
