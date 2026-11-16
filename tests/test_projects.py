@@ -67,6 +67,30 @@ def test_deadline_edit_needs_dev_mode(client, config):
     assert project(client, pid)["Estimate"] == "2027-01-15"
 
 
+def test_reward_edit_needs_dev_mode_and_whole_tokens(client, config):
+    pid = make_project(client, token_reward=15)
+    body = {"name": "Space Marine", "priority": "Medium", "token_reward": 20}
+    assert client.post(f"/api/projects/{pid}/edit", json=body).json()["status"] == "error"
+    config(DEV_MODE=True)
+    assert client.post(f"/api/projects/{pid}/edit", json={**body, "token_reward": 2.5}).json()["status"] == "error"
+    assert client.post(f"/api/projects/{pid}/edit", json={**body, "token_reward": -1}).json()["status"] == "error"
+    assert project(client, pid)["Token Reward"] == 15
+    assert client.post(f"/api/projects/{pid}/edit", json=body).json()["status"] == "ok"
+    assert project(client, pid)["Token Reward"] == 20
+    # without the field the reward stays as it is
+    del body["token_reward"]
+    assert client.post(f"/api/projects/{pid}/edit", json=body).json()["status"] == "ok"
+    assert project(client, pid)["Token Reward"] == 20
+
+
+def test_reward_edit_moves_the_balance_of_a_finished_project(client, config):
+    pid = make_project(client, token_reward=15)
+    action(client, action="update_project_status", id=pid, status="finished")
+    config(DEV_MODE=True)
+    client.post(f"/api/projects/{pid}/edit", json={"name": "Space Marine", "priority": "Medium", "token_reward": 25})
+    assert balance(client) == 100 - 10 + 25
+
+
 # ---------- finishing and reopening ----------
 
 def test_finishing_pays_reward(client):

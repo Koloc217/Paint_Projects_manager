@@ -104,12 +104,19 @@ def edit_project(project_id: str, data: ProjectEdit, db: Session = Depends(get_d
     estimate, err = parse_date_field(data.estimate)
     if err:
         return fail(err)
+    reward = None
+    if data.token_reward is not None:
+        reward, err = parse_token_field(data.token_reward)
+        if err:
+            return fail(err)
     proj = live_project(db, project_id)
     if not proj:
         return fail(tr("err.project_not_found"))
     proj.name = name
     proj.priority = data.priority
     proj.estimate = estimate
+    if reward is not None:
+        proj.token_reward = reward      # the balance is computed from the rewards of finished projects, so it follows
     proj.updated_at = datetime.now()
     db.commit()
     return {"status": "ok"}

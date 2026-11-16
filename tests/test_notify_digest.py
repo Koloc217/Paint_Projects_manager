@@ -87,8 +87,8 @@ def _digest(db, now, cfg=None):
 def test_week_done_counts_closed_tasks_and_finished_projects(client):
     pid = make_project(client, "Finished one", status="in_work", token_reward=7)
     other = make_project(client, "Still going", status="in_work")
-    t1, t2 = make_task(client, other, "Closed a"), make_task(client, other, "Closed b")
-    make_task(client, other, "Open one")
+    t1, t2 = make_task(client, other, "Closed a", "2030-01-01"), make_task(client, other, "Closed b", "2030-01-01")
+    make_task(client, other, "Open one", "2030-01-01")
     action(client, action="update_task_status", id=t1, status="finished")
     action(client, action="update_task_status", id=t2, status="finished")
     action(client, action="update_project_status", id=pid, status="finished")
@@ -112,7 +112,7 @@ def test_week_done_counts_closed_tasks_and_finished_projects(client):
 
 def test_week_done_ignores_tasks_closed_together_with_their_project(client):
     pid = make_project(client, "Closed whole", status="in_work")
-    make_task(client, pid, "Dragged along")
+    make_task(client, pid, "Dragged along", "2030-01-01")
     action(client, action="update_project_status", id=pid, status="finished")
     db = SessionLocal()
     try:

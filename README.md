@@ -302,6 +302,21 @@ Chrome) браузер включает только на `https` с серти�
 `mode`: `hot` | `nearest` | `empty`; `message` заполнен только для `empty`. Пример для рамки:
 `curl -s http://<адрес-pi>:8000/api/v1/hot -H "X-Device-Key: <ключ>"`.
 
+**`GET /api/v1/project?id=PRJ-…`**: один проект для экрана, которому нужен проект, а не список задач. Без `id` (или если
+проект с таким `id` закончен или удалён) отдаётся проект «в фокусе», выбранный так же, как в боте: сначала «В работе»,
+потом приоритет, потом ближайший дедлайн. Доступ и ключ те же, что у `/hot`.
+
+```json
+{"mode": "focus", "today": "2026-11-03", "message": "",
+ "project": {"id": "PRJ-…", "name": "Рыцарь", "status": "in_work", "stage": "painting", "priority": "High",
+             "deadline": "2026-11-20", "days_left": 17, "overdue": false, "tasks_open": 3, "tasks_total": 5,
+             "next_task": {"id": "TSK-…", "name": "Грунт", "deadline": "2026-11-05", "days_left": 2}}}
+```
+
+`mode`: `project` (запрошенный) | `focus` | `empty` (проектов нет: `project` равен `null`, в `message` готовая фраза).
+`deadline` и `days_left` равны `null`, если срока нет; `next_task` это открытая задача с ближайшим сроком (без срока
+идут последними) или `null`.
+
 ## Структура
 
 ```

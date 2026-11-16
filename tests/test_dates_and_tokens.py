@@ -16,11 +16,12 @@ def balance(client) -> int:
 # ---------- vacation ----------
 
 def test_vacation_moves_only_open_deadlines(client):
-    open_p = make_project(client, estimate="2026-11-20", status="in_work")
+    open_p = make_project(client, estimate="2026-11-20")
+    t_nodate = make_task(client, open_p)                      # no date: allowed while the project is only planned
+    action(client, action="update_project_status", id=open_p, status="in_work")
     t_open = make_task(client, open_p, deadline="2026-11-10")
     t_done = make_task(client, open_p, deadline="2026-11-05")
     action(client, action="update_task_status", id=t_done, status="finished")
-    t_nodate = make_task(client, open_p)
     done_p = make_project(client, estimate="2026-11-15")
     t_of_done = make_task(client, done_p, deadline="2026-11-12")
     action(client, action="update_project_status", id=done_p, status="finished")

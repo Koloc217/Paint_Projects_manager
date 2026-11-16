@@ -304,6 +304,21 @@ Tasks without a deadline do not count. Closed tasks, finished and paused project
 `mode`: `hot` | `nearest` | `empty`; `message` is filled only for `empty`. Example for the frame:
 `curl -s http://<pi-address>:8000/api/v1/hot -H "X-Device-Key: <key>"`.
 
+**`GET /api/v1/project?id=PRJ-…`**: one project for a screen that shows a project rather than a task list. Without `id`
+(or when no unfinished project has that `id`) the project in focus is returned, picked as in the bot: "In work" first,
+then priority, then the nearest deadline. Access and the key are the same as for `/hot`.
+
+```json
+{"mode": "focus", "today": "2026-11-03", "message": "",
+ "project": {"id": "PRJ-…", "name": "Knight", "status": "in_work", "stage": "painting", "priority": "High",
+             "deadline": "2026-11-20", "days_left": 17, "overdue": false, "tasks_open": 3, "tasks_total": 5,
+             "next_task": {"id": "TSK-…", "name": "Prime", "deadline": "2026-11-05", "days_left": 2}}}
+```
+
+`mode`: `project` (the one asked for) | `focus` | `empty` (no projects: `project` is `null`, `message` has a ready phrase).
+`deadline` and `days_left` are `null` when there is no date; `next_task` is the open task with the nearest date (tasks
+without a date come last) or `null`.
+
 ## Layout
 
 ```

@@ -89,3 +89,31 @@ def test_task_of_a_trashed_project_cannot_be_changed(client):
     client.post(f"/api/projects/{pid}/restore")
     restored = task(client, tid)
     assert restored["Task"] == "Prime" and restored["Status"] == "not_started"
+
+
+# ---------- the deadline of a task of an active project (the server enforces it, not only the page) ----------
+
+def _status(client, pid, status):
+    assert action(client, action="update_project_status", id=pid, status=status)["status"] == "ok"
+
+
+def test_task_without_deadline_needs_one_in_an_active_project(client):
+    pid = make_project(client)
+    _status(client, pid, "in_work")
+    res = client.post("/api/tasks", json={"project_id": pid, "task_name": "No date"}).json()
+    assert res["status"] == "error"
+    assert not [t for t in data(client)["tasks"] if t["Task"] == "No date"]
+
+
+def test_task_without_deadline_takes_the_project_deadline(client):
+    pid = make_project(client, estimate="2030-05-01")
+    _status(client, pid, "in_work")
+    tid = make_task(client, pid, "Inherits")
+    assert task(client, tid)["Deadline"] == "2030-05-01"
+
+
+def test_planned_project_and_general_tasks_may_have_no_deadline(client):
+    pid = make_project(client)                      # planned
+    make_task(client, pid, "Planned, no date")
+    res = client.post("/api/tasks", json={"project_id": None, "task_name": "General"}).json()
+    assert res["status"] == "ok"

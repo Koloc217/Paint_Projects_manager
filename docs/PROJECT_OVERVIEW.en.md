@@ -165,7 +165,8 @@ Tokens are whole numbers: a reward and the start cost are accepted only as whole
   the trash nor after erasing: on erasing, the project's contribution (the reward if it was finished, minus the start
   cost) is recorded in `adjustments`. With the option off, the start cost is refunded as soon as the project goes to the
   trash and charged again on restore.
-- **Editing.** The name and priority can always be changed. The project deadline only in DEV MODE.
+- **Editing.** The name and priority can always be changed. The project deadline and reward (a whole number of tokens) only in DEV MODE; the balance follows by itself, since it is
+  computed from the rewards of finished projects.
 - **What counts as "progress"** (`updated_at`): changing status and stage, creating a task, changing a task status,
   changing the notes text (saving it unchanged does not count), applying a pipeline template, closing or
   postponing a task from the bot, an edit in DEV MODE. Renaming, changing the priority, photos and references do not count.
@@ -232,7 +233,7 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
 - **Clicking the name or the badges** opens the project card.
 
 ### Open project card
-- Header: photo (change and remove), the name with a pencil (name and priority; in DEV MODE also the deadline),
+- Header: photo (change and remove), the name with a pencil (name and priority; in DEV MODE also the deadline and the reward),
   an "open in a new tab" button, "Pipeline template", "+ Task".
 - **Sub-tabs** (only in the compact card over the dashboard): "Tasks" — the notes and tasks,
   "Photos" — references and progress (the number of images next to the name). The open sub-tab is kept while the card
@@ -284,7 +285,7 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
 - A task cannot be created without a description; outer spaces are trimmed, the length is up to 300 characters.
 - A task can only be created in an existing project outside the trash.
 - For projects not in the "Planned" status a task deadline is required; if none is given and the project has a date,
-  that date is used.
+  that date is used. The server enforces the rule, not only the page and the bot.
 - Dates are accepted only as `YYYY-MM-DD`; an invalid date gives a clear error instead of a server failure.
 - Server errors (empty name, project not found, invalid value) are shown as a toast.
 
@@ -657,7 +658,7 @@ Responses look like `{"status": "ok"}` or `{"status": "error", "message": "..."}
 | `GET`, `POST /api/telegram/proxy`, `POST /api/telegram/proxy/check` | Telegram proxy: state (without the password), save, check the connection |
 | `POST /api/action` | change project status and stage, task status |
 | `POST /api/projects` | create a project |
-| `POST /api/projects/{id}/edit`, `/rename` | edit including the deadline (DEV MODE); name and priority (always) |
+| `POST /api/projects/{id}/edit`, `/rename` | edit including the deadline and reward (DEV MODE); name and priority (always) |
 | `POST`, `DELETE /api/projects/{id}/photo` | upload and remove the photo |
 | `POST /api/projects/{id}/refs`, `DELETE …/refs/{ref_id}` | add and remove a reference |
 | `POST /api/projects/{id}/refs/order` | new reference order (`ids`: the full list in order) |

@@ -1,9 +1,11 @@
 """Queries every part of the app shares: what is not in the trash, and the token balance."""
+from datetime import date
+
 from sqlalchemy import or_
 
 from hub.core.appconfig import load_config
-from hub.core.constants import is_done
-from hub.core.convert import to_tokens
+from hub.core.constants import STATUS_IN_WORK, is_done
+from hub.core.convert import to_date, to_tokens
 from hub.core.database import Adjustment, Project, Task
 
 
@@ -27,6 +29,17 @@ def live_tasks(db):
     """Query for tasks of projects outside the trash, plus general tasks (no project)."""
     return db.query(Task).filter(or_(Task.project_id.is_(None),
                                      Task.project_id.in_(db.query(Project.id).filter(Project.deleted_at.is_(None)))))
+
+
+def focus_project(active_projects):
+    """The project "in focus" among unfinished ones, or None: in work first, then by priority, then by nearest deadline.
+    The bot's focus card and the device API (/api/v1/project) pick it the same way."""
+    rank = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+    ordered = sorted(active_projects, key=lambda p: (
+        0 if p.status == STATUS_IN_WORK else 1,
+        rank.get(p.priority, 2),
+        to_date(p.estimate) or date(2099, 1, 1)))
+    return ordered[0] if ordered else None
 
 
 def compute_balance(db, config=None):

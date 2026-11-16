@@ -27,3 +27,12 @@ def device_hot(request: Request, limit: int = 2, key: str = "", db: Session = De
     if denied is not None:
         return denied
     return JSONResponse(devices.hot(db, limit), headers={"Cache-Control": "no-store"})
+
+
+@router.get("/api/v1/project")
+def device_project(request: Request, id: str = "", key: str = "", db: Session = Depends(get_db)):
+    """One project for a screen: the one asked for, or the project in focus."""
+    denied = _device_guard(request, key)
+    if denied is not None:
+        return denied
+    return JSONResponse(devices.project_view(db, id or None), headers={"Cache-Control": "no-store"})

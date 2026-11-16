@@ -10,13 +10,12 @@ from hub.core.constants import (
     is_done as status_done,
     STAGES,
     NO_STAGE,
-    STATUS_IN_WORK,
     STATUS_ON_HOLD,
     TASK_IN_PROGRESS,
 )
 from hub.core.convert import to_date, to_tokens
 from hub.core.formatting import esc, clip_lines, short_text, fmt_date
-from hub.core.queries import compute_balance, live_project, live_projects, live_tasks
+from hub.core.queries import compute_balance, focus_project, live_project, live_projects, live_tasks
 from hub.core.i18n import tr, tv
 
 PENDING_TTL_SEC = 3600                 # drafts and pending photos live this long
@@ -165,13 +164,7 @@ def build_current_focus_view(specific_proj_id: str = None):
         if proj:
             is_focus = False
         else:                       # no project asked for, or it is finished or deleted by now: the one in focus
-            prio_rank = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
-            active_projects.sort(key=lambda p: (
-                0 if p.status == STATUS_IN_WORK else 1,
-                prio_rank.get(p.priority, 2),
-                to_date(p.estimate) or date(2099, 1, 1)
-            ))
-            proj = active_projects[0]
+            proj = focus_project(active_projects)
             is_focus = True
 
         tasks = [t for t in all_tasks if t.project_id == proj.id]

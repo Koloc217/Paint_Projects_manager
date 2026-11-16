@@ -22,6 +22,7 @@ class ProjectEdit(BaseModel):
     name: str
     priority: str
     estimate: Optional[str] = None
+    token_reward: Optional[float] = None    # a whole number (checked by parse_token_field); None: leave the reward as is
 
 class ProjectRename(BaseModel):
     name: str
