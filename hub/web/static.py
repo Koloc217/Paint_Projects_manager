@@ -32,6 +32,23 @@ class CachedStatic(StaticFiles):
         return response
 
 
+# Files the user adds to static/ himself (they are in .gitignore) and that were renamed in the code: old name -> new
+_RENAMED_USER_FILES = {"backgrounds/wh40k_bg.jpg": "backgrounds/hammer_bg.jpg"}
+
+
+def rename_user_files() -> None:
+    """Start-up: a user file still under its old name gets the new one, so an update does not lose it."""
+    root = os.path.join(BASE_DIR, "static")
+    for old, new in _RENAMED_USER_FILES.items():
+        src, dst = os.path.join(root, *old.split("/")), os.path.join(root, *new.split("/"))
+        try:
+            if os.path.isfile(src) and not os.path.exists(dst):
+                os.replace(src, dst)
+                print(f"[STATIC] {old} renamed to {new}")
+        except OSError as e:
+            print(f"[STATIC] could not rename {old} to {new}: {e!r}")
+
+
 _static_stamps = {}
 
 

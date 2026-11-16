@@ -55,6 +55,6 @@ MAX_TOKENS = 1_000_000          # upper bound for a reward or a start cost
 MAX_PROJECT_NAME_LEN = 120
 MAX_TASK_NAME_LEN = 120
 
-TG_TEXT_LIMIT = 4096        # Telegram rejects longer messages entirely (characters after the HTML markup is parsed)
 TG_ALERT_LIMIT = 200        # text of a pop-up answer to a button (answerCallbackQuery)
-TG_SAFE_LIMIT = 3900        # what we aim for: the limit minus room for the "…and N more" line and counting slack
+# Telegram rejects a message longer than 4096 characters entirely (counted after the HTML markup is parsed).
+TG_SAFE_LIMIT = 3900        # what we aim for: that limit minus room for the "…and N more" line and counting slack

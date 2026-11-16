@@ -8,7 +8,7 @@
 
 > Статус: личный проект «для себя». Работает на одном пользователе, данные хранятся локально.
 > **Документация:**
-> [Логика и API](docs/PROJECT_OVERVIEW.md) ([English](docs/PROJECT_OVERVIEW.en.md)) ·
+> [Логика и API](docs/PROJECT_OVERVIEW.md) ·
 > [Гайд по темам](docs/THEMES_GUIDE.md) ([English](docs/THEMES_GUIDE.en.md)) ·
 > [Планы](PLANS.md)
 
@@ -79,7 +79,8 @@
 **Резервные копии и надёжность**
 - Архив с данными: Настройки → Бэкап → «Скачать архив» — база, настройки и все фото одним zip-файлом.
   Восстановление там же («Восстановить из архива») или из консоли: `python tools/archive_tool.py restore архив.zip`.
-  Пароль входа, `.env` и сертификаты в архив не попадают.
+  Пароль входа, `.env` и сертификаты в архив не попадают; настройки идут целиком (с адресом прокси, ключом устройств
+  и адресом подписки календаря), поэтому архив не для общего доступа.
 - Если приложение было выключено во время пуша, после запуска пропущенный запуск выполняется сам.
 - База SQLite в режиме WAL: веб, бот и скрипты пишут в неё одновременно без блокировок.
 - Версионированные миграции схемы (`hub/core/migrations.py`, версия в `PRAGMA user_version`): каждый шаг выполняется один раз,
@@ -127,6 +128,10 @@ python app.py                 # веб, бот и планировщик одн�
 Интерфейс откроется на `http://<адрес устройства>:8000`. Файлы `tracker.db`, `config.json`, `auth.json`
 и папка `photos/` создаются при первом запуске и в git не попадают.
 
+При первом открытии новая установка спрашивает, с чего начать: со стартового баланса токенов (на них создаются
+первые проекты) или в DEV MODE (проекты бесплатные, автоматические уведомления молчат). Позже и то и другое меняется:
+DEV MODE и цена проекта в настройках, стартовый баланс — `INITIAL_TOKENS` в `config.json`.
+
 ### Порт и адрес
 
 Порт по умолчанию 8000. Если он занят или нужен другой, впишите его в `.env` и перезапустите приложение:
@@ -146,6 +151,43 @@ HOST=0.0.0.0        # необязательно: 0.0.0.0 — доступ из 
 Прокси для Telegram не обязателен. Если Telegram недоступен напрямую, включите его там же (Настройки → Telegram →
 «Прокси для Telegram»): SOCKS5 или HTTP, кнопка «Проверить связь», применяется без перезапуска.
 Старый способ тоже работает: `PROXY_URL` в `.env` действует, пока прокси не настроен в приложении.
+
+### Автозапуск
+
+**Linux (systemd).** Файл `/etc/systemd/system/tracker.service` (пользователя и пути замените своими; имя `tracker`
+ожидает `tools/deploy.sh`):
+
+```ini
+[Unit]
+Description=Project Hub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/Paint_Projects_manager
+ExecStart=/home/pi/Paint_Projects_manager/.venv/bin/python app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now tracker     # запустить сейчас и при каждой загрузке
+journalctl -u tracker -f                # что пишет приложение
+```
+
+**Windows (Планировщик заданий).** «Создать задачу»: триггер «При входе в систему» (или «При запуске»),
+действие «Запуск программы»: программа `C:\путь\Paint_Projects_manager\.venv\Scripts\python.exe`, аргументы `app.py`,
+рабочая папка `C:\путь\Paint_Projects_manager`. Чтобы не висело окно консоли, на вкладке «Общие» выберите
+«Выполнять для всех пользователей». То же одной командой (запуск при входе в систему, с окном консоли):
+
+```bat
+schtasks /Create /TN "Project Hub" /SC ONLOGON /TR "\"C:\путь\Paint_Projects_manager\.venv\Scripts\python.exe\" \"C:\путь\Paint_Projects_manager\app.py\""
+```
 
 ## Обновление на устройстве
 
@@ -226,7 +268,7 @@ Chrome) браузер включает только на `https` с серти�
 | Язык, формат даты, цена проекта, сроки в календарь телефона, расписание, уведомления | Настройки в интерфейсе, хранится в `config.json` |
 | API для внешних устройств (`DEVICE_API`) | `config.json`, см. «Внешние устройства» |
 | Пароль | Настройки → Доступ; сброс из консоли: `python -m hub.web.auth reset` |
-| Фоновые картинки тем | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` лежат в репозитории, `wh40k_bg.jpg` нужно положить самому (без картинки тема рисует фон сама), см. [static/backgrounds/README.md](static/backgrounds/README.md) |
+| Фоновые картинки тем | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` лежат в репозитории, `hammer_bg.jpg` нужно положить самому (без картинки тема рисует фон сама), см. [static/backgrounds/README.md](static/backgrounds/README.md) |
 
 ## Внешние устройства
 
@@ -289,7 +331,7 @@ tools/                                               check_locales.py, check_the
                                                      check_backup.py, check_data.py, make_thumbs.py, archive_tool.py
 logs/                                                app.log, notify.log (создаётся сам)
 PLANS.md                                             отложенные идеи и решения
-docs/                                                PROJECT_OVERVIEW, THEMES_GUIDE (ru и en)
+docs/                                                PROJECT_OVERVIEW (ru), THEMES_GUIDE (ru и en)
 ```
 
 ## Проверки

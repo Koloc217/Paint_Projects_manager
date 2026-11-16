@@ -76,3 +76,16 @@ def test_template_reapply_skips_existing_steps(client):
 def test_unknown_template(client):
     pid = make_project(client)
     assert client.post(f"/api/projects/{pid}/template", json={"kind": "nope"}).json()["status"] == "error"
+
+
+def test_task_of_a_trashed_project_cannot_be_changed(client):
+    """The web API treats a task of a project in the trash as gone, like the bot does."""
+    pid = make_project(client)
+    tid = make_task(client, pid, "Prime")
+    client.delete(f"/api/projects/{pid}")
+    assert action(client, action="update_task_status", id=tid, status="finished")["status"] == "error"
+    assert client.post(f"/api/tasks/{tid}/edit", json={"task_name": "Renamed"}).json()["status"] == "error"
+    assert client.delete(f"/api/tasks/{tid}").json()["status"] == "error"
+    client.post(f"/api/projects/{pid}/restore")
+    restored = task(client, tid)
+    assert restored["Task"] == "Prime" and restored["Status"] == "not_started"

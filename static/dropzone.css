@@ -41,4 +41,4 @@ body.drop-active [data-drop="photo"].drop-over::after {
 
 /* themes */
 body.theme-cyberpunk [data-drop] { --drop-color: #00ff9d; --drop-bg: rgba(0, 255, 157, 0.14); }
-body.theme-warhammer [data-drop] { --drop-color: #d4b26f; --drop-bg: rgba(60, 40, 15, 0.7); }
+body.theme-hammer [data-drop] { --drop-color: #d4b26f; --drop-bg: rgba(60, 40, 15, 0.7); }

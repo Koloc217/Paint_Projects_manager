@@ -85,6 +85,11 @@ class ConfigUpdate(BaseModel):
     date_format: Optional[str] = None
     ask_spent_time: Optional[bool] = None       # the bot asks for the time when a task is closed; None: keep
 
+class SetupBody(BaseModel):
+    mode: str                       # "tokens": start with a token balance; "dev": start in DEV_MODE
+    tokens: float = 0               # the starting balance for "tokens" (a whole number, checked by parse_token_field)
+
+
 class TemplateStep(BaseModel):
     index: int                         # step number in the template (from 0)
     deadline: Optional[str] = None     # 'YYYY-MM-DD' or empty

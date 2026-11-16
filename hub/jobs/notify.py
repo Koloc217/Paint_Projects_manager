@@ -25,6 +25,11 @@ from hub.bot import tgclean
 STATE_FILE = os.path.join(DATA_DIR, ".notify_state.json")
 LOCK_FILE = os.path.join(DATA_DIR, ".notify.lock")
 MIN_GAP_SEC = 600
+# Which monthly report and weekly digest have gone out already: {"monthly": "2026-11", "weekly": "2026-W46"}.
+# With it a report whose day was skipped (the weekday is off in the schedule, DEV_MODE, a vacation, the app was
+# not running) goes out with the next automatic digest instead of silently waiting for the next month or week.
+REPORTS_FILE = os.path.join(DATA_DIR, ".notify_reports.json")
+FRIDAY, SATURDAY, SUNDAY = 4, 5, 6
 MAX_BUTTONS = 4           # task buttons under the message, so the push stays readable
 MAX_SECTION_ITEMS = 12    # lines per section (overdue, burning, ...); the rest becomes "…and N more"
 WEEK_DAYS = 7             # the weekly digest looks this far back (what got done) and ahead (what is due)
@@ -131,6 +136,73 @@ def claim_run_slot(source, now=None, state_file=STATE_FILE, lock_file=LOCK_FILE,
         return True, prev if isinstance(prev, dict) else None
 
 
+def load_reports(path=None) -> dict:
+    try:
+        with open(path or REPORTS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return {k: str(v) for k, v in data.items() if k in ("monthly", "weekly")} if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_reports(sent: dict, path=None) -> None:
+    path = path or REPORTS_FILE
+    try:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(sent, f)
+        os.replace(tmp, path)
+    except OSError as e:               # the digest itself has gone out; at worst a report is repeated once
+        print(f"[NOTIFY] could not save {os.path.basename(path)}: {e!r}")
+
+
+def month_key(now: datetime) -> str:
+    return now.strftime("%Y-%m")
+
+
+def week_key(now: datetime) -> str:
+    year, week, _ = now.isocalendar()
+    return f"{year}-W{week:02d}"
+
+
+def monthly_due(now: datetime, opts, notify_cfg: dict, sent: dict) -> bool:
+    """The report for the previous month: on the 1st, or with the first automatic digest after it if the 1st was
+    skipped. Once per month. --monthly always sends it (and is not counted: it is a manual check)."""
+    if opts.monthly:
+        return True
+    if opts.test or not notify_cfg.get("monthly_report", True) or sent.get("monthly") == month_key(now):
+        return False
+    # "monthly" not recorded yet: an installation from before this record existed, its report went out on the 1st
+    return now.day == 1 or (opts.automatic and "monthly" in sent)
+
+
+def weekly_due(now: datetime, opts, notify_cfg: dict, sent: dict) -> bool:
+    """The weekly digest: on Friday; on Saturday or Sunday if this week's has not gone out (Friday was skipped).
+    From Monday on, the "plans for the weekend" are stale, so it waits for the next Friday."""
+    if opts.weekly:
+        return True
+    if not notify_cfg.get("friday_digest", True):
+        return False
+    if now.weekday() == FRIDAY or opts.test:
+        return True
+    return (now.weekday() in (SATURDAY, SUNDAY) and opts.automatic
+            and "weekly" in sent and sent["weekly"] != week_key(now))
+
+
+def seed_reports(now: datetime, opts, sent: dict) -> bool:
+    """The first automatic run with this record: what the calendar says has gone out already is written down
+    without sending, so the update itself never repeats a report. True if something was added."""
+    if not opts.automatic:
+        return False
+    before = dict(sent)
+    if "monthly" not in sent and now.day != 1:
+        sent["monthly"] = month_key(now)
+    if "weekly" not in sent and now.weekday() != FRIDAY:
+        # on a weekend this week's digest went out on Friday; on other days the value only has to exist
+        sent["weekly"] = week_key(now) if now.weekday() in (SATURDAY, SUNDAY) else ""
+    return sent != before
+
+
 def more_line(n: int) -> str:
     return f"<i>… {tr('common.and_more', n=n)}</i>"
 
@@ -164,7 +236,10 @@ def build_monthly_report(db, now, config):
     last_month_end = first_day_this_month - timedelta(seconds=1)
     last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    tasks = live_tasks(db).filter(Task.completed_at >= last_month_start, Task.completed_at <= last_month_end).all()
+    # tasks closed together with their project (closed_from is set) are not counted, as in the weekly digest:
+    # that was one action, not many
+    tasks = [t for t in live_tasks(db).filter(Task.completed_at >= last_month_start,
+                                              Task.completed_at <= last_month_end).all() if not t.closed_from]
     projects = live_projects(db).filter(Project.completed_at >= last_month_start,
                                         Project.completed_at <= last_month_end).all()
     closed_projs = [p for p in projects if is_done(p.status)]
@@ -199,7 +274,7 @@ class Options:
     now: bool = False         # --now: the "Send now" button, a regular digest on request: ignores the silent mode,
                               # the vacation and the once-per-slot check
     force: bool = False       # --force (or --now): skip the once-per-slot check
-    source: str = "cron/manual"
+    source: str = "manual"
 
     @property
     def automatic(self) -> bool:
@@ -213,7 +288,7 @@ def parse_options(argv) -> Options:
     return Options(
         test="--test" in argv, monthly="--monthly" in argv, now=now, weekly=weekly,
         force="--force" in argv or now or weekly,
-        source=next((a.split("=", 1)[1] for a in argv if a.startswith("--source=")), "cron/manual"),
+        source=next((a.split("=", 1)[1] for a in argv if a.startswith("--source=")), "manual"),
     )
 
 
@@ -352,10 +427,12 @@ def _collect_week_ahead(digest: Digest, tasks: list, today) -> None:
     digest.week_ahead = [line for _d, line in sorted(items, key=lambda it: it[0])]
 
 
-def collect_digest(db, now: datetime, opts: Options, notify_cfg: dict) -> Digest:
+def collect_digest(db, now: datetime, opts: Options, notify_cfg: dict, weekly: bool = None) -> Digest:
+    """weekly: whether the weekly blocks go in (main() decides with weekly_due, which knows what was sent already);
+    None = by the calendar alone, Friday."""
     digest = Digest(projects={p.id: p for p in live_projects(db).all()})
     tasks = sorted(live_tasks(db).all(), key=_deadline_key)    # most overdue first
-    digest.weekly = opts.weekly or bool((now.weekday() == 4 or opts.test) and notify_cfg.get("friday_digest", True))
+    digest.weekly = weekly_due(now, opts, notify_cfg, {}) if weekly is None else weekly
     _collect_deadlines(digest, tasks, now.date())
     _collect_stagnant(digest, now, notify_cfg)
     if digest.weekly:
@@ -443,22 +520,34 @@ def main() -> int:
     now = datetime.now()
     notify_cfg = config.get("NOTIFY", {})
     sent_ok = True
+    reports = load_reports()
+    reports_changed = seed_reports(now, opts, reports)
 
     db = SessionLocal()
     try:
-        # 1. Monthly report (on the 1st of the month, or by button / command)
-        if opts.monthly or (now.day == 1 and notify_cfg.get("monthly_report", True) and not opts.test):
-            sent_ok &= send_tg_message(chat_id, build_monthly_report(db, now, config), kind="report")
+        # 1. Monthly report (on the 1st, with the next automatic digest if the 1st was skipped, or by command)
+        if monthly_due(now, opts, notify_cfg, reports):
+            ok = send_tg_message(chat_id, build_monthly_report(db, now, config), kind="report")
+            sent_ok &= ok
             if opts.monthly:
                 return 0 if sent_ok else 1
+            if ok:
+                reports["monthly"] = month_key(now)
+                reports_changed = True
 
-        # 2. The digest: deadlines, stagnation, the Friday plan
-        digest = collect_digest(db, now, opts, notify_cfg)
+        # 2. The digest: deadlines, stagnation, the weekly blocks
+        digest = collect_digest(db, now, opts, notify_cfg, weekly_due(now, opts, notify_cfg, reports))
         if not digest.has_content:
-            sent_ok &= send_all_clear(chat_id, digest, opts)
+            ok = send_all_clear(chat_id, digest, opts)
         else:
             markup = build_keyboard(digest.action_tasks, notify_cfg.get("allow_postpone", True))
-            sent_ok &= send_tg_message(chat_id, render_digest(db, digest, now), markup)
+            ok = send_tg_message(chat_id, render_digest(db, digest, now), markup)
+        sent_ok &= ok
+        if ok and digest.weekly and not opts.test and now.weekday() in (FRIDAY, SATURDAY, SUNDAY):
+            reports["weekly"] = week_key(now)
+            reports_changed = True
+        if reports_changed:
+            save_reports(reports)
         return 0 if sent_ok else 1
     finally:
         db.close()

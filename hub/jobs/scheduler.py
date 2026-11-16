@@ -25,7 +25,6 @@ CATCHUP_DELAY_SEC = 15       # after start-up, wait until the web app and the bo
 STAMP_FMT = "%Y-%m-%d %H:%M"
 ALIVE_FMT = "%Y-%m-%d %H:%M:%S"
 
-EVERY_DAY = frozenset(range(7))
 
 _background_tasks = set()
 _running_jobs = set()

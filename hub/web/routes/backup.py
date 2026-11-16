@@ -2,6 +2,7 @@
 import asyncio
 import contextlib
 import os
+import shutil
 import tempfile
 
 from fastapi import APIRouter, Request
@@ -24,6 +25,12 @@ def storage_usage():
 
 # ---------- Archive: the whole data (database, config.json, photos) as one zip, see archive.py ----------
 _archive_lock = asyncio.Lock()       # one archive job at a time: two restores at once would mix their photos
+
+
+def upload_limit() -> int:
+    """How big an uploaded archive may be: half of the free disk space. The other half is for what the restore
+    writes next to it (the database copy, the photos), so an upload can never fill the disk."""
+    return shutil.disk_usage(DATA_DIR).free // 2
 
 
 def _remove_file(path: str) -> None:
@@ -53,11 +60,19 @@ async def restore_archive_route(request: Request):
     piece by piece, so a large archive never sits in memory."""
     if _archive_lock.locked():
         return fail(tr("archive.err_busy"))
+    limit = upload_limit()
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > limit:
+        return fail(tr("archive.err_no_space"))
     async with _archive_lock:
         fd, path = tempfile.mkstemp(prefix=".upload-", suffix=".zip", dir=DATA_DIR)
         try:
+            written = 0
             with os.fdopen(fd, "wb") as f:
                 async for chunk in request.stream():
+                    written += len(chunk)
+                    if written > limit:
+                        raise archive.ArchiveError("archive.err_no_space")
                     f.write(chunk)
             summary = await asyncio.to_thread(archive.restore_archive, path)
         except archive.ArchiveError as e:

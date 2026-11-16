@@ -62,11 +62,6 @@ def _all_locales() -> dict:
     return _file_cache["data"]
 
 
-def load_locale(code: str) -> dict:
-    """The table of one language (empty if there is no such block)."""
-    return _all_locales().get(code) or {}
-
-
 def available_languages() -> list:
     """[{'code': 'ru-RU', 'name': 'Русский'}, {'code': 'en-US', 'name': 'English'}, ...]"""
     _all_locales()
@@ -96,10 +91,6 @@ def normalize_lang(code):
     if key not in _norm_cache:
         _norm_cache[key] = _normalize(code)
     return _norm_cache[key]
-
-
-def is_valid_language(code) -> bool:
-    return normalize_lang(code) is not None
 
 
 def get_lang() -> str:

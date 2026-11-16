@@ -157,3 +157,17 @@ def test_console_script(client, tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["archive_tool.py", "restore", str(bad)])
     assert archive_tool.main() == 1
     assert "❌" in capsys.readouterr().out
+
+
+def test_upload_bigger_than_the_free_space_is_refused(client, monkeypatch):
+    from hub.web.routes import backup
+    pid = make_project(client, name="Safe")
+    raw = _download(client)
+    monkeypatch.setattr(backup, "upload_limit", lambda: len(raw) - 1)
+    res = _restore(client, raw)
+    assert res["status"] == "error" and "archive." not in res["message"]
+    # the same when the size is not declared up front (the upload is cut off while it is being written)
+    cut = client.post("/api/archive/restore", content=iter([raw[:100], raw[100:]])).json()
+    assert cut == res
+    assert [p["ID"] for p in data(client)["projects"]] == [pid]
+    _no_temp_left()

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from hub.core import spent
 from hub.core.constants import MAX_TASK_NAME_LEN, TASK_NOT_STARTED, is_done
-from hub.core.queries import live_project
+from hub.core.queries import live_project, live_task
 from hub.core.database import Task
 from hub.core.i18n import tr
 from hub.web.deps import get_db
@@ -46,7 +46,7 @@ def edit_task(task_id: str, data: TaskEdit, db: Session = Depends(get_db)):
     deadline, err = parse_date_field(data.deadline)
     if err:
         return fail(err)
-    task = db.query(Task).filter(Task.id == task_id).first()
+    task = live_task(db, task_id)             # not a task of a project in the trash
     if not task:
         return fail(tr("bot.task_not_found"))
     if data.spent is not None:
@@ -65,7 +65,7 @@ def edit_task(task_id: str, data: TaskEdit, db: Session = Depends(get_db)):
 
 @router.delete("/api/tasks/{task_id}")
 def delete_task(task_id: str, db: Session = Depends(get_db)):
-    task = db.query(Task).filter(Task.id == task_id).first()
+    task = live_task(db, task_id)             # not a task of a project in the trash
     if not task:
         return fail(tr("bot.task_not_found"))
     db.delete(task)

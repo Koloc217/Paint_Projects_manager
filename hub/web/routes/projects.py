@@ -8,8 +8,8 @@ from hub.core import spent
 from hub.core.appconfig import load_config
 from hub.core.constants import PRIORITIES, PROJECT_STATUSES, STAGES, TASK_STATUSES, is_done, normalize_value
 from hub.core.convert import to_tokens
-from hub.core.queries import compute_balance, live_project
-from hub.core.database import Project, Task
+from hub.core.queries import compute_balance, live_project, live_task
+from hub.core.database import Project
 from hub.core.i18n import tr
 from hub.core.lifecycle import set_project_status, set_stage, set_task_status, touch_project
 from hub.web.deps import get_db
@@ -50,7 +50,7 @@ def do_action(payload: ActionPayload, db: Session = Depends(get_db)):
     if payload.action == "update_task_status":
         if payload.status not in TASK_STATUSES:
             return fail(tr("err.bad_value"))
-        task = db.query(Task).filter(Task.id == payload.id).first()
+        task = live_task(db, payload.id)          # not a task of a project in the trash
         if not task:
             return fail(tr("bot.task_not_found"))
         set_task_status(task, payload.status, now)

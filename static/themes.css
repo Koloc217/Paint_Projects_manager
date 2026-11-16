@@ -262,11 +262,11 @@ body.theme-cyberpunk #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
 
 /* === END THEME: theme-cyberpunk === */
 
-/* === THEME: theme-warhammer === */
+/* === THEME: theme-hammer === */
 /* ==========================================================================
-   THEME 2: HAMMER, WITH THE /static/backgrounds/wh40k_bg.jpg BACKGROUND (body.theme-warhammer)
+   THEME 2: HAMMER, WITH THE /static/backgrounds/hammer_bg.jpg BACKGROUND (body.theme-hammer)
    ========================================================================== */
-body.theme-warhammer {
+body.theme-hammer {
     /* Theme fonts (both include Cyrillic). Headings/buttons/dates: Playfair Display SC; text: Alegreya.
        To try another pair, change these two lines and FONTS in tools/build_assets.py. */
     --wh-title: 'Playfair Display SC', 'Cormorant SC', Georgia, serif;
@@ -292,7 +292,7 @@ body.theme-warhammer {
     /* Slightly darken the center so the cards stay readable; the background image is drawn below */
     background-image: 
         radial-gradient(circle at 50% 50%, rgba(18, 14, 11, 0.30) 0%, rgba(10, 8, 6, 0.72) 100%),
-        url('backgrounds/wh40k_bg.jpg') !important;
+        url('backgrounds/hammer_bg.jpg') !important;
     background-position: center center, center center !important;
     background-repeat: no-repeat, no-repeat !important;
     background-size: cover, cover !important;
@@ -303,16 +303,16 @@ body.theme-warhammer {
 }
 
 /* Lining (equal-height) numerals: Alegreya uses old-style figures by default, which makes "05" look like "o5" */
-body.theme-warhammer,
-body.theme-warhammer select,
-body.theme-warhammer input,
-body.theme-warhammer button,
-body.theme-warhammer textarea {
+body.theme-hammer,
+body.theme-hammer select,
+body.theme-hammer input,
+body.theme-hammer button,
+body.theme-hammer textarea {
     font-variant-numeric: lining-nums;
 }
 
 /* Inputs in modals must not get the rivets and the "card" frame */
-body.theme-warhammer input.bg-slate-800 {
+body.theme-hammer input.bg-slate-800 {
     background-image: none !important;
     background-color: #1a130d !important;
     outline: none !important;
@@ -324,14 +324,14 @@ body.theme-warhammer input.bg-slate-800 {
 }
 
 /* Transparent wrappers in index.html that carry a solid bg-slate-900 / bg-slate-950 class */
-body.theme-warhammer > div:not(#toastContainer):not([id*="Modal"]):not(#lightbox),
-body.theme-warhammer main {
+body.theme-hammer > div:not(#toastContainer):not([id*="Modal"]):not(#lightbox),
+body.theme-hammer main {
     background-color: transparent !important;
 }
 
-body.theme-warhammer h1, 
-body.theme-warhammer h2, 
-body.theme-warhammer h3 {
+body.theme-hammer h1, 
+body.theme-hammer h2, 
+body.theme-hammer h3 {
     font-family: var(--wh-title) !important;
     font-weight: 700 !important;
     letter-spacing: 0.02em;
@@ -340,7 +340,7 @@ body.theme-warhammer h3 {
 }
 
 /* --- TOP BAR (HEADER) WITH A MECHANICUS BAS-RELIEF --- */
-body.theme-warhammer nav {
+body.theme-hammer nav {
     background: 
         linear-gradient(180deg, rgba(60, 44, 28, 0.85) 0%, rgba(18, 13, 9, 0.95) 100%),
         repeating-linear-gradient(90deg, #1c1510 0px, #1c1510 120px, #15100c 120px, #15100c 122px) !important;
@@ -351,7 +351,7 @@ body.theme-warhammer nav {
 }
 
 /* Vector bas-relief: cog + Aquila wings + skull in the middle of the header */
-body.theme-warhammer nav::after {
+body.theme-hammer nav::after {
     content: "";
     position: absolute;
     left: 50%;
@@ -367,16 +367,16 @@ body.theme-warhammer nav::after {
     z-index: 30;
 }
 
-body.theme-warhammer nav button,
-body.theme-warhammer #tokenCounter {
+body.theme-hammer nav button,
+body.theme-hammer #tokenCounter {
     font-family: var(--wh-title) !important;
     font-weight: 700 !important;
     letter-spacing: 0.03em;
 }
 
 /* --- PROJECT CARDS AND THE TASK BLOCK (CAST IRON + A RIVETED BRONZE FRAME) --- */
-body.theme-warhammer .bg-slate-800,
-body.theme-warhammer .bg-slate-800\/90 {
+body.theme-hammer .bg-slate-800,
+body.theme-hammer .bg-slate-800\/90 {
     background-color: rgba(24, 18, 14, 0.88) !important;
     backdrop-filter: blur(3px);
     background-image: 
@@ -401,7 +401,7 @@ body.theme-warhammer .bg-slate-800\/90 {
 }
 
 /* Vector emblem with a skull and wings on the top edge of every card */
-body.theme-warhammer #projectsContainer > div::before {
+body.theme-hammer #projectsContainer > div::before {
     content: "";
     position: absolute;
     top: -11px;
@@ -418,14 +418,14 @@ body.theme-warhammer #projectsContainer > div::before {
 }
 
 /* Frame around the project photo */
-body.theme-warhammer #projectsContainer .rounded-xl {
+body.theme-hammer #projectsContainer .rounded-xl {
     border-radius: 2px !important;
     border: 2px solid #6b5229 !important;
     box-shadow: inset 0 0 12px rgba(0,0,0,0.9), 0 2px 6px rgba(0,0,0,0.8) !important;
 }
 
 /* --- DROPDOWNS (SELECT) AS BRONZE WINDOWS --- */
-body.theme-warhammer select {
+body.theme-hammer select {
     background-color: #1a130d !important;
     color: #e8d8b9 !important;
     border: 1px solid #856735 !important;
@@ -442,22 +442,22 @@ body.theme-warhammer select {
     background-repeat: no-repeat, no-repeat !important;
 }
 
-body.theme-warhammer select:hover {
+body.theme-hammer select:hover {
     border-color: #b89352 !important;
 }
 
-body.theme-warhammer select option {
+body.theme-hammer select option {
     background-color: #1a130d !important;
     color: #e8d8b9 !important;
     font-family: var(--wh-body) !important;
 }
 
 /* --- DATES AND DEADLINES: a bronze plate with diamonds on the sides (no calendar icon) --- */
-body.theme-warhammer .dl-icon {
+body.theme-hammer .dl-icon {
     display: none;
 }
 
-body.theme-warhammer #projectsContainer .text-xs > span {
+body.theme-hammer #projectsContainer .text-xs > span {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -479,8 +479,8 @@ body.theme-warhammer #projectsContainer .text-xs > span {
         0 2px 5px rgba(0, 0, 0, 0.65) !important;
 }
 
-body.theme-warhammer #projectsContainer .text-xs > span::before,
-body.theme-warhammer #projectsContainer .text-xs > span::after {
+body.theme-hammer #projectsContainer .text-xs > span::before,
+body.theme-hammer #projectsContainer .text-xs > span::after {
     content: "";
     flex: none;
     width: 5px;
@@ -491,39 +491,39 @@ body.theme-warhammer #projectsContainer .text-xs > span::after {
 }
 
 /* Urgent / overdue: a crimson plate */
-body.theme-warhammer #projectsContainer .text-xs > span.text-red-400,
-body.theme-warhammer #projectsContainer .text-xs > span.text-red-500 {
+body.theme-hammer #projectsContainer .text-xs > span.text-red-400,
+body.theme-hammer #projectsContainer .text-xs > span.text-red-500 {
     color: #ffc2b0 !important;
     border-color: #9b3026 !important;
     background: linear-gradient(180deg, #5b1b14 0%, #35100c 55%, #240a08 100%) !important;
 }
-body.theme-warhammer #projectsContainer .text-xs > span.text-red-400::before,
-body.theme-warhammer #projectsContainer .text-xs > span.text-red-400::after,
-body.theme-warhammer #projectsContainer .text-xs > span.text-red-500::before,
-body.theme-warhammer #projectsContainer .text-xs > span.text-red-500::after {
+body.theme-hammer #projectsContainer .text-xs > span.text-red-400::before,
+body.theme-hammer #projectsContainer .text-xs > span.text-red-400::after,
+body.theme-hammer #projectsContainer .text-xs > span.text-red-500::before,
+body.theme-hammer #projectsContainer .text-xs > span.text-red-500::after {
     background: #cf4a3a;
 }
 
 /* No deadline / closed: a muted plate */
-body.theme-warhammer #projectsContainer .text-xs > span.text-slate-500 {
+body.theme-hammer #projectsContainer .text-xs > span.text-slate-500 {
     color: #9c8a63 !important;
     border-color: #5a4627 !important;
     background: linear-gradient(180deg, #2a2016 0%, #1a130d 100%) !important;
     text-shadow: none;
 }
-body.theme-warhammer #projectsContainer .text-xs > span.text-slate-500::before,
-body.theme-warhammer #projectsContainer .text-xs > span.text-slate-500::after {
+body.theme-hammer #projectsContainer .text-xs > span.text-slate-500::before,
+body.theme-hammer #projectsContainer .text-xs > span.text-slate-500::after {
     background: #6b5632;
 }
 
 /* --- RIGHT COLUMN "UPCOMING TASKS" WITH WAX PURITY SEALS --- */
-body.theme-warhammer #tasksContainer > div {
+body.theme-hammer #tasksContainer > div {
     border-bottom: 1px solid rgba(133, 103, 53, 0.35) !important;
     padding: 12px 14px !important;
     position: relative;
 }
 
-body.theme-warhammer #tasksContainer .text-xs > span {
+body.theme-hammer #tasksContainer .text-xs > span {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -536,13 +536,13 @@ body.theme-warhammer #tasksContainer .text-xs > span {
     box-shadow: 0 2px 5px rgba(0,0,0,0.8);
 }
 
-body.theme-warhammer #tasksContainer .text-xs > span.text-red-400,
-body.theme-warhammer #tasksContainer .text-xs > span.text-red-500 {
+body.theme-hammer #tasksContainer .text-xs > span.text-red-400,
+body.theme-hammer #tasksContainer .text-xs > span.text-red-500 {
     color: #7a1212 !important;
 }
 
 /* Vector wax Purity Seal with a skull and a hanging ribbon */
-body.theme-warhammer #tasksContainer .text-xs > span::after {
+body.theme-hammer #tasksContainer .text-xs > span::after {
     content: "";
     position: absolute;
     right: -4px;
@@ -556,8 +556,8 @@ body.theme-warhammer #tasksContainer .text-xs > span::after {
     filter: drop-shadow(0 2px 3px rgba(0,0,0,0.85));
 }
 
-body.theme-warhammer #projectsContainer .uppercase,
-body.theme-warhammer #projectsContainer .rounded-full {
+body.theme-hammer #projectsContainer .uppercase,
+body.theme-hammer #projectsContainer .rounded-full {
     border-radius: 3px !important;
     font-family: var(--wh-title) !important;
     letter-spacing: 0.05em;
@@ -572,10 +572,10 @@ body.theme-warhammer #projectsContainer .rounded-full {
    ========================================================================== */
 
 /* ---------- WARHAMMER: riveted bronze and crimson plates ---------- */
-body.theme-warhammer button.bg-emerald-600,
-body.theme-warhammer button.bg-indigo-600,
-body.theme-warhammer button.bg-blue-600,
-body.theme-warhammer button.bg-red-600 {
+body.theme-hammer button.bg-emerald-600,
+body.theme-hammer button.bg-indigo-600,
+body.theme-hammer button.bg-blue-600,
+body.theme-hammer button.bg-red-600 {
     /* "+ Project", "Create", "Save": gilded bronze */
     --plate-a: #7a5c2a;
     --plate-b: #3a2a13;
@@ -601,24 +601,24 @@ body.theme-warhammer button.bg-red-600 {
     transition: filter 0.15s, transform 0.1s;
 }
 /* "+ Task": a crimson plate with a golden edge */
-body.theme-warhammer button.bg-indigo-600 { --plate-a: #92291f; --plate-b: #4a110c; --edge: #cfa55f; }
+body.theme-hammer button.bg-indigo-600 { --plate-a: #92291f; --plate-b: #4a110c; --edge: #cfa55f; }
 /* "Delete": dark red */
-body.theme-warhammer button.bg-red-600    { --plate-a: #a3261c; --plate-b: #3f0a07; --edge: #e0665a; }
+body.theme-hammer button.bg-red-600    { --plate-a: #a3261c; --plate-b: #3f0a07; --edge: #e0665a; }
 
-body.theme-warhammer button.bg-emerald-600:hover,
-body.theme-warhammer button.bg-indigo-600:hover,
-body.theme-warhammer button.bg-blue-600:hover,
-body.theme-warhammer button.bg-red-600:hover { filter: brightness(1.2); }
-body.theme-warhammer button.bg-emerald-600:active,
-body.theme-warhammer button.bg-indigo-600:active,
-body.theme-warhammer button.bg-blue-600:active,
-body.theme-warhammer button.bg-red-600:active {
+body.theme-hammer button.bg-emerald-600:hover,
+body.theme-hammer button.bg-indigo-600:hover,
+body.theme-hammer button.bg-blue-600:hover,
+body.theme-hammer button.bg-red-600:hover { filter: brightness(1.2); }
+body.theme-hammer button.bg-emerald-600:active,
+body.theme-hammer button.bg-indigo-600:active,
+body.theme-hammer button.bg-blue-600:active,
+body.theme-hammer button.bg-red-600:active {
     transform: translateY(1px);
     box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 1px 2px rgba(0, 0, 0, 0.7) !important;
 }
 
 /* secondary buttons: dark metal; the active tab is gilded */
-body.theme-warhammer button.bg-slate-700 {
+body.theme-hammer button.bg-slate-700 {
     background: linear-gradient(180deg, #3a2c1a 0%, #1d150d 100%) !important;
     border: 1px solid #6b5229 !important;
     border-radius: 2px !important;
@@ -627,24 +627,24 @@ body.theme-warhammer button.bg-slate-700 {
     box-shadow: inset 0 1px 0 rgba(255, 228, 160, 0.14), 0 2px 4px rgba(0, 0, 0, 0.6);
     transition: filter 0.15s, border-color 0.15s;
 }
-body.theme-warhammer button.bg-slate-700:hover { border-color: #b89352 !important; filter: brightness(1.2); }
-body.theme-warhammer nav button[id^="tab-btn"].bg-slate-700,
-body.theme-warhammer #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
+body.theme-hammer button.bg-slate-700:hover { border-color: #b89352 !important; filter: brightness(1.2); }
+body.theme-hammer nav button[id^="tab-btn"].bg-slate-700,
+body.theme-hammer #settingsModal button[id^="cfgTabBtn"].bg-slate-700 {
     background: linear-gradient(180deg, #86652d 0%, #46320f 100%) !important;
     border-color: #d4b26f !important;
     color: #fff2c4 !important;
 }
-body.theme-warhammer nav .bg-slate-900,
-body.theme-warhammer #settingsModal .bg-slate-900.p-1 {
+body.theme-hammer nav .bg-slate-900,
+body.theme-hammer #settingsModal .bg-slate-900.p-1 {
     background: rgba(10, 7, 5, 0.75) !important;
     border-color: #6b5229 !important;
 }
 
 /* Warm inactive tabs and a logo matching the Warhammer theme */
-body.theme-warhammer nav button[id^="tab-btn"]:not(.bg-slate-700),
-body.theme-warhammer #settingsModal button[id^="cfgTabBtn"]:not(.bg-slate-700) { color: #c9b48a !important; }
-body.theme-warhammer nav button[id^="tab-btn"]:not(.bg-slate-700):hover { color: #fff2c4 !important; background: rgba(184, 147, 82, 0.12) !important; }
-body.theme-warhammer nav .bg-indigo-500 {
+body.theme-hammer nav button[id^="tab-btn"]:not(.bg-slate-700),
+body.theme-hammer #settingsModal button[id^="cfgTabBtn"]:not(.bg-slate-700) { color: #c9b48a !important; }
+body.theme-hammer nav button[id^="tab-btn"]:not(.bg-slate-700):hover { color: #fff2c4 !important; background: rgba(184, 147, 82, 0.12) !important; }
+body.theme-hammer nav .bg-indigo-500 {
     background: linear-gradient(180deg, #7a5c2a 0%, #3a2a13 100%) !important;
     border: 1px solid #c9a45e;
     color: #f8ebbd;
@@ -653,7 +653,7 @@ body.theme-warhammer nav .bg-indigo-500 {
     box-shadow: inset 0 1px 0 rgba(255, 228, 160, 0.35), 0 2px 4px rgba(0, 0, 0, 0.7);
 }
 
-/* === END THEME: theme-warhammer === */
+/* === END THEME: theme-hammer === */
 
 /* === THEME: theme-scp === */
 body.theme-scp {

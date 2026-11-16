@@ -19,7 +19,7 @@ def test_parse_options():
     o = notify.parse_options(["notify", "--now", "--source=bot"])
     assert o.now and o.force and not o.test and o.source == "bot" and not o.automatic
     o = notify.parse_options(["notify"])
-    assert o.automatic and not o.force and o.source == "cron/manual"
+    assert o.automatic and not o.force and o.source == "manual"
     assert notify.parse_options(["notify", "--monthly"]).automatic is False
 
 

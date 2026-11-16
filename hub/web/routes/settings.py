@@ -4,14 +4,14 @@ import re
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from hub.core import activity, vacation
+from hub.core import activity, setup, vacation
 from hub.core.appconfig import edit_config
 from hub.core.constants import DATE_FORMATS, DAY_KEYS
 from hub.core.i18n import normalize_lang, tr
 from hub.jobs.scheduler import spawn_script
 from hub.web.deps import get_db
 from hub.web.responses import fail
-from hub.web.schemas import ConfigUpdate, VacationRequest
+from hub.web.schemas import ConfigUpdate, SetupBody, VacationRequest
 from hub.web.validation import parse_token_field
 
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -67,6 +67,21 @@ def update_config_route(data: ConfigUpdate):
             "notify_enabled": data.notify_enabled,
             "notify_days": days,
         }
+    return {"status": "ok"}
+
+
+@router.post("/api/setup")
+def first_run_setup(data: SetupBody, db: Session = Depends(get_db)):
+    """The choice of a new installation: a starting token balance or DEV_MODE. Works once (see setup.py)."""
+    tokens = 0
+    if data.mode == setup.MODE_TOKENS:
+        tokens, err = parse_token_field(data.tokens)
+        if err:
+            return fail(err)
+    elif data.mode != setup.MODE_DEV:
+        return fail(tr("err.bad_value"))
+    if not setup.finish(db, data.mode, tokens):
+        return fail(tr("setup.err_done"))
     return {"status": "ok"}
 
 

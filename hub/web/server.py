@@ -14,13 +14,14 @@ from hub.core import logs
 from hub.core.database import ensure_schema
 from hub.core.photofiles import PHOTOS_DIR
 from hub.paths import BASE_DIR
-from hub.web import auth
+from hub.web import auth, origin
 from hub.web.lifespan import lifespan
 from hub.web.routes import ROUTERS
-from hub.web.static import CachedStatic
+from hub.web.static import CachedStatic, rename_user_files
 from hub.web.templating import templates
 
 ensure_schema()
+rename_user_files()
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", CachedStatic(directory=os.path.join(BASE_DIR, "static")), name="static")
@@ -29,6 +30,7 @@ app.mount("/static", CachedStatic(directory=os.path.join(BASE_DIR, "static")), n
 mimetypes.add_type("image/avif", ".avif")
 app.mount("/photos", CachedStatic(directory=PHOTOS_DIR, policy="photos"), name="photos")
 auth.setup(app, templates)               # password login: off by default (Settings -> Access)
+origin.setup(app)                        # added last = runs first: data-changing requests from other sites are refused
 for router in ROUTERS:
     app.include_router(router)
 

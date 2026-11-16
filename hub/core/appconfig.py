@@ -256,7 +256,9 @@ def _cached_config() -> dict:
     with _config_lock:
         stamp = _file_stamp(CONFIG_FILE)
         if stamp is None:
-            save_config({**DEFAULT_CONFIG, "NOTIFY": dict(DEFAULT_NOTIFY_SETTINGS), "SCHEDULE": normalize_schedule({})})
+            # FIRST_RUN: a brand-new installation; the page asks how to start (tokens or DEV_MODE), see setup.py
+            save_config({**DEFAULT_CONFIG, "NOTIFY": dict(DEFAULT_NOTIFY_SETTINGS), "SCHEDULE": normalize_schedule({}),
+                         "FIRST_RUN": True})
             stamp = _file_stamp(CONFIG_FILE)
         if stamp != _config_cache["stamp"] or _config_cache["data"] is None:
             # the stamp taken BEFORE reading is stored: if the file changes meanwhile, the next call re-reads it
