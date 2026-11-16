@@ -354,6 +354,9 @@ def _photo_view(scope: str, index: int):
             last_row.append({"text": f"◀ {tr('bot.btn_back')}", "callback_data": f"mp_p:{scope}"})
         keyboard.append(last_row)
         path = os.path.join(progress.PROGRESS_DIR, os.path.basename(row.filename))
+        thumb = os.path.join(progress.PROGRESS_DIR, os.path.basename(row.thumb)) if row.thumb else ""
+        # Telegram shows only JPEG/PNG up to a few megabytes as a photo: anything else goes as its preview
+        path = _share_file(path, thumb) or path
         return {"path": path, "caption": "\n".join(lines), "markup": {"inline_keyboard": keyboard},
                 "index": index, "total": total, "id": row.id}
     finally:

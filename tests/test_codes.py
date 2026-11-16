@@ -1,49 +1,16 @@
-"""Status/stage codes: migration of old Russian values, old input still accepted, translation."""
-import sqlite3
-
+"""Status and stage codes: only the current codes are accepted, and they are translated for display."""
 from hub.core import constants
-from hub.core import database
 from hub.core.i18n import tv
 from helpers import action, make_project, project
 
 
-def _raw(sql, *args):
-    con = sqlite3.connect(database.DB_PATH)
-    try:
-        rows = con.execute(sql, args).fetchall()
-        con.commit()
-        return rows
-    finally:
-        con.close()
-
-
-def test_migration_converts_old_values(client):
-    _raw("INSERT INTO projects (id,name,status,stage,priority,token,token_reward) "
-         "VALUES ('PRJ-OLD','Old','В работе','Покрас','High',0,5)")
-    _raw("INSERT INTO projects (id,name,status,stage,priority,token,token_reward) "
-         "VALUES ('PRJ-EMP','Empty stage','В планах','','Low',0,5)")
-    _raw("INSERT INTO tasks (id,project_id,task_name,status,postponed,closed_from) "
-         "VALUES ('TSK-OLD','PRJ-OLD','t','Закончен',0,'В процессе')")
-    _raw("INSERT INTO tasks (id,project_id,task_name,status,postponed,closed_from) "
-         "VALUES ('TSK-OLD2','PRJ-OLD','t2','Выполнено',0,'')")
-    _raw("INSERT INTO progress_photos (project_id,filename,stage,source) VALUES ('PRJ-OLD','a.jpg','Грунт','web')")
-    _raw("INSERT INTO activity (kind,project_id,old,new,source) VALUES ('project_stage','PRJ-OLD','Грунт','Покрас','web')")
-    _raw("INSERT INTO activity (kind,project_id,old,new,source) "
-         "VALUES ('task_deadline','PRJ-OLD','2026-10-01','2026-10-05','web')")
-
-    database.ensure_schema()
-    database.ensure_schema()            # a second run changes nothing
-
-    assert sorted(_raw("SELECT status, stage FROM projects")) == [("in_work", "painting"), ("planned", "none")]
-    assert sorted(_raw("SELECT status, closed_from FROM tasks")) == [("finished", ""), ("finished", "in_progress")]
-    assert _raw("SELECT stage FROM progress_photos") == [("priming",)]
-    assert _raw("SELECT old, new FROM activity ORDER BY id") == [("priming", "painting"), ("2026-10-01", "2026-10-05")]
-
-
-def test_old_russian_input_still_accepted(client):
+def test_only_codes_are_accepted(client):
     pid = make_project(client)
-    assert action(client, action="update_project_stage", id=pid, stage="Шлифовка")["status"] == "ok"
-    assert action(client, action="update_project_status", id=pid, status="В работе")["status"] == "ok"
+    assert action(client, action="update_project_stage", id=pid, stage="sanding")["status"] == "ok"
+    assert action(client, action="update_project_status", id=pid, status="in_work")["status"] == "ok"
+    # labels are not values: what older versions stored is refused
+    assert action(client, action="update_project_stage", id=pid, stage="Шлифовка")["status"] == "error"
+    assert action(client, action="update_project_status", id=pid, status="В работе")["status"] == "error"
     p = project(client, pid)
     assert (p["Status"], p["Stage"]) == ("in_work", "sanding")
 
@@ -52,14 +19,13 @@ def test_translation_of_codes(client, config):
     assert tv("in_work") == "В работе"
     assert tv("painting") == "Покрас"
     assert tv("none") == "—"
-    assert tv("Покрас") == "Покрас"         # old values in the journal are still shown
+    assert tv("something else") == "something else"       # an unknown value is shown as is
     config(LANGUAGE="en-US")
     assert tv("painting") == "Painting"
     assert tv("not_started") == "Not started"
 
 
 def test_done_detection():
-    for value in ("finished", "Закончен", "завершено", "Выполнено", "Completed"):
-        assert constants.is_done(value), value
-    for value in ("in_work", "not_started", "", None):
+    assert constants.is_done("finished")
+    for value in ("in_work", "not_started", "Закончен", "", None):
         assert not constants.is_done(value), value

@@ -35,7 +35,7 @@ async function initStandaloneCard(id) {
 
 // ---------- Project search ----------
 // The query is several space-separated words; all of them must match (case-insensitive, ё equals е).
-// Searches the name, id, priority, status, stage (both the stored Russian value and its UI translation),
+// Searches the name, id, priority, status, stage (both the stored code and its UI translation),
 // the paint recipe and the project's task names.
 const searchQuery = { active: '', hall: '' };
 const STATUS_TR = { 'planned': 'status.planned', 'in_work': 'status.in_work', 'on_hold': 'status.on_hold', 'finished': 'status.finished' };

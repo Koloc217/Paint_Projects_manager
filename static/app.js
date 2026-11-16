@@ -210,10 +210,8 @@ function patchList(container, items, keyFn, htmlFn) {
     old.forEach(el => el.remove());
 }
 
-// Every spelling of "finished" the server may store (see DONE_STATUSES in common.py)
-const DONE_STATUSES = ['finished', 'закончен', 'завершено', 'завершен', 'выполнено', 'completed'];
 function isDoneStatus(status) {
-    return DONE_STATUSES.includes(String(status ?? '').toLowerCase().trim());
+    return String(status ?? '').trim() === 'finished';
 }
 
 // Tasks grouped by project id, rebuilt once per data load (renders used to filter the whole task list per project)

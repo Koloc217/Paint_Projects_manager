@@ -21,7 +21,7 @@ from hub.core import activity
 from hub.bot import tgclean
 
 # Duplicate protection: the automatic digest goes out at most once per MIN_GAP_SEC, even if two sources start it
-# at the same time (an old cron entry + the built-in scheduler, two copies of the app).
+# at the same time (two copies of the app, a manual start next to the scheduler).
 STATE_FILE = os.path.join(DATA_DIR, ".notify_state.json")
 LOCK_FILE = os.path.join(DATA_DIR, ".notify.lock")
 MIN_GAP_SEC = 600

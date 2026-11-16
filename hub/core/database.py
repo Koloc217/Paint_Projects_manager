@@ -1,7 +1,7 @@
 import os
 import uuid
 from datetime import datetime
-from sqlalchemy import create_engine, event, Column, String, Float, DateTime, Integer, Text, ForeignKey, text
+from sqlalchemy import create_engine, event, Column, String, DateTime, Integer, Text, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from hub.paths import BASE_DIR, DATA_DIR      # noqa: F401  (re-exported: other modules import them from here)
@@ -52,8 +52,8 @@ class Project(Base):
     stage = Column(String, default="none")       # code, see constants.STAGES
     priority = Column(String, default="Medium")
     estimate = Column(DateTime, nullable=True)
-    token = Column(Float, default=0.0)
-    token_reward = Column(Float, default=0.0)
+    token = Column(Integer, default=0)            # what starting the project cost; tokens are whole numbers
+    token_reward = Column(Integer, default=0)
     paint_notes = Column(Text, default="")  # paint mixing notes and recipes
     photo = Column(String, default="")      # file name of the project cover photo in photos/
     updated_at = Column(DateTime, default=datetime.now)
@@ -141,44 +141,16 @@ class Adjustment(Base):
     """Token balance adjustments (for example, when a project is deleted)."""
     __tablename__ = "adjustments"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    amount = Column(Float, default=0.0)
+    amount = Column(Integer, default=0)
     reason = Column(String, default="")
     created_at = Column(DateTime, default=datetime.now)
 
 
 def ensure_schema():
-    """Creates missing tables and runs the pending versioned migrations (migrations.py), then the cheap idempotent
-    clean-up of old status/stage values. Safe to call from every entry point (app, bot, scripts) on every start."""
+    """Creates missing tables and runs the pending versioned migrations (migrations.py).
+    Safe to call from every entry point (app, bot, scripts) on every start."""
     from hub.core import migrations
     had_data = os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) > 0
     Base.metadata.create_all(bind=engine)
     migrations.migrate(DB_PATH, had_data=had_data)
     engine.dispose()                  # pooled connections must see the rebuilt tables
-    with engine.connect() as conn:
-        # Not a versioned step on purpose: an old client (a bot button sent before the switch to codes, an older
-        # script) may still write a Russian value; this pass fixes such rows on the next start.
-        migrate_value_codes(conn)
-        conn.commit()
-
-
-# Columns that hold a status or a stage. activity.old/new hold them only for these event kinds.
-_CODE_COLUMNS = (("projects", "status"), ("projects", "stage"), ("tasks", "status"),
-                 ("tasks", "closed_from"), ("progress_photos", "stage"))
-_ACTIVITY_KINDS = ("project_created", "project_status", "project_stage", "task_status")
-
-
-def migrate_value_codes(conn) -> None:
-    """Statuses and stages: old Russian values -> technical codes (constants.LEGACY_VALUES).
-    Idempotent: only rows that still hold an old value are touched, so it is cheap on every start."""
-    from hub.core.constants import LEGACY_VALUES
-    kinds = ", ".join(f"'{k}'" for k in _ACTIVITY_KINDS)
-    for old, new in LEGACY_VALUES.items():
-        params = {"old": old, "new": new}
-        for table, column in _CODE_COLUMNS:
-            conn.execute(text(f"UPDATE {table} SET {column} = :new WHERE {column} = :old"), params)
-        for column in ("old", "new"):
-            conn.execute(text(f"UPDATE activity SET {column} = :new WHERE {column} = :old AND kind IN ({kinds})"),
-                         params)
-    # an empty stage meant "no stage"
-    conn.execute(text("UPDATE projects SET stage = 'none' WHERE stage IS NULL OR stage = ''"))
-    conn.execute(text("UPDATE progress_photos SET stage = 'none' WHERE stage IS NULL OR stage = ''"))

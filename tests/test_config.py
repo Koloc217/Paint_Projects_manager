@@ -45,10 +45,6 @@ def test_reported_once_per_file_change(client, capsys):
     assert capsys.readouterr().out.count("TRASH_DAYS") == 1
 
 
-def test_old_backup_settings_are_dropped(client, capsys):
-    cfg = _load_raw({"SCHEDULE": {"backup_enabled": True, "backup_time": "03:00"}})
-    assert "backup_enabled" not in cfg["SCHEDULE"] and "backup_time" not in cfg["SCHEDULE"]
-    assert "[CONFIG]" not in capsys.readouterr().out
 
 
 def test_wrong_types_never_crash_the_loader(client, capsys):
@@ -59,3 +55,30 @@ def test_wrong_types_never_crash_the_loader(client, capsys):
     assert cfg["NOTIFY"]["stagnation_days"] == 10 and cfg["ICS_FEED"]["enabled"] is False
     assert cfg["DEVICE_API"]["hot_days"] == 3 and cfg["DEVICE_API"]["key"] == ""
     assert "[CONFIG]" in capsys.readouterr().out
+
+
+def _settings(**fields) -> dict:
+    return {"dev_mode": False, "project_cost": 10, **fields}
+
+
+def test_dev_mode_switch_is_announced_in_the_bot_once(client, config, monkeypatch):
+    from hub.jobs import notify
+    sent = []
+    monkeypatch.setattr(notify, "BOT_TOKEN", "x")
+    monkeypatch.setattr(notify, "send_tg_message", lambda chat, text, markup=None, kind="digest": sent.append((chat, text, kind)) or True)
+    config(TG_CHAT_ID="42")
+    assert client.post("/api/config", json=_settings(dev_mode=True)).json()["status"] == "ok"
+    assert len(sent) == 1 and sent[0][0] == "42" and "DEV MODE" in sent[0][1] and sent[0][2] == "bot"
+    client.post("/api/config", json=_settings(dev_mode=True, project_cost=12))        # saved again, still on: silence
+    assert len(sent) == 1
+    client.post("/api/config", json=_settings(dev_mode=False))
+    assert len(sent) == 2
+
+
+def test_dev_mode_switch_without_a_linked_chat_sends_nothing(client, monkeypatch):
+    from hub.jobs import notify
+    sent = []
+    monkeypatch.setattr(notify, "BOT_TOKEN", "x")
+    monkeypatch.setattr(notify, "send_tg_message", lambda *a, **k: sent.append(a) or True)
+    assert client.post("/api/config", json=_settings(dev_mode=True)).json()["status"] == "ok"
+    assert sent == []

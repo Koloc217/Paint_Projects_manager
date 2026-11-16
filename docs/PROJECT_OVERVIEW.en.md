@@ -133,10 +133,10 @@ time of the event), `kind`, `old`, `new`, `source` (`web`, `bot`, `history`).
 
 Statuses and stages are stored as technical codes: project statuses `planned`, `in_work`, `on_hold`, `finished`, task
 statuses `not_started`, `in_progress`, `finished`; stages `none`, `printing`, `sanding`, `assembly`, `priming`,
-`painting`, `finishing`. Labels come from `locales.json` (`status.<code>`, `stage.<code>`). Old Russian values are
-converted to codes once at startup (`migrate_value_codes()` in `hub/core/database.py`, the `LEGACY_VALUES` map in `hub/core/constants.py`);
-the API and the bot's buttons still accept them as input. "Finished" is `finished` plus the old `закончен`,
-`завершено`, `завершен`, `выполнено`, `completed` (case-insensitive).
+`painting`, `finishing`. Labels come from `locales.json` (`status.<code>`, `stage.<code>`). The API and the bot's
+buttons accept only the codes; "finished" is `finished`. The Russian values stored by versions from before the
+codes are no longer converted: a database or an archive that old has to be opened once by a version not newer than
+November 2026.
 
 ---
 
@@ -145,7 +145,8 @@ the API and the bot's buttons still accept them as input. "Finished" is `finishe
 **Balance** = `INITIAL_TOKENS` + rewards of finished projects − start cost of all projects + adjustments.
 
 Tokens are whole numbers: a reward and the start cost are accepted only as whole numbers from 0 to 1,000,000
-(fractions, NaN and Infinity are rejected); old fractional values in the database are rounded once at start-up.
+(fractions, NaN and Infinity are rejected). In the database they are integer columns (`projects.token`,
+`projects.token_reward`, `adjustments.amount`; migration 5 converts them from floating point).
 
 - **Creating a project.** If DEV MODE is off and the balance is below `PROJECT_COST`, the project is not created (an
   error with the current balance). Otherwise the project gets `token = PROJECT_COST` (0 in DEV MODE).
@@ -171,7 +172,8 @@ Tokens are whole numbers: a reward and the start cost are accepted only as whole
 
 ### DEV MODE
 One switch does three things: turns off automatic pushes ("silent mode"), allows editing the project
-deadline, and allows creating projects without tokens.
+deadline, and allows creating projects without tokens. Switching it on or off sends one message to the linked
+bot chat, so it is clear why the digests stopped.
 
 ---
 
@@ -212,8 +214,8 @@ deadline, and allows creating projects without tokens.
   "via the bot" note for actions from Telegram. Project filter, 200 events per page, "Show more". Events are written
   in one place, right before changes reach the database, so the web UI, the bot and templates are covered alike. Not
   recorded: tasks closed together with their project, deadlines moved by a vacation (one "Vacation" event instead),
-  renames, notes, photos and priority. On first start the journal restores the past from completion dates of
-  projects and tasks (marked "restored from the date", without a time).
+  renames, notes, photos and priority. Entries marked "restored from the date" (without a time) date from when
+  the journal first appeared: the past was restored from completion dates then.
 - **Hall of Fame & Analytics.** Four figures (projects finished, tasks closed, tokens earned, overall task progress), a
   stage funnel chart for active projects, a chart of tasks and projects closed over 6 months, and an archive of finished
   projects (reward, number of tasks, finish date, notes, a "Return to work" button). The archive has its own
@@ -494,7 +496,7 @@ task shows ⏳ (or ⏳×N); in the push the ⏳×N counter appears from the seco
 In DEV MODE and during a vacation (see "Settings window") automatic pushes are skipped.
 
 **Duplicate protection.** The automatic digest runs at most once every 10 minutes: a run takes a "slot" in
-`.notify_state.json` under a file lock, so simultaneous runs (an old cron entry plus the scheduler, two copies of the
+`.notify_state.json` under a file lock, so simultaneous runs (a manual start next to the scheduler, two copies of the
 app) produce one message. The lock works on Linux (`fcntl`) and on Windows (`msvcrt`). A skipped run writes to
 `logs/notify.log` who took the slot. Flags: `--test` (test, skips the protection), `--force` (skips the protection),
 `--now` (the regular digest at once: the "Send now" button and `/summary`; skips the protection, silent mode and the
@@ -584,7 +586,7 @@ are shown separately. The size is the file length, not the space allocated on di
   itself is shown. A placeholder error (`{n}` not passed) does not crash the app.
 - Project and task names are never translated. Statuses and stages are stored as codes (`in_work`,
   `painting`...), weekdays as Russian abbreviations (`Пн`...); for display they are
-  translated by `tv(value)`, which also understands the old Russian values (the `VALUE_KEYS` table in `hub/core/i18n.py`). Pipeline step names are inserted in the language
+  translated by `tv(value)` (the `VALUE_KEYS` table in `hub/core/i18n.py`). Pipeline step names are inserted in the language
   active at the moment of clicking and are then stored as ordinary task text.
 - **A new language:** add a block with its code and a `meta.name` key to `locales.json`; it appears in the list right
   away. A stub with all keys: `python tools/check_locales.py --create de-DE --name Deutsch`.
@@ -607,7 +609,7 @@ are shown separately. The size is the file length, not the space allocated on di
 | `LANGUAGE` | language code from `locales.json`: `ru-RU`, `en-US` (old `ru`/`en` are migrated automatically) |
 | `DATE_FORMAT` | date format: `dmy` (default) or `mdy`; an unknown value falls back to `dmy` |
 | `NOTIFY` | `allow_postpone`, `stagnation_alert`, `stagnation_days`, `friday_digest`, `weekly_done`, `weekly_ahead`, `monthly_report` |
-| `SCHEDULE` | `notify_enabled`, `notify_days` (per day: `enabled`, `time`); old `backup_enabled`/`backup_time` are dropped on read |
+| `SCHEDULE` | `notify_enabled`, `notify_days` (per day: `enabled`, `time`) |
 | `PIPELINE_TEMPLATES` | pipeline templates (no key = the two built-in ones), edited in Settings → Templates |
 | `VACATION` | vacation: `start`, `until` (first day after the vacation), `days` |
 | `TG_CLEANUP` | digest cleanup in the bot chat: `keep_46h` (default), `latest_only`, `off` |
@@ -739,7 +741,6 @@ PNG, GIF, WebP, AVIF); SVG and a faked extension are rejected.
 - **Updating:** `tools/deploy.sh [branch]` (database copy, `git fetch`, dependencies, restart, check; `--rollback`
   returns to the previous version) or by hand: replace the app files and restart the service. The database schema
   migrates by itself.
-- **If cron is still there:** remove the `notify.py` and `backup.py` lines from crontab (`backup.py` is gone); the schedule now lives inside the app.
 
 ---
 

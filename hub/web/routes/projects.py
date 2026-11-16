@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from hub.core import spent
 from hub.core.appconfig import load_config
-from hub.core.constants import PRIORITIES, PROJECT_STATUSES, STAGES, TASK_STATUSES, is_done, normalize_value
+from hub.core.constants import PRIORITIES, PROJECT_STATUSES, STAGES, TASK_STATUSES, is_done
 from hub.core.convert import to_tokens
 from hub.core.queries import compute_balance, live_project, live_task
 from hub.core.database import Project
@@ -25,8 +25,6 @@ router = APIRouter()
 @router.post("/api/action")
 def do_action(payload: ActionPayload, db: Session = Depends(get_db)):
     now = datetime.now()
-    payload.status = normalize_value(payload.status)     # an old client may still send Russian values
-    payload.stage = normalize_value(payload.stage)
     if payload.action == "update_project_status":
         if payload.status not in PROJECT_STATUSES:
             return fail(tr("err.bad_value"))
@@ -64,7 +62,6 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
     name, err = validate_name(data.name)
     if err:
         return fail(err)
-    data.status = normalize_value(data.status)
     if data.priority not in PRIORITIES or data.status not in PROJECT_STATUSES:
         return fail(tr("err.bad_value"))
     reward, err = parse_token_field(data.token_reward)

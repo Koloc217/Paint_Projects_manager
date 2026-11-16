@@ -9,6 +9,7 @@ leaves the database exactly as it was and is retried on the next start.
     2  time spent: tasks.spent_min / tasks.spent_stage, projects.extra_spent_min
     3  foreign keys: tasks, references and progress photos belong to a project (ON DELETE CASCADE)
     4  general tasks: tasks.project_id may be empty (a task outside any project)
+    5  whole tokens: projects.token, projects.token_reward and adjustments.amount become INTEGER columns
 
 Rules for new steps:
 - add a function and append it to STEPS; never change or reorder a released step;
@@ -147,7 +148,55 @@ def step_4_general_tasks(conn) -> None:
         raise RuntimeError(f"foreign key check failed after the rebuild: {bad[:5]}")
 
 
-STEPS = [step_1_baseline, step_2_time_spent, step_3_foreign_keys, step_4_general_tasks]
+# Token columns that were created as FLOAT by earlier versions: table -> columns.
+_TOKEN_COLUMNS = {"projects": ("token", "token_reward"), "adjustments": ("amount",)}
+
+
+def _retype_table(conn, name: str, whole: tuple) -> None:
+    """Re-creates a table from its model, keeping every row; the `whole` columns are copied as whole numbers.
+    The new table is built under a temporary name and renamed at the end, as the SQLite manual prescribes: renaming
+    the old table away instead (see _rebuild_table) would re-point the foreign keys of other tables to it, which
+    matters for projects. Indexes of the old table are re-created as they were."""
+    from sqlalchemy.dialects import sqlite as sqlite_dialect
+    from sqlalchemy.schema import CreateTable
+    from hub.core import database
+    table = database.Base.metadata.tables[name]
+    old_cols = set(_columns(conn, name))
+    indexes = [r[0] for r in conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=? AND sql IS NOT NULL", (name,)).fetchall()]
+    new = f"{name}__new"
+    ddl = str(CreateTable(table).compile(dialect=sqlite_dialect.dialect()))
+    head = f"CREATE TABLE {name} "
+    if head not in ddl:
+        raise RuntimeError(f"unexpected CREATE TABLE text for {name}")
+    conn.execute(f"DROP TABLE IF EXISTS {new}")
+    conn.execute(ddl.replace(head, f"CREATE TABLE {new} ", 1))
+    cols = [c.name for c in table.columns if c.name in old_cols]
+    values = [f"CAST(ROUND(COALESCE({c}, 0)) AS INTEGER)" if c in whole else c for c in cols]
+    conn.execute(f"INSERT INTO {new} ({', '.join(cols)}) SELECT {', '.join(values)} FROM {name}")
+    conn.execute(f"DROP TABLE {name}")                    # its indexes go with it
+    conn.execute(f"ALTER TABLE {new} RENAME TO {name}")
+    for sql in indexes:
+        conn.execute(sql)
+
+
+def step_5_whole_tokens(conn) -> None:
+    """Tokens are whole numbers everywhere in the app, but the columns were FLOAT (15 was stored as 15.0).
+    They become INTEGER; the tables are re-created because SQLite cannot change a column type. A fraction left
+    by a very old version is rounded. Nothing to do on a new install: create_all() made the columns INTEGER."""
+    for name, whole in _TOKEN_COLUMNS.items():
+        if not _has_table(conn, name):
+            continue
+        types = {r[1]: str(r[2]).upper() for r in conn.execute(f"PRAGMA table_info({name})").fetchall()}
+        if all(types.get(c, "INTEGER") == "INTEGER" for c in whole):
+            continue
+        _retype_table(conn, name, whole)
+    bad = conn.execute("PRAGMA foreign_key_check").fetchall()
+    if bad:
+        raise RuntimeError(f"foreign key check failed after the rebuild: {bad[:5]}")
+
+
+STEPS = [step_1_baseline, step_2_time_spent, step_3_foreign_keys, step_4_general_tasks, step_5_whole_tokens]
 LATEST = len(STEPS)
 
 

@@ -58,7 +58,14 @@ def test_old_database_is_migrated(old_db, tmp_path):
     assert sorted(r[0] for r in _q(old_db, "SELECT id FROM tasks")) == ["TSK-1", "TSK-2"]
     assert _q(old_db, "SELECT filename FROM project_refs") == [("a.png",)]
     assert _q(old_db, "SELECT postponed FROM tasks WHERE id='TSK-2'") == [(2,)]
-    assert _q(old_db, "SELECT token_reward FROM projects") == [(15.0,)]        # tokens rounded (baseline step)
+    # tokens: rounded (baseline step) and stored as whole numbers in INTEGER columns (step 5)
+    assert _q(old_db, "SELECT token, typeof(token), token_reward, typeof(token_reward) FROM projects") == \
+        [(10, "integer", 15, "integer")]
+    types = {r[1]: r[2] for r in _q(old_db, "PRAGMA table_info(projects)")}
+    assert types["token"] == types["token_reward"] == "INTEGER"
+    assert {r[1]: r[2] for r in _q(old_db, "PRAGMA table_info(adjustments)")}["amount"] == "INTEGER"
+    assert "ix_projects_deleted_at" in [r[1] for r in _q(old_db, "PRAGMA index_list(projects)")]
+    assert _q(old_db, "PRAGMA foreign_key_check") == []
     # new columns
     assert "spent_min" in [r[1] for r in _q(old_db, "PRAGMA table_info(tasks)")]
     assert "extra_spent_min" in [r[1] for r in _q(old_db, "PRAGMA table_info(projects)")]
@@ -119,3 +126,38 @@ def test_app_database_is_current(client):
     assert _q(database.DB_PATH, "PRAGMA user_version")[0][0] == migrations.LATEST
     with database.engine.connect() as conn:
         assert conn.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+
+
+def test_whole_tokens_step_on_a_version_4_database(old_db):
+    """What an installation updated from the previous version goes through: only step 5 runs."""
+    import sqlite3 as sq
+    from hub.core import migrations as m
+    con = sq.connect(old_db, isolation_level=None)
+    for step in m.STEPS[:4]:
+        step(con)
+    con.execute("PRAGMA user_version = 4")
+    con.execute("INSERT INTO adjustments (amount, reason) VALUES (-10.0, 'deleted'), (2.6, 'old fraction'), (NULL, 'empty')")
+    con.execute("INSERT INTO projects (id, name, status, token, token_reward, deleted_at) "
+                "VALUES ('PRJ-B', 'Trashed', 'finished', 10.0, 25.0, '2026-11-01 10:00:00')")
+    con.execute("INSERT INTO tasks (id, project_id, task_name, status) VALUES ('TSK-B', 'PRJ-B', 'Varnish', 'finished')")
+    con.close()
+    logs = []
+    assert m.migrate(old_db, log=logs.append) == m.LATEST
+    assert [line for line in logs if line.startswith("[DB] migration")] == ["[DB] migration 5: step_5_whole_tokens done"]
+    assert _q(old_db, "SELECT amount, typeof(amount) FROM adjustments ORDER BY id") == \
+        [(-10, "integer"), (3, "integer"), (0, "integer")]
+    assert _q(old_db, "SELECT id, token, token_reward, deleted_at FROM projects ORDER BY id") == \
+        [("PRJ-A", 10, 15, None), ("PRJ-B", 10, 25, "2026-11-01 10:00:00")]
+    # the tasks still belong to their projects, and the cascade still works after projects was re-created
+    assert _q(old_db, "SELECT project_id FROM tasks WHERE id='TSK-B'") == [("PRJ-B",)]
+    con = sq.connect(old_db)
+    con.execute("PRAGMA foreign_keys=ON")
+    con.execute("DELETE FROM projects WHERE id='PRJ-B'")
+    con.commit()
+    assert con.execute("SELECT COUNT(*) FROM tasks WHERE id='TSK-B'").fetchone()[0] == 0
+    con.close()
+
+
+def test_new_database_has_integer_token_columns(client):
+    types = {r[1]: r[2] for r in _q(database.DB_PATH, "PRAGMA table_info(projects)")}
+    assert types["token"] == types["token_reward"] == "INTEGER"

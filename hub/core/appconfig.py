@@ -36,29 +36,20 @@ DEFAULT_NOTIFY_SETTINGS = {
 # Local time, HH:MM. Pushes are configured separately for every day of the week.
 
 def normalize_schedule(raw) -> dict:
-    """Brings SCHEDULE to the current shape and migrates the old format
-    (notify_weekday_time / notify_weekend_time -> notify_days per weekday)."""
+    """Brings SCHEDULE to the current shape: every weekday present, with its own switch and time."""
     s = dict(raw) if isinstance(raw, dict) else {}
-    legacy_weekday = s.pop("notify_weekday_time", None)
-    legacy_weekend = s.pop("notify_weekend_time", None)
     days_in = s.get("notify_days") if isinstance(s.get("notify_days"), dict) else {}
     days = {}
     for i, key in enumerate(DAY_KEYS):
-        fallback = (legacy_weekday or "18:05") if i < 5 else (legacy_weekend or "12:05")
+        fallback = "18:05" if i < 5 else "12:05"            # weekdays in the evening, the weekend at noon
         d = days_in.get(key) if isinstance(days_in.get(key), dict) else {}
         days[key] = {"enabled": bool(d.get("enabled", True)), "time": str(d.get("time") or fallback)}
     s["notify_days"] = days
     s.setdefault("notify_enabled", True)
-    # the Google Sheets backup was removed: its settings drop out of config.json on the next save
-    s.pop("backup_enabled", None)
-    s.pop("backup_time", None)
     return s
 
 
 DEFAULT_SCHEDULE = normalize_schedule({})
-
-# Old short language codes (before the single locales.json file) -> current codes
-LEGACY_LANGUAGES = {"ru": "ru-RU", "en": "en-US"}
 
 DEFAULT_CONFIG = {
     "DEV_MODE": False,
@@ -187,9 +178,6 @@ def _fix_schedule(cfg: dict, problems: list) -> None:
 
 
 def _fix_language(cfg: dict, problems: list) -> None:
-    value = cfg.get("LANGUAGE")
-    if isinstance(value, str):
-        cfg["LANGUAGE"] = LEGACY_LANGUAGES.get(value, value)
     _fix(cfg, "LANGUAGE", lambda v: isinstance(v, str) and bool(v), DEFAULT_CONFIG["LANGUAGE"], problems)
 
 

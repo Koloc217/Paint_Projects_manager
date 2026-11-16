@@ -365,7 +365,7 @@ python -m pytest tests/test_tasks.py  # one file
 
 The tests use an empty temporary data folder (`PROJECT_HUB_DATA_DIR`): they never see or change the real
 `tracker.db`, `config.json`, photos or `.env` (the bot token). Covered: projects and tokens, tasks, the trash,
-pipeline templates, status codes and the migration of old values, translation completeness, vacation, catch-up of
+pipeline templates, status codes, translation completeness, vacation, catch-up of
 missed runs, the token balance through the trash and reopening, `config.json` checks, every bot command against a fake
 Telegram.
 

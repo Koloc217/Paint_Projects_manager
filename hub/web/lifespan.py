@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 from hub.bot import tgclean
 from hub.bot.bot import start_bot_polling
-from hub.core import activity, archive, integrity, logs
+from hub.core import archive, integrity, logs
 from hub.core.appconfig import load_config
 from hub.core.database import SessionLocal, engine
 from hub.core.i18n import get_lang, normalize_lang
@@ -78,12 +78,6 @@ async def lifespan(app: FastAPI):
     trash_task = asyncio.create_task(trash_loop())
     with contextlib.suppress(Exception):
         archive.cleanup_temp()          # leftovers of an archive download or restore cut off by a restart
-    try:
-        n = await asyncio.to_thread(activity.backfill_once)
-        if n:
-            print(f"📜 Journal: {n} past event(s) restored from completion dates")
-    except Exception as e:
-        print(f"[JOURNAL] backfill failed: {e!r}")
     yield
     bot_task.cancel()
     scheduler_task.cancel()

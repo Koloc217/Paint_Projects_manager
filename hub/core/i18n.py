@@ -23,7 +23,7 @@ import os
 import json
 
 from hub.core.appconfig import config_value
-from hub.core.constants import normalize_value, PROJECT_STATUSES, TASK_STATUSES, STAGES, NO_STAGE
+from hub.core.constants import PROJECT_STATUSES, TASK_STATUSES, STAGES, NO_STAGE
 from hub.paths import BASE_DIR
 
 LOCALES_FILE = os.path.join(BASE_DIR, "locales.json")
@@ -133,8 +133,7 @@ def tv(value) -> str:
     """Translation of a database value (status, stage, weekday); an unknown value is returned as is."""
     if value is None:
         return ""
-    code = normalize_value(value)              # old Russian values (e.g. in the activity journal) work too
-    if code == NO_STAGE:
+    if value == NO_STAGE:
         return "—"
-    key = VALUE_KEYS.get(code) or VALUE_KEYS.get(value)
+    key = VALUE_KEYS.get(value)
     return tr(key) if key else str(value)
