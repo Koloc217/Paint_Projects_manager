@@ -8,7 +8,7 @@
 
 > Статус: личный проект «для себя». Работает на одном пользователе, данные хранятся локально.
 > **Документация:**
-> [Логика и API](docs/PROJECT_OVERVIEW.md) ·
+> [Логика и API](docs/PROJECT_OVERVIEW.md) ([English](docs/PROJECT_OVERVIEW.en.md)) ·
 > [Гайд по темам](docs/THEMES_GUIDE.md) ([English](docs/THEMES_GUIDE.en.md)) ·
 > [Планы](PLANS.md)
 
@@ -331,7 +331,7 @@ tools/                                               check_locales.py, check_the
                                                      check_backup.py, check_data.py, make_thumbs.py, archive_tool.py
 logs/                                                app.log, notify.log (создаётся сам)
 PLANS.md                                             отложенные идеи и решения
-docs/                                                PROJECT_OVERVIEW (ru), THEMES_GUIDE (ru и en)
+docs/                                                PROJECT_OVERVIEW, THEMES_GUIDE (ru и en)
 ```
 
 ## Проверки

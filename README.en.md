@@ -8,7 +8,7 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 
 > Status: a personal project. Single user, data stays local.
 > **Documentation:**
-> [Logic and API](docs/PROJECT_OVERVIEW.md) (in Russian) ·
+> [Logic and API](docs/PROJECT_OVERVIEW.en.md) ([Русский](docs/PROJECT_OVERVIEW.md)) ·
 > [Theme guide](docs/THEMES_GUIDE.en.md) ([Русский](docs/THEMES_GUIDE.md)) ·
 > [Plans](PLANS.md) (in Russian)
 
@@ -333,7 +333,7 @@ tools/                                               check_locales.py, check_the
                                                      check_backup.py, check_data.py, make_thumbs.py, archive_tool.py
 logs/                                                app.log, notify.log (created automatically)
 PLANS.md                                             postponed ideas and decisions (in Russian)
-docs/                                                PROJECT_OVERVIEW (ru), THEMES_GUIDE (ru and en)
+docs/                                                PROJECT_OVERVIEW, THEMES_GUIDE (ru and en)
 ```
 
 ## Checks
