@@ -11,8 +11,8 @@ What is not
   • deadlines moved by a vacation (one vacation event instead, see quiet());
   • renames, notes, photos, priority (not progress on the project).
 
-The source of an event is "web" by default; the bot marks its own with source("bot"). Existing data gets a one-time
-history from completion dates (backfill), marked "history".
+The source of an event is "web" by default; the bot marks its own with source("bot"). Rows marked "history" were
+restored from completion dates when the journal first appeared; they carry a date but no time of day.
 """
 import contextlib
 import contextvars
@@ -21,7 +21,6 @@ from datetime import datetime
 from sqlalchemy import event, inspect
 
 from hub.core.database import SessionLocal, Activity, Project, Task, gen_proj_id, gen_task_id
-from hub.core.constants import is_done
 from hub.core.convert import iso_date
 
 KINDS = ("project_created", "project_status", "project_stage", "project_deadline", "project_deleted",
@@ -150,38 +149,6 @@ def log_vacation(days: int, moved: dict) -> None:
         db.add(Activity(created_at=datetime.now(), kind="vacation", source=_source.get(), project_id=None,
                         old=str(days), new=f"{moved.get('projects', 0)}/{moved.get('tasks', 0)}"))
         db.commit()
-    finally:
-        db.close()
-
-
-def backfill_once() -> int:
-    """First start with the journal: restores what can be restored from dates already in the database
-    (finished projects, closed tasks). Runs only while the journal is empty. Returns the number of events."""
-    db = SessionLocal()
-    db.info["activity_off"] = True
-    try:
-        if db.query(Activity.id).first() is not None:
-            return 0
-        rows = []
-        projects = {p.id: p for p in db.query(Project).all()}
-        for p in projects.values():
-            if p.completed_at and is_done(p.status):
-                rows.append(Activity(created_at=p.completed_at, kind="project_status", source="history",
-                                     project_id=p.id, project_name=p.name, new=p.status))
-        for t in db.query(Task).filter(Task.completed_at.isnot(None)).all():
-            if not is_done(t.status):
-                continue
-            p = projects.get(t.project_id)
-            if p is None and t.project_id is not None:
-                continue                       # the project is gone
-            if p is not None and p.completed_at and t.completed_at == p.completed_at:
-                continue                       # closed together with the project
-            rows.append(Activity(created_at=t.completed_at, kind="task_status", source="history",
-                                 project_id=p.id if p else None, project_name=p.name if p else "",
-                                 task_id=t.id, task_name=t.task_name, new=t.status))
-        db.add_all(rows)
-        db.commit()
-        return len(rows)
     finally:
         db.close()
 

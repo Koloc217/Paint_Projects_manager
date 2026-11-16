@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from hub.core import activity, progress, vacation
+from hub.core import activity, progress, setup, vacation
 from hub.core.appconfig import DEFAULT_NOTIFY_SETTINGS, DEFAULT_SCHEDULE, load_config
 from hub.core.constants import NO_STAGE
 from hub.core.convert import iso_date, to_tokens
@@ -111,4 +111,5 @@ def collect_data(db: Session) -> dict:
         "trash": serialize_trash(db, config),
         "trash_days": config.get("TRASH_DAYS", 30),
         "vacation": vacation.state(config),
+        "first_run": setup.needed(db, config),
     }

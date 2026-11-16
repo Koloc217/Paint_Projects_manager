@@ -13,7 +13,7 @@ from datetime import datetime
 
 from hub.bot import bot_api, bot_photos, bot_tasks, bot_views, tgclean
 from hub.core.appconfig import load_config
-from hub.core.constants import MAX_TASK_NAME_LEN, STAGES, normalize_value
+from hub.core.constants import MAX_TASK_NAME_LEN, STAGES
 from hub.core.formatting import fmt_date
 from hub.core.queries import live_project, live_task
 from hub.core.constants import is_done as status_done
@@ -107,7 +107,8 @@ async def _task_done(p: Press):
             await p.answer(f"✅ {tr('bot.task_closed_named', name=short_text(task.task_name, MAX_TASK_NAME_LEN))}", alert=True)
         else:
             await p.answer(f"✅ {tr('bot.task_closed')}")
-        card_project = task.project_id if from_push else p.arg(2)
+        # a general task (no project) goes back to the general list, as after "postpone"
+        card_project = (task.project_id or bot_views.GENERAL) if from_push else p.arg(2)
         ask_time = newly_closed and not task.spent_min
         task_id, task_name = task.id, task.task_name
     await p.show(bot_views.build_view_for, card_project)
@@ -162,7 +163,6 @@ async def _stage_menu(p: Press):
 
 async def _set_stage(p: Press):
     _, proj_id, new_stage = p.data.split(":", 2)
-    new_stage = normalize_value(new_stage)                     # buttons sent before the switch to codes carry Russian names
     with SessionLocal() as db:
         proj = live_project(db, proj_id)
         if proj and new_stage in STAGES:

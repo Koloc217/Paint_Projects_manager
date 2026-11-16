@@ -407,3 +407,24 @@ async function triggerTestNotify() {
 async function triggerNotifyNow() {
     if (await postOk('/api/notify/now')) showToast(tr('toast.notify_now_sent'), "success");
 }
+
+// ---------- First start of a new installation: a starting token balance or DEV MODE ----------
+let firstRunShown = false;      // once per page load: closed with Esc, the dialog comes back on the next visit
+
+function renderFirstRun(needed) {
+    if (!needed) { document.getElementById('firstRunModal').classList.add('hidden'); return; }
+    if (firstRunShown) return;
+    firstRunShown = true;
+    document.getElementById('firstRunTokens').value = projectCost * 3;
+    document.getElementById('firstRunTokensHint').textContent = tr('setup.tokens_hint', { cost: projectCost });
+    openModal('firstRunModal');
+}
+
+async function submitFirstRun(mode) {
+    const body = { mode };
+    if (mode === 'tokens') body.tokens = Number(document.getElementById('firstRunTokens').value);
+    const r = await postJson('/api/setup', body);
+    if (r.status !== 'ok') { showToast(r.message || tr('settings.err_save'), 'error'); return; }
+    closeModal('firstRunModal');
+    loadData(true);
+}

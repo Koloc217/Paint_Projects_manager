@@ -55,7 +55,8 @@
     <script>
         (function () {
             try {
-                const skin = localStorage.getItem('ph_skin');
+                let skin = localStorage.getItem('ph_skin');
+                if (skin === 'theme-warhammer') skin = 'theme-hammer';        // renamed, see RENAMED_THEMES in themes.js
                 if (skin && skin !== 'default') document.body.classList.add(skin);
             } catch (e) { /* the page works the same without localStorage */ }
 

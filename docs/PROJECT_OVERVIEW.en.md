@@ -133,10 +133,10 @@ time of the event), `kind`, `old`, `new`, `source` (`web`, `bot`, `history`).
 
 Statuses and stages are stored as technical codes: project statuses `planned`, `in_work`, `on_hold`, `finished`, task
 statuses `not_started`, `in_progress`, `finished`; stages `none`, `printing`, `sanding`, `assembly`, `priming`,
-`painting`, `finishing`. Labels come from `locales.json` (`status.<code>`, `stage.<code>`). Old Russian values are
-converted to codes once at startup (`migrate_value_codes()` in `hub/core/database.py`, the `LEGACY_VALUES` map in `hub/core/constants.py`);
-the API and the bot's buttons still accept them as input. "Finished" is `finished` plus the old `закончен`,
-`завершено`, `завершен`, `выполнено`, `completed` (case-insensitive).
+`painting`, `finishing`. Labels come from `locales.json` (`status.<code>`, `stage.<code>`). The API and the bot's
+buttons accept only the codes; "finished" is `finished`. The Russian values stored by versions from before the
+codes are no longer converted: a database or an archive that old has to be opened once by a version not newer than
+November 2026.
 
 ---
 
@@ -145,7 +145,8 @@ the API and the bot's buttons still accept them as input. "Finished" is `finishe
 **Balance** = `INITIAL_TOKENS` + rewards of finished projects − start cost of all projects + adjustments.
 
 Tokens are whole numbers: a reward and the start cost are accepted only as whole numbers from 0 to 1,000,000
-(fractions, NaN and Infinity are rejected); old fractional values in the database are rounded once at start-up.
+(fractions, NaN and Infinity are rejected). In the database they are integer columns (`projects.token`,
+`projects.token_reward`, `adjustments.amount`; migration 5 converts them from floating point).
 
 - **Creating a project.** If DEV MODE is off and the balance is below `PROJECT_COST`, the project is not created (an
   error with the current balance). Otherwise the project gets `token = PROJECT_COST` (0 in DEV MODE).
@@ -164,14 +165,16 @@ Tokens are whole numbers: a reward and the start cost are accepted only as whole
   the trash nor after erasing: on erasing, the project's contribution (the reward if it was finished, minus the start
   cost) is recorded in `adjustments`. With the option off, the start cost is refunded as soon as the project goes to the
   trash and charged again on restore.
-- **Editing.** The name and priority can always be changed. The project deadline only in DEV MODE.
+- **Editing.** The name and priority can always be changed. The project deadline and reward (a whole number of tokens) only in DEV MODE; the balance follows by itself, since it is
+  computed from the rewards of finished projects.
 - **What counts as "progress"** (`updated_at`): changing status and stage, creating a task, changing a task status,
   changing the notes text (saving it unchanged does not count), applying a pipeline template, closing or
   postponing a task from the bot, an edit in DEV MODE. Renaming, changing the priority, photos and references do not count.
 
 ### DEV MODE
 One switch does three things: turns off automatic pushes ("silent mode"), allows editing the project
-deadline, and allows creating projects without tokens.
+deadline, and allows creating projects without tokens. Switching it on or off sends one message to the linked
+bot chat, so it is clear why the digests stopped.
 
 ---
 
@@ -212,8 +215,8 @@ deadline, and allows creating projects without tokens.
   "via the bot" note for actions from Telegram. Project filter, 200 events per page, "Show more". Events are written
   in one place, right before changes reach the database, so the web UI, the bot and templates are covered alike. Not
   recorded: tasks closed together with their project, deadlines moved by a vacation (one "Vacation" event instead),
-  renames, notes, photos and priority. On first start the journal restores the past from completion dates of
-  projects and tasks (marked "restored from the date", without a time).
+  renames, notes, photos and priority. Entries marked "restored from the date" (without a time) date from when
+  the journal first appeared: the past was restored from completion dates then.
 - **Hall of Fame & Analytics.** Four figures (projects finished, tasks closed, tokens earned, overall task progress), a
   stage funnel chart for active projects, a chart of tasks and projects closed over 6 months, and an archive of finished
   projects (reward, number of tasks, finish date, notes, a "Return to work" button). The archive has its own
@@ -230,7 +233,7 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
 - **Clicking the name or the badges** opens the project card.
 
 ### Open project card
-- Header: photo (change and remove), the name with a pencil (name and priority; in DEV MODE also the deadline),
+- Header: photo (change and remove), the name with a pencil (name and priority; in DEV MODE also the deadline and the reward),
   an "open in a new tab" button, "Pipeline template", "+ Task".
 - **Sub-tabs** (only in the compact card over the dashboard): "Tasks" — the notes and tasks,
   "Photos" — references and progress (the number of images next to the name). The open sub-tab is kept while the card
@@ -282,7 +285,7 @@ the date. Status and stage dropdowns at the bottom. Buttons: open in a new tab, 
 - A task cannot be created without a description; outer spaces are trimmed, the length is up to 300 characters.
 - A task can only be created in an existing project outside the trash.
 - For projects not in the "Planned" status a task deadline is required; if none is given and the project has a date,
-  that date is used.
+  that date is used. The server enforces the rule, not only the page and the bot.
 - Dates are accepted only as `YYYY-MM-DD`; an invalid date gives a clear error instead of a server failure.
 - Server errors (empty name, project not found, invalid value) are shown as a toast.
 
@@ -480,19 +483,21 @@ task shows ⏳ (or ⏳×N); in the push the ⏳×N counter appears from the seco
    hold, from the most overdue to the nearest. Tasks without a deadline are not included. Below the message there are up
    to 4 "close" and "+2d" buttons for the most urgent tasks.
 2. **Stagnation detector:** projects "In progress" without progress for `stagnation_days` days (10 by default).
-3. **Friday plan** (on Fridays): up to three open tasks of every project "In progress", nearest deadline first, and
+3. **Weekly digest** (on Fridays; if Friday was skipped, on Saturday or Sunday of the same week): up to three open tasks of every project "In progress", nearest deadline first, and
    a separate list of projects "In progress" without a single open task (nothing to plan for them). Before the plan
    come two blocks that can be switched off in Settings → Notifications (`weekly_done`, `weekly_ahead`):
    **Done this week** (tasks closed over the last 7 days, finished projects, tokens earned; tasks closed together with
    their project are not counted) and **Deadlines in the coming week** (tasks due in 4 to 7 days, which are not in
    "Urgent" yet, and project deadlines within 7 days, nearest first).
-4. **Report for the previous month** is sent on the 1st (if enabled) before the evening digest.
+4. **Report for the previous month** is sent on the 1st (if enabled) before the evening digest, once a month.
+   If the 1st had no digest (the weekday is off in the schedule, DEV MODE, a vacation, the app was not running), the
+   report goes out with the first automatic digest after that. What has been sent is recorded in `.notify_reports.json`.
 5. If there is nothing to say, an "All on track!" message with the current focus is sent.
 
 In DEV MODE and during a vacation (see "Settings window") automatic pushes are skipped.
 
 **Duplicate protection.** The automatic digest runs at most once every 10 minutes: a run takes a "slot" in
-`.notify_state.json` under a file lock, so simultaneous runs (an old cron entry plus the scheduler, two copies of the
+`.notify_state.json` under a file lock, so simultaneous runs (a manual start next to the scheduler, two copies of the
 app) produce one message. The lock works on Linux (`fcntl`) and on Windows (`msvcrt`). A skipped run writes to
 `logs/notify.log` who took the slot. Flags: `--test` (test, skips the protection), `--force` (skips the protection),
 `--now` (the regular digest at once: the "Send now" button and `/summary`; skips the protection, silent mode and the
@@ -528,6 +533,8 @@ means Telegram did not accept it or there is no token; the code is visible in `l
 the sqlite3 backup API, no need to stop the app), `config.json` and the `photos/` folder as is (covers, previews,
 references, progress; images are stored without compressing them again). Not included: `.env`, `auth.json`, `tls/`,
 logs, `orphans/`, `backups/`.
+`config.json` goes in whole, with the proxy address (and its password), the device key and the calendar subscription
+token: the archive is not for sharing. An uploaded archive cannot be bigger than half of the free disk space.
 - Download: `GET /api/archive` builds the archive in a temp file next to the data and sends it; the file is removed after
   sending. The page fetches it first, so an error shows as a toast instead of a broken download.
 - Restore: `POST /api/archive/restore`, the archive is the request body itself (`application/zip`, no multipart), written
@@ -580,7 +587,7 @@ are shown separately. The size is the file length, not the space allocated on di
   itself is shown. A placeholder error (`{n}` not passed) does not crash the app.
 - Project and task names are never translated. Statuses and stages are stored as codes (`in_work`,
   `painting`...), weekdays as Russian abbreviations (`Пн`...); for display they are
-  translated by `tv(value)`, which also understands the old Russian values (the `VALUE_KEYS` table in `hub/core/i18n.py`). Pipeline step names are inserted in the language
+  translated by `tv(value)` (the `VALUE_KEYS` table in `hub/core/i18n.py`). Pipeline step names are inserted in the language
   active at the moment of clicking and are then stored as ordinary task text.
 - **A new language:** add a block with its code and a `meta.name` key to `locales.json`; it appears in the list right
   away. A stub with all keys: `python tools/check_locales.py --create de-DE --name Deutsch`.
@@ -603,7 +610,7 @@ are shown separately. The size is the file length, not the space allocated on di
 | `LANGUAGE` | language code from `locales.json`: `ru-RU`, `en-US` (old `ru`/`en` are migrated automatically) |
 | `DATE_FORMAT` | date format: `dmy` (default) or `mdy`; an unknown value falls back to `dmy` |
 | `NOTIFY` | `allow_postpone`, `stagnation_alert`, `stagnation_days`, `friday_digest`, `weekly_done`, `weekly_ahead`, `monthly_report` |
-| `SCHEDULE` | `notify_enabled`, `notify_days` (per day: `enabled`, `time`); old `backup_enabled`/`backup_time` are dropped on read |
+| `SCHEDULE` | `notify_enabled`, `notify_days` (per day: `enabled`, `time`) |
 | `PIPELINE_TEMPLATES` | pipeline templates (no key = the two built-in ones), edited in Settings → Templates |
 | `VACATION` | vacation: `start`, `until` (first day after the vacation), `days` |
 | `TG_CLEANUP` | digest cleanup in the bot chat: `keep_46h` (default), `latest_only`, `off` |
@@ -651,7 +658,7 @@ Responses look like `{"status": "ok"}` or `{"status": "error", "message": "..."}
 | `GET`, `POST /api/telegram/proxy`, `POST /api/telegram/proxy/check` | Telegram proxy: state (without the password), save, check the connection |
 | `POST /api/action` | change project status and stage, task status |
 | `POST /api/projects` | create a project |
-| `POST /api/projects/{id}/edit`, `/rename` | edit including the deadline (DEV MODE); name and priority (always) |
+| `POST /api/projects/{id}/edit`, `/rename` | edit including the deadline and reward (DEV MODE); name and priority (always) |
 | `POST`, `DELETE /api/projects/{id}/photo` | upload and remove the photo |
 | `POST /api/projects/{id}/refs`, `DELETE …/refs/{ref_id}` | add and remove a reference |
 | `POST /api/projects/{id}/refs/order` | new reference order (`ids`: the full list in order) |
@@ -677,6 +684,13 @@ PNG, GIF, WebP, AVIF); SVG and a faked extension are rejected.
 
 ## 12. Security
 
+- **Requests from other sites are refused** (`hub/web/origin.py`). A browser adds an `Origin` header to a request
+  that changes data; if it does not name the address and port the request was sent to, the answer is 403. Otherwise
+  a page of any site opened on the home network could restore a foreign archive over the data or unlink the bot.
+  Requests without `Origin` (scripts, curl, devices) pass as before; `GET` is not checked.
+- **First start** (`hub/core/setup.py`): a new installation writes the `FIRST_RUN` flag to `config.json`; while it is
+  set and there are no projects, the page asks once for a starting balance (`INITIAL_TOKENS`) or DEV MODE
+  (`POST /api/setup`, works once).
 - **Password login is optional and off by default** (Settings → Access). While it is off, the web interface is open to
   anyone who can reach the app's port (`PORT`, 8000 by default); `HOST=127.0.0.1` hides it from the network. It is meant for a home network or a VPN.
 - **How login works** (personal variant, one user):
@@ -728,7 +742,6 @@ PNG, GIF, WebP, AVIF); SVG and a faked extension are rejected.
 - **Updating:** `tools/deploy.sh [branch]` (database copy, `git fetch`, dependencies, restart, check; `--rollback`
   returns to the previous version) or by hand: replace the app files and restart the service. The database schema
   migrates by itself.
-- **If cron is still there:** remove the `notify.py` and `backup.py` lines from crontab (`backup.py` is gone); the schedule now lives inside the app.
 
 ---
 

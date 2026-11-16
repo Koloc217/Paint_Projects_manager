@@ -7,7 +7,7 @@
 const THEMES = [
     { id: 'default', label: () => `💿 ${tr('theme.default')}` },
     { id: 'theme-cyberpunk', label: () => '⚡ Cyberpunk' },
-    { id: 'theme-warhammer', label: () => '💀 Hammer' },
+    { id: 'theme-hammer', label: () => '💀 Hammer' },
     { id: 'theme-scp', label: () => '☢️ SCP Dossier' },
     { id: 'theme-workbench', label: () => '🛠️ Workbench' },
     { id: 'theme-synthwave', label: () => '🌆 Synthwave' },
@@ -16,9 +16,13 @@ const THEMES = [
     { id: 'theme-pcb', label: () => '📟 Hardware PCB' },
 ];
 
+// Themes that were renamed: a browser that remembers the old id keeps its theme
+const RENAMED_THEMES = { 'theme-warhammer': 'theme-hammer' };
+
 function initThemeSwitcher() {
     let savedTheme = 'default';
     try { savedTheme = localStorage.getItem('ph_skin') || 'default'; } catch (e) { /* ignore */ }
+    savedTheme = RENAMED_THEMES[savedTheme] || savedTheme;
     applyThemeSkin(savedTheme);
 
     const nav = document.querySelector('nav');

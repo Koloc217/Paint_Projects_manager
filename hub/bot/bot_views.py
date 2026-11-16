@@ -10,13 +10,12 @@ from hub.core.constants import (
     is_done as status_done,
     STAGES,
     NO_STAGE,
-    STATUS_IN_WORK,
     STATUS_ON_HOLD,
     TASK_IN_PROGRESS,
 )
 from hub.core.convert import to_date, to_tokens
 from hub.core.formatting import esc, clip_lines, short_text, fmt_date
-from hub.core.queries import compute_balance, live_project, live_projects, live_tasks
+from hub.core.queries import compute_balance, focus_project, live_project, live_projects, live_tasks
 from hub.core.i18n import tr, tv
 
 PENDING_TTL_SEC = 3600                 # drafts and pending photos live this long
@@ -161,17 +160,11 @@ def build_current_focus_view(specific_proj_id: str = None):
             return f"🎉 {tr('bot.all_closed')}", {"inline_keyboard": [_general_button(0)]}
 
         # 1. Pick the project in focus
-        if specific_proj_id:
-            proj = next((p for p in active_projects if p.id == specific_proj_id), active_projects[0])
+        proj = next((p for p in active_projects if p.id == specific_proj_id), None) if specific_proj_id else None
+        if proj:
             is_focus = False
-        else:
-            prio_rank = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
-            active_projects.sort(key=lambda p: (
-                0 if p.status == STATUS_IN_WORK else 1,
-                prio_rank.get(p.priority, 2),
-                to_date(p.estimate) or date(2099, 1, 1)
-            ))
-            proj = active_projects[0]
+        else:                       # no project asked for, or it is finished or deleted by now: the one in focus
+            proj = focus_project(active_projects)
             is_focus = True
 
         tasks = [t for t in all_tasks if t.project_id == proj.id]
@@ -325,8 +318,10 @@ def build_current_month_stats():
         projects = live_projects(db).all()
         config = load_config()
 
-        closed_tasks = [t for t in tasks if t.completed_at and t.completed_at >= month_start]
-        closed_projs = [p for p in projects if p.completed_at and p.completed_at >= month_start]
+        # the same counting as the monthly report: tasks closed together with their project are one action
+        closed_tasks = [t for t in tasks if t.completed_at and t.completed_at >= month_start
+                        and status_done(t.status) and not t.closed_from]
+        closed_projs = [p for p in projects if p.completed_at and p.completed_at >= month_start and status_done(p.status)]
         earned_month = sum(to_tokens(p.token_reward) for p in closed_projs)
 
         balance, _ = compute_balance(db, config)

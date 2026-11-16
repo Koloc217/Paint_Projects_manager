@@ -81,7 +81,8 @@ finishing one earns a reward. The idea is to finish what you start instead of pi
 **Backups and reliability**
 - Data archive: Settings → Backup → "Download archive" — the database, settings and all photos in one zip file.
   Restore in the same place ("Restore from archive") or from the console: `python tools/archive_tool.py restore archive.zip`.
-  The login password, `.env` and certificates are not included.
+  The login password, `.env` and certificates are not included; the settings go in whole (with the proxy address,
+  the device key and the calendar subscription address), so keep the archive private.
 - If the app was off when a push was due, the missed run is done after start-up.
 - SQLite in WAL mode: the web app, the bot and the scripts write to it concurrently without lock errors.
 - Versioned schema migrations (`hub/core/migrations.py`, version in `PRAGMA user_version`): each step runs once, in a
@@ -130,6 +131,10 @@ python app.py                 # web app, bot and scheduler in one process
 The UI opens at `http://<device address>:8000`. The files `tracker.db`, `config.json`, `auth.json` and the `photos/`
 folder are created on the first start and are not committed to git.
 
+On its first visit a new installation asks how to start: with a starting token balance (it pays for the first
+projects) or in DEV MODE (projects are free, automatic notifications stay silent). Both can be changed later:
+DEV MODE and the project price in the settings, the starting balance is `INITIAL_TOKENS` in `config.json`.
+
 ### Port and address
 
 The default port is 8000. If it is taken or you want another one, set it in `.env` and restart the app:
@@ -149,6 +154,43 @@ Linking the bot: Settings → Telegram, get a code and send it to the bot from t
 A proxy for Telegram is optional. If Telegram is not reachable directly, turn it on in the same place (Settings →
 Telegram → "Proxy for Telegram"): SOCKS5 or HTTP, a "Check connection" button, applied without a restart.
 The old way still works: `PROXY_URL` in `.env` is used until a proxy is configured in the app.
+
+### Autostart
+
+**Linux (systemd).** The file `/etc/systemd/system/tracker.service` (put your own user and paths; `tools/deploy.sh`
+expects the name `tracker`):
+
+```ini
+[Unit]
+Description=Project Hub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/Paint_Projects_manager
+ExecStart=/home/pi/Paint_Projects_manager/.venv/bin/python app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now tracker     # start now and on every boot
+journalctl -u tracker -f                # what the app prints
+```
+
+**Windows (Task Scheduler).** "Create Task": trigger "At log on" (or "At startup"), action "Start a program":
+program `C:\path\Paint_Projects_manager\.venv\Scripts\python.exe`, arguments `app.py`, start in
+`C:\path\Paint_Projects_manager`. To avoid a console window, choose "Run whether user is logged on or not" on the
+General tab. The same as one command (starts at log on, with a console window):
+
+```bat
+schtasks /Create /TN "Project Hub" /SC ONLOGON /TR "\"C:\path\Paint_Projects_manager\.venv\Scripts\python.exe\" \"C:\path\Paint_Projects_manager\app.py\""
+```
 
 ## Updating on the device
 
@@ -228,7 +270,7 @@ Password login does not break installation: `/sw.js` and `/manifest.webmanifest`
 | Language, date format, project cost, deadlines to phone calendar, schedule, notifications | Settings in the UI, stored in `config.json` |
 | API for external devices (`DEVICE_API`) | `config.json`, see "External devices" |
 | Password | Settings → Access; reset from the console: `python -m hub.web.auth reset` |
-| Theme background images | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` ship with the repository, `wh40k_bg.jpg` you add yourself (without an image the theme draws its own background), see [static/backgrounds/README.en.md](static/backgrounds/README.en.md) |
+| Theme background images | `static/backgrounds/`: `workbench_bg.jpg`, `synthwave_bg.jpg`, `pcb_bg.jpg` ship with the repository, `hammer_bg.jpg` you add yourself (without an image the theme draws its own background), see [static/backgrounds/README.en.md](static/backgrounds/README.en.md) |
 
 ## External devices
 
@@ -261,6 +303,21 @@ Tasks without a deadline do not count. Closed tasks, finished and paused project
 
 `mode`: `hot` | `nearest` | `empty`; `message` is filled only for `empty`. Example for the frame:
 `curl -s http://<pi-address>:8000/api/v1/hot -H "X-Device-Key: <key>"`.
+
+**`GET /api/v1/project?id=PRJ-…`**: one project for a screen that shows a project rather than a task list. Without `id`
+(or when no unfinished project has that `id`) the project in focus is returned, picked as in the bot: "In work" first,
+then priority, then the nearest deadline. Access and the key are the same as for `/hot`.
+
+```json
+{"mode": "focus", "today": "2026-11-03", "message": "",
+ "project": {"id": "PRJ-…", "name": "Knight", "status": "in_work", "stage": "painting", "priority": "High",
+             "deadline": "2026-11-20", "days_left": 17, "overdue": false, "tasks_open": 3, "tasks_total": 5,
+             "next_task": {"id": "TSK-…", "name": "Prime", "deadline": "2026-11-05", "days_left": 2}}}
+```
+
+`mode`: `project` (the one asked for) | `focus` | `empty` (no projects: `project` is `null`, `message` has a ready phrase).
+`deadline` and `days_left` are `null` when there is no date; `next_task` is the open task with the nearest date (tasks
+without a date come last) or `null`.
 
 ## Layout
 
@@ -323,7 +380,7 @@ python -m pytest tests/test_tasks.py  # one file
 
 The tests use an empty temporary data folder (`PROJECT_HUB_DATA_DIR`): they never see or change the real
 `tracker.db`, `config.json`, photos or `.env` (the bot token). Covered: projects and tokens, tasks, the trash,
-pipeline templates, status codes and the migration of old values, translation completeness, vacation, catch-up of
+pipeline templates, status codes, translation completeness, vacation, catch-up of
 missed runs, the token balance through the trash and reopening, `config.json` checks, every bot command against a fake
 Telegram.
 

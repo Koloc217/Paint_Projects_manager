@@ -210,10 +210,8 @@ function patchList(container, items, keyFn, htmlFn) {
     old.forEach(el => el.remove());
 }
 
-// Every spelling of "finished" the server may store (see DONE_STATUSES in common.py)
-const DONE_STATUSES = ['finished', 'закончен', 'завершено', 'завершен', 'выполнено', 'completed'];
 function isDoneStatus(status) {
-    return DONE_STATUSES.includes(String(status ?? '').toLowerCase().trim());
+    return String(status ?? '').trim() === 'finished';
 }
 
 // Tasks grouped by project id, rebuilt once per data load (renders used to filter the whole task list per project)
@@ -330,8 +328,9 @@ function switchTab(tab) {
 // - on opening, focus moves into it: the first field of a small form (on a computer only, so a phone does not pop
 //   up the keyboard), otherwise the window itself; on closing, focus goes back to the button that opened it.
 const DIALOG_IDS = ['askModal', 'confirmModal', 'lightbox', 'settingsModal', 'editProjectModal', 'editTaskModal',
-    'taskModal', 'trashModal', 'calExportModal', 'templateModal', 'projectModal', 'projectDetailsModal'];
-const FORM_DIALOGS = { projectModal: 'pName', taskModal: 'tName', editProjectModal: 'epName', editTaskModal: 'etName' };
+    'taskModal', 'trashModal', 'calExportModal', 'templateModal', 'projectModal', 'projectDetailsModal', 'firstRunModal'];
+const FORM_DIALOGS = { projectModal: 'pName', taskModal: 'tName', editProjectModal: 'epName', editTaskModal: 'etName',
+    firstRunModal: 'firstRunTokens' };
 const dialogStack = [];          // [{ id, back: the element that had focus before the window opened }]
 const HAS_MOUSE = window.matchMedia('(hover: hover) and (pointer: fine)');
 
@@ -443,6 +442,7 @@ document.addEventListener('keydown', function(e) {
         else if (topModal === 'taskModal') createTask();
         else if (topModal === 'editTaskModal') saveTaskEdit();
         else if (topModal === 'settingsModal') saveSettings();
+        else if (topModal === 'firstRunModal') submitFirstRun('tokens');
         else if (inTextarea) document.activeElement.blur();      // notes in the project card are saved on blur
     }
 });
@@ -541,6 +541,7 @@ async function loadData(force = false) {
         trashItems = data.trash || [];
         trashDays = data.trash_days || 30;
         renderVacation(data.vacation);
+        renderFirstRun(!!data.first_run);
         
         document.getElementById('tokenCounter').innerText = (data.total_tokens ?? 0) + (isDevMode ? ' (DEV / MUTE)' : '');
         document.getElementById('projCostHint').innerText = isDevMode ? tr('project.free_dev') : `${tr('project.cost', { n: projectCost })} 💰`;

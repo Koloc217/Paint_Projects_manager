@@ -11,8 +11,11 @@ Inside the archive:
     config.json        settings
     photos/...         the photos folder as is
 
-Not included: .env and auth.json (secrets, the login password), tls/ certificates, logs, orphans/ and backups/.
+Not included: .env and auth.json (the bot token, the login password), tls/ certificates, logs, orphans/ and backups/.
 After a restore on another machine these stay as they are there.
+config.json goes in whole, so that a restore brings back a working setup: that includes the Telegram proxy address
+(with its password, if it has one), the device API key and the calendar subscription token. Treat the archive as
+a private file.
 
 Restore:
 - the archive is checked first (manifest, only known paths, SQLite integrity_check of the database) — nothing

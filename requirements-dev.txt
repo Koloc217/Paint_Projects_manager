@@ -1,3 +1,4 @@
 # Tools for development only (not needed to run the app)
 -r requirements.txt
 pytest>=8,<9
+pillow>=10                  # the tests draw small pictures; tools/make_thumbs.py and tools/make_icons.py need it too

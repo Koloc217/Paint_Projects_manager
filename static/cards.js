@@ -35,7 +35,7 @@ async function initStandaloneCard(id) {
 
 // ---------- Project search ----------
 // The query is several space-separated words; all of them must match (case-insensitive, ё equals е).
-// Searches the name, id, priority, status, stage (both the stored Russian value and its UI translation),
+// Searches the name, id, priority, status, stage (both the stored code and its UI translation),
 // the paint recipe and the project's task names.
 const searchQuery = { active: '', hall: '' };
 const STATUS_TR = { 'planned': 'status.planned', 'in_work': 'status.in_work', 'on_hold': 'status.on_hold', 'finished': 'status.finished' };
@@ -608,7 +608,8 @@ function openEditModal(id) {
     if(!p) return;
     document.getElementById('epId').value = p.ID; document.getElementById('epName').value = p.Name;
     document.getElementById('epPriority').value = p.Priority; document.getElementById('epEstimate').value = p.Estimate || '';
-    // Name and priority are always editable; the deadline in DEV MODE only.
+    document.getElementById('epReward').value = p['Token Reward'] || 0;
+    // Name and priority are always editable; the deadline and the reward in DEV MODE only.
     document.getElementById('epDevFields').classList.toggle('hidden', !isDevMode);
     openModal('editProjectModal');
 }
@@ -620,8 +621,10 @@ async function saveProjectEdit() {
 
     let url, body;
     if (isDevMode) {
+        const reward = Number(document.getElementById('epReward').value || 0);
+        if (!Number.isInteger(reward) || reward < 0) return showToast(tr('project.err_reward_whole'));
         url = `/api/projects/${id}/edit`;
-        body = { name: name, priority: document.getElementById('epPriority').value, estimate: document.getElementById('epEstimate').value || null };
+        body = { name: name, priority: document.getElementById('epPriority').value, estimate: document.getElementById('epEstimate').value || null, token_reward: reward };
     } else {
         url = `/api/projects/${id}/rename`;
         body = { name: name, priority: document.getElementById('epPriority').value };
